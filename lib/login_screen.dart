@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project_navigo/test.dart';
+import 'package:project_navigo/navigo-map.dart';
 import 'package:project_navigo/register_form.dart';
 import 'package:project_navigo/forgotPasswordScreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
