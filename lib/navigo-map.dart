@@ -6,6 +6,7 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'services/google-api-services.dart' hide Duration;
+import 'package:project_navigo/hamburger-menu.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -786,7 +787,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           _buildCircularButton(
             icon: Icons.menu,
             onPressed: () {
-              // Menu action
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Hamburgmenu()),
+              );
             },
           ),
           _buildCircularButton(
