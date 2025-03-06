@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project_navigo/test.dart';
+import 'package:project_navigo/navigo-map.dart';
 import 'package:project_navigo/register_form.dart';
 import 'package:project_navigo/forgotPasswordScreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -126,13 +126,17 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       setState(() => _isLoading = true);
 
-      final LoginResult result = await FacebookAuth.instance.login();
+      // Configure login behavior to prefer native app
+      final LoginResult result = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+        loginBehavior: LoginBehavior.nativeWithFallback, // This is the key change
+      );
 
       if (result.status == LoginStatus.success) {
         final AccessToken fbAccessToken = result.accessToken!;
         final credential = FacebookAuthProvider.credential(fbAccessToken.tokenString);
         await FirebaseAuth.instance.signInWithCredential(credential);
-        
+
         // Navigate to home screen
         Navigator.pushReplacement(
           context,
@@ -140,6 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else if (result.status == LoginStatus.cancelled) {
         // User canceled
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login cancelled')),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Facebook login failed: ${result.message}')),

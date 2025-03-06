@@ -16,6 +16,10 @@
             android:name="com.facebook.sdk.ClientToken" 
             android:value="@string/facebook_client_token"/>
 
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAh29E6eO0XG7fci43OUpx1pw2dt1jWtKw"/>
+
         <!-- Facebook Login Activity -->
         <activity android:name="com.facebook.FacebookActivity"
             android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
