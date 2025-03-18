@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:project_navigo/navigo-map.dart';
-import 'package:project_navigo/register_form.dart';
-import 'package:project_navigo/forgotPasswordScreen.dart';
+import 'package:project_navigo/screens/navigo-map.dart';
+import 'package:project_navigo/screens/register_form.dart';
+import 'package:project_navigo/screens/forgotPasswordScreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:provider/provider.dart';
+
+import '../services/auth_service.dart';
+import '../services/onboarding_service.dart';
+import 'onboarding/dob_setup_screen.dart';
+import 'onboarding/username_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -24,55 +30,34 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
 
   void _loginWithEmail() async {
-    // Validate form inputs before proceeding
+    // Validate form
     if (_formKey.currentState?.validate() != true) {
       return;
     }
-    
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    setState(() => _isLoading = true);
+
     try {
-      setState(() => _isLoading = true);
-      
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // Get auth service
+      final authService = Provider.of<AuthService>(context, listen: false);
 
-      // If successful, navigate to your main/home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MyApp()),
-      );
+      // Login using auth service
+      final userCredential = await authService.signInWithEmailPassword(email, password);
 
-    } on FirebaseAuthException catch (e) {
-      // More user-friendly error messages
-      String message;
-      switch (e.code) {
-        case 'user-not-found':
-          message = 'No user found with this email.';
-          break;
-        case 'wrong-password':
-          message = 'Incorrect password.';
-          break;
-        case 'invalid-email':
-          message = 'The email address is not valid.';
-          break;
-        case 'user-disabled':
-          message = 'This account has been disabled.';
-          break;
-        default:
-          message = e.message ?? 'Login failed. Please try again.';
+      // Check onboarding status after successful login
+      if (mounted) {
+        await _checkOnboardingStatus(userCredential.user!.uid);
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e')),
-      );
+      if (mounted) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login error: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -80,41 +65,24 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _loginWithGoogle() async {   
+  void _loginWithGoogle() async {
+    setState(() => _isLoading = true);
+
     try {
-      setState(() => _isLoading = true);  
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userCredential = await authService.signInWithGoogle();
 
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        // User canceled
-        setState(() => _isLoading = false);
-        return;
+      // Check onboarding status after successful Google sign-in
+      if (mounted) {
+        await _checkOnboardingStatus(userCredential.user!.uid);
       }
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Create a credential from the Google Sign-In tokens
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in with Firebase using the credential
-      await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // Navigate to your home screen after successful sign-in
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MyApp()),
-      );
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign-in failed: ${e.message}')),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error during Google sign-in: $e')),
-      );
+      if (mounted) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in error: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -122,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Keeping the Facebook login method for future implementation
   void _loginWithFacebook() async {
     try {
       setState(() => _isLoading = true);
@@ -129,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Configure login behavior to prefer native app
       final LoginResult result = await FacebookAuth.instance.login(
         permissions: ['email', 'public_profile'],
-        loginBehavior: LoginBehavior.nativeWithFallback, // This is the key change
+        loginBehavior: LoginBehavior.nativeWithFallback,
       );
 
       if (result.status == LoginStatus.success) {
@@ -142,6 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
           context,
           MaterialPageRoute(builder: (_) => const MyApp()),
         );
+
       } else if (result.status == LoginStatus.cancelled) {
         // User canceled
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,6 +138,46 @@ class _LoginScreenState extends State<LoginScreen> {
       context,
       MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
     );
+  }
+
+  // Add this new method to check onboarding status
+  Future<void> _checkOnboardingStatus(String userId) async {
+    try {
+      // Get onboarding service
+      final onboardingService = Provider.of<OnboardingService>(context, listen: false);
+
+      // Get current onboarding status
+      final status = await onboardingService.getUserOnboardingStatus(userId);
+
+      // Navigate based on onboarding status
+      if (status == 'incomplete') {
+        // New user or incomplete profile - go to username setup
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MyApp()), // Set to Username screen
+        );
+      } else if (status == 'username_completed') {
+        // Username set but DOB missing - go to DOB setup
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MyApp()),
+        );
+      } else {
+        // Profile is complete - go to main app
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MyApp()),
+        );
+      }
+    } catch (e) {
+      print('Error checking onboarding status: $e');
+
+      // Default to username setup if there's an error
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MyApp()),
+      );
+    }
   }
 
   @override
@@ -200,8 +210,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Login',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -268,21 +278,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: _isLoading
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                         : const Text(
-                            'Login',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                      'Login',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -303,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Social login buttons
+                // Social login buttons - Only Google button remains
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -329,30 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 40),
-                    
-                    // Facebook button
-                    InkWell(
-                      onTap: _isLoading ? null : _loginWithFacebook,
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 5,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Image.asset('assets/facebook_logo.png', height: 24),
-                        ),
-                      ),
-                    ),
+                    // Facebook button removed but method preserved
                   ],
                 ),
                 const SizedBox(height: 24),

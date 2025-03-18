@@ -28,6 +28,103 @@ class Hamburgmenu extends StatelessWidget {
     Navigator.push(context, MaterialPageRoute(builder: (context) => page));
   }
 
+  /// Function to show logout confirmation dialog
+  void showLogoutConfirmDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          // CHANGED: Added backgroundColor property to make dialog white
+          backgroundColor: Colors.white,
+          child: Container(
+            width: 300,
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon and title
+                Icon(Icons.logout, size: 32),
+                SizedBox(height: 12),
+                Text(
+                  'Confirm Log out?',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 30),
+
+                // Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Cancel button
+                    SizedBox(
+                      width: 120,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Close dialog
+                        },
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Log out button
+                    SizedBox(
+                      width: 120,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Close dialog
+                          navigateTo(
+                            context,
+                            EmptyPage(),
+                          ); // Navigate to empty page
+                        },
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'Log out',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +226,22 @@ class Hamburgmenu extends StatelessWidget {
                   SettingsPage(),
                 ),
                 Divider(height: 1),
-                buildListTile(Icons.logout, 'Log out', context, EmptyPage()),
+                // Modified Log out option to show confirmation dialog
+                ListTile(
+                  contentPadding: EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 16,
+                  ),
+                  leading: Icon(Icons.logout, size: 24, color: Colors.black),
+                  title: Text(
+                    'Log out',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  trailing: Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () {
+                    showLogoutConfirmDialog(context);
+                  },
+                ),
               ],
             ),
           ),
