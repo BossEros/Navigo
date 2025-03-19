@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:project_navigo/login_screen.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:project_navigo/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 

@@ -13,91 +13,138 @@ class NaviGoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'NaviGo',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+      ),
       home: SettingsPage(),
     );
   }
 }
 
-// This class defines the main settings page with navigation options to different sections, including Privacy Policy.
-// This class defines the main settings page with navigation options to different sections, including Privacy Policy.
 class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
-        title: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close),
+            icon: Icon(Icons.close, color: Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
-      body: Padding(
-        padding: EdgeInsets.only(left: 20.0),
-        child: Column(
-          children: [
-            ListTile(
-              title: Text("Accessibility"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => AccessibilityPage()),
-                );
-              },
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              children: [
+                _buildSettingItem(
+                  title: "Accessibility",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AccessibilityPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingItem(
+                  title: "Profile Details",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ProfileScreen()),
+                    );
+                  },
+                ),
+                _buildSettingItem(
+                  title: "FAQ",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => FAQScreen()),
+                    );
+                  },
+                ),
+                _buildSettingItem(
+                  title: "Terms of Service",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TermsOfServiceScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingItem(
+                  title: "Privacy Policy",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PrivacyPolicyPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              title: Text("Profile Details"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileScreen()),
-                );
-              },
+          ),
+          // Blue wave decoration at bottom
+          Container(
+            height: 80,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(300),
+                topRight: Radius.circular(300),
+              ),
             ),
-            ListTile(
-              title: Text("FAQ"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => FAQScreen()),
-                );
-              },
-            ),
-            ListTile(
-              title: Text("Terms of Service"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TermsOfServiceScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: Text("Privacy Policy"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => PrivacyPolicyPage()),
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildSettingItem({
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 6.0),
+          title: Text(
+            title,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+          onTap: onTap,
+        ),
+        Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey[300]),
+      ],
     );
   }
 }
 
-// Accessibility Settings Page
 class AccessibilityPage extends StatefulWidget {
   @override
   _AccessibilityPageState createState() => _AccessibilityPageState();
@@ -111,18 +158,24 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         centerTitle: true,
         title: Text(
           'Accessibility',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close),
+            icon: Icon(Icons.close, color: Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -188,30 +241,34 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
   }
 }
 
-// This class handles the Privacy Policy page, including displaying terms and ensuring scroll functionality.
 class PrivacyPolicyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: // Text widgets define the content of the Privacy Policy, including headings, descriptions, and data collection details.
-            Text(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
           'Privacy Policy',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close),
+            icon: Icon(Icons.close, color: Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
-      body: // This ensures that the Privacy Policy content is scrollable, preventing overflow on smaller screens.
-          SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +291,6 @@ class PrivacyPolicyPage extends StatelessWidget {
               "1. Information We Collect",
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            //SizedBox(height: 10),
             Text(
               "We collect information to provide and improve our services. This includes: ",
             ),
