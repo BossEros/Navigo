@@ -105,6 +105,10 @@ flutter:
     - assets/location.gif
     - assets/car.gif
     - assets/abstract_corner_pattern.png
+    - assets/welcome_decoration_bottom_right.png
+    - assets/welcome_decoration_top_left.png
+    - assets/welcome_decoration_bottom_right_finalpage.png
+    - assets/welcome_decoration_top_left_finalpage.png
  
   # To add assets to your application, add an assets section, like this:
   # assets:

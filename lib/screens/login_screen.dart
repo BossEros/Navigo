@@ -6,11 +6,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:provider/provider.dart';
-
+import 'package:project_navigo/services/user_provider.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
-import 'onboarding/dob_setup_screen.dart';
-import 'onboarding/username_setup_screen.dart';
+import 'package:project_navigo/screens/onboarding/onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -140,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Add this new method to check onboarding status
   Future<void> _checkOnboardingStatus(String userId) async {
     try {
       // Get onboarding service
@@ -149,18 +147,24 @@ class _LoginScreenState extends State<LoginScreen> {
       // Get current onboarding status
       final status = await onboardingService.getUserOnboardingStatus(userId);
 
+      // Load user data before navigation
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.loadUserData();
+
       // Navigate based on onboarding status
+      if (!mounted) return;
+
       if (status == 'incomplete') {
         // New user or incomplete profile - go to username setup
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MyApp()), // Set to Username screen
+          MaterialPageRoute(builder: (_) => const UsernameScreen()),
         );
       } else if (status == 'username_completed') {
         // Username set but DOB missing - go to DOB setup
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MyApp()),
+          MaterialPageRoute(builder: (_) => const DateOfBirthScreen()),
         );
       } else {
         // Profile is complete - go to main app
@@ -172,10 +176,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       print('Error checking onboarding status: $e');
 
+      if (!mounted) return;
+
       // Default to username setup if there's an error
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MyApp()),
+        MaterialPageRoute(builder: (_) => const UsernameScreen()),
       );
     }
   }

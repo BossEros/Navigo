@@ -158,16 +158,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       backgroundColor: Colors.white,
                       backgroundImage: _userProfileData?['profilePictureUrl']?.isNotEmpty == true
                           ? NetworkImage(_userProfileData!['profilePictureUrl'])
-                          : AssetImage('assets/profile.jpg') as ImageProvider,
+                          : AssetImage('assetsprofile/.jpg') as ImageProvider,
                       child: Align(
                         alignment: Alignment.bottomRight,
                         child: CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          radius: 20,
+                          radius: 50,
+                          backgroundColor: Colors.white,
                           child: Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 18,
+                            Icons.person,
+                            size: 50,
+                            color: Colors.grey[400],
                           ),
                         ),
                       ),

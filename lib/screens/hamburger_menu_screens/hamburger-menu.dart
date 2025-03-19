@@ -1,31 +1,118 @@
-import 'package:flutter/material.dart';
 import 'profile.dart';
 import 'settings.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:project_navigo/services/user_provider.dart';
+import 'package:project_navigo/services/auth_service.dart';
+import 'package:project_navigo/screens/navigo-map.dart';
+import 'package:project_navigo/screens/login_screen.dart';
 
-void main() {
-  runApp(NavigoApp());
-}
-
-/// Main application widget
-class NavigoApp extends StatelessWidget {
-  const NavigoApp({super.key});
+class Hamburgmenu extends StatefulWidget {
+  const Hamburgmenu({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Hamburgmenu(), // Starts the app on the ProfileScreen
-    );
-  }
+  State<Hamburgmenu> createState() => _HamburgmenuState();
 }
 
-/// Profile screen that displays user info and menu options
-class Hamburgmenu extends StatelessWidget {
-  const Hamburgmenu({super.key});
+class _HamburgmenuState extends State<Hamburgmenu> {
+  bool _isLoadingData = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Using a post-frame callback ensures the widget tree is fully built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadUserData();
+    });
+  }
+
+  Future<void> _loadUserData() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingData = true;
+    });
+
+    try {
+      final userProvider = context.read<UserProvider>();
+
+      // Skip loading if data is already present
+      if (userProvider.userProfile == null) {
+        await userProvider.loadUserData();
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+      // Show error to user if needed
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
 
   /// Function to navigate to a new page
   void navigateTo(BuildContext context, Widget page) {
     Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+  }
+
+  /// Function to navigate back to the map with a smooth transition
+  void navigateBackToMap(BuildContext context) {
+    try {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const MyApp(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } catch (e) {
+      print('Navigation error: $e');
+      // Fallback navigation
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// Function to perform logout
+  void performLogout(BuildContext context) async {
+    try {
+      // Get the required services
+      final authService = context.read<AuthService>();
+      final userProvider = context.read<UserProvider>();
+
+      // Sign out the user from Firebase
+      await authService.signOut();
+
+      // Clear the cached user data
+      userProvider.clearUserData();
+
+      // Navigate to login screen with smooth transition
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle any errors during logout
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to log out: $e')),
+      );
+    }
   }
 
   /// Function to show logout confirmation dialog
@@ -37,22 +124,21 @@ class Hamburgmenu extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          // CHANGED: Added backgroundColor property to make dialog white
           backgroundColor: Colors.white,
           child: Container(
             width: 300,
-            padding: EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Icon and title
-                Icon(Icons.logout, size: 32),
-                SizedBox(height: 12),
-                Text(
+                const Icon(Icons.logout, size: 32),
+                const SizedBox(height: 12),
+                const Text(
                   'Confirm Log out?',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
 
                 // Buttons
                 Row(
@@ -72,7 +158,7 @@ class Hamburgmenu extends StatelessWidget {
                         onPressed: () {
                           Navigator.of(context).pop(); // Close dialog
                         },
-                        child: Padding(
+                        child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Cancel',
@@ -98,12 +184,9 @@ class Hamburgmenu extends StatelessWidget {
                         ),
                         onPressed: () {
                           Navigator.of(context).pop(); // Close dialog
-                          navigateTo(
-                            context,
-                            EmptyPage(),
-                          ); // Navigate to empty page
+                          performLogout(context);
                         },
-                        child: Padding(
+                        child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Log out',
@@ -127,9 +210,18 @@ class Hamburgmenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the user provider to access user data
+    final userProvider = Provider.of<UserProvider>(context);
+
+    // Username and email with fallback values
+    final username = userProvider.userProfile?.username ?? 'Guest User';
+    final email = userProvider.userProfile?.email ?? 'No email available';
+
     return Scaffold(
-      backgroundColor: Colors.white, // Set background color to white
-      body: Column(
+      backgroundColor: Colors.white,
+      body: _isLoadingData
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           /// Header container with a gradient background
           SizedBox(
@@ -155,21 +247,23 @@ class Hamburgmenu extends StatelessWidget {
                   top: 40,
                   right: 20,
                   child: IconButton(
-                    icon: Icon(Icons.close, color: Colors.black, size: 28),
+                    icon: const Icon(Icons.close, color: Colors.black, size: 28),
                     onPressed: () {
-                      navigateTo(context, EmptyPage());
+                      // Use the smooth transition method to go back to the map
+                      navigateBackToMap(context);
                     },
                   ),
                 ),
-                // Profile picture
+                // Profile picture with image picker
                 Align(
                   alignment: Alignment.center,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 80),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.white,
-                      backgroundImage: AssetImage('assets/profile.jpg'),
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.white,
+                    child: Icon(
+                      Icons.person,
+                      size: 50,
+                      color: Colors.grey[400],
                     ),
                   ),
                 ),
@@ -177,26 +271,26 @@ class Hamburgmenu extends StatelessWidget {
             ),
           ),
 
-          // Username and email
+          // Username and email with dynamic values
           Text(
-            'janedoe',
-            style: TextStyle(
+            username, // Dynamic username from Firestore
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
-          SizedBox(height: 5),
+          const SizedBox(height: 5),
           Text(
-            'janedoe202024@gmail.com',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            email, // Dynamic email from Firestore
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
 
           /// Menu List with clickable options
           Expanded(
             child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 buildListTile(
                   Icons.person,
@@ -204,40 +298,40 @@ class Hamburgmenu extends StatelessWidget {
                   context,
                   ProfileScreen(),
                 ),
-                Divider(height: 1),
+                const Divider(height: 1),
                 buildListTile(
                   Icons.star_border,
                   'Saved Maps',
                   context,
-                  EmptyPage(),
+                  const EmptyPage(),
                 ),
-                Divider(height: 1),
+                const Divider(height: 1),
                 buildListTile(
                   Icons.map_outlined,
                   'Your Route Data',
                   context,
-                  EmptyPage(),
+                  const EmptyPage(),
                 ),
-                Divider(height: 1),
+                const Divider(height: 1),
                 buildListTile(
                   Icons.settings,
                   'Settings',
                   context,
                   SettingsPage(),
                 ),
-                Divider(height: 1),
-                // Modified Log out option to show confirmation dialog
+                const Divider(height: 1),
+                // Log out option with confirmation dialog
                 ListTile(
-                  contentPadding: EdgeInsets.symmetric(
+                  contentPadding: const EdgeInsets.symmetric(
                     vertical: 8,
                     horizontal: 16,
                   ),
-                  leading: Icon(Icons.logout, size: 24, color: Colors.black),
-                  title: Text(
+                  leading: const Icon(Icons.logout, size: 24, color: Colors.black),
+                  title: const Text(
                     'Log out',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
-                  trailing: Icon(Icons.chevron_right, color: Colors.grey),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                   onTap: () {
                     showLogoutConfirmDialog(context);
                   },
@@ -252,35 +346,22 @@ class Hamburgmenu extends StatelessWidget {
 
   /// Function to build each menu option as a clickable list tile
   Widget buildListTile(
-    IconData icon,
-    String title,
-    BuildContext context,
-    Widget page,
-  ) {
+      IconData icon,
+      String title,
+      BuildContext context,
+      Widget page,
+      ) {
     return ListTile(
-      contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       leading: Icon(icon, size: 24, color: Colors.black),
       title: Text(
         title,
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
       ),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: () {
         Navigator.push(context, MaterialPageRoute(builder: (context) => page));
       },
-    );
-  }
-}
-
-/// Empty page to act as a placeholder for navigation
-class EmptyPage extends StatelessWidget {
-  const EmptyPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('New Page'), backgroundColor: Colors.blue),
-      body: Center(child: Text('This is an empty page')),
     );
   }
 }
@@ -304,4 +385,16 @@ class HeaderClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class EmptyPage extends StatelessWidget {
+  const EmptyPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('New Page'), backgroundColor: Colors.blue),
+      body: const Center(child: Text('This is an empty page')),
+    );
+  }
 }

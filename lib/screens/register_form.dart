@@ -10,7 +10,6 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import 'navigo-map.dart';
-import 'onboarding/username_setup_screen.dart';
 
 class RegisterForm extends StatefulWidget {
   const RegisterForm({Key? key}) : super(key: key);
@@ -158,7 +157,7 @@ class _RegisterFormState extends State<RegisterForm> {
       if (userCredential.additionalUserInfo?.isNewUser == true && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const UsernameSetupScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       } else if (mounted) {
         // For existing users, check onboarding status in main app

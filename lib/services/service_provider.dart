@@ -1,10 +1,12 @@
 // lib/services/service_provider.dart
+import 'package:project_navigo/services/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'user_service.dart';
 import 'onboarding_service.dart';
 import 'utils/firebase_utils.dart';
+import 'user_provider.dart';
 
 /// Provides all services to the app using Provider pattern
 class ServiceProvider extends StatelessWidget {
@@ -35,6 +37,11 @@ class ServiceProvider extends StatelessWidget {
         // Auth Service (depends on UserService)
         ProxyProvider<UserService, AuthService>(
           update: (_, userService, __) => AuthService(userService: userService),
+        ),
+
+        // Add UserProvider (Change Notifier)
+        ChangeNotifierProvider(
+          create: (_) => UserProvider(),
         ),
       ],
       child: child,
