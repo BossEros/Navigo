@@ -1,4 +1,5 @@
 // lib/services/service_provider.dart
+import 'package:project_navigo/services/storage_service.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +43,11 @@ class ServiceProvider extends StatelessWidget {
         // Add UserProvider (Change Notifier)
         ChangeNotifierProvider(
           create: (_) => UserProvider(),
+        ),
+
+        // Storage Service (no dependencies)
+        Provider<StorageService>(
+          create: (_) => StorageService(),
         ),
       ],
       child: child,

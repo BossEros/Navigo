@@ -1,3 +1,4 @@
+import '../../widgets/profile_image.dart';
 import 'profile.dart';
 import 'settings.dart';
 import 'package:flutter/material.dart';
@@ -216,6 +217,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
     // Username and email with fallback values
     final username = userProvider.userProfile?.username ?? 'Guest User';
     final email = userProvider.userProfile?.email ?? 'No email available';
+    final profileImageUrl = userProvider.userProfile?.profileImageUrl;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -257,14 +259,9 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 // Profile picture with image picker
                 Align(
                   alignment: Alignment.center,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: Colors.grey[400],
-                    ),
+                  child: ProfileImageWidget(
+                    imageUrl: profileImageUrl,
+                    size: 100,
                   ),
                 ),
               ],

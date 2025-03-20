@@ -3,35 +3,35 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
-import 'hamburger-menu.dart';
-import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/models/user_profile.dart';
-void main() {
-  runApp(NavigoApp());
-}
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:project_navigo/services/google-api-services.dart' as api;
+import 'package:project_navigo/services/storage_service.dart';
 
-class NavigoApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: ProfileScreen(),
-    );
-  }
-}
+import '../../services/user_provider.dart';
+import '../../widgets/profile_image.dart';
 
-// Changed to StatefulWidget to manage state
 class ProfileScreen extends StatefulWidget {
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Add necessary variables
+  // State variables
   User? _currentUser;
   Map<String, dynamic>? _userProfileData;
   bool _isLoading = true;
+  bool _isEditing = false;
+  bool _isSaving = false;
+
+  // Form key for validation
+  final _formKey = GlobalKey<FormState>();
+
+  // Address data for home and work
+  Address _homeAddress = Address.empty();
+  Address _workAddress = Address.empty();
 
   @override
   void initState() {
@@ -40,7 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserProfile();
   }
 
-  // Add the missing _loadUserProfile method
   Future<void> _loadUserProfile() async {
     setState(() {
       _isLoading = true;
@@ -48,25 +47,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       if (_currentUser != null) {
-        // Get the UserService from Provider
-        final userService = Provider.of<UserService>(context, listen: false);
+        // First try to get profile from UserProvider (more efficient)
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-        // Fetch the user profile
+        // If UserProvider already has the profile, use it
+        if (userProvider.userProfile != null) {
+          final profile = userProvider.userProfile!;
+          setState(() {
+            _userProfileData = {
+              'username': profile.username,
+              'email': profile.email,
+              'homeAddress': {
+                'formattedAddress': profile.homeAddress.formattedAddress,
+                'lat': profile.homeAddress.lat,
+                'lng': profile.homeAddress.lng,
+                'placeId': profile.homeAddress.placeId,
+              },
+              'workAddress': {
+                'formattedAddress': profile.workAddress.formattedAddress,
+                'lat': profile.workAddress.lat,
+                'lng': profile.workAddress.lng,
+                'placeId': profile.workAddress.placeId,
+              },
+              'profileImageUrl': profile.profileImageUrl,
+              'profileImagePath': profile.profileImagePath,
+            };
+            _isLoading = false;
+          });
+
+          // Set up the address objects
+          _homeAddress = profile.homeAddress;
+          _workAddress = profile.workAddress;
+
+          return; // Early return if we got data from UserProvider
+        }
+
+        // Fall back to fetching from Firestore directly if needed
+        final userService = Provider.of<UserService>(context, listen: false);
         final userProfile = await userService.getUserProfile(_currentUser!.uid);
 
-        // Update state with the profile data
         setState(() {
           _userProfileData = {
             'username': userProfile.username,
             'email': userProfile.email,
             'homeAddress': {
               'formattedAddress': userProfile.homeAddress.formattedAddress,
+              'lat': userProfile.homeAddress.lat,
+              'lng': userProfile.homeAddress.lng,
+              'placeId': userProfile.homeAddress.placeId,
             },
             'workAddress': {
               'formattedAddress': userProfile.workAddress.formattedAddress,
+              'lat': userProfile.workAddress.lat,
+              'lng': userProfile.workAddress.lng,
+              'placeId': userProfile.workAddress.placeId,
             },
-            // Add other fields as needed
+            'profileImageUrl': userProfile.profileImageUrl,
+            'profileImagePath': userProfile.profileImagePath,
           };
+
+          // Initialize address objects
+          _homeAddress = Address(
+            formattedAddress: userProfile.homeAddress.formattedAddress,
+            lat: userProfile.homeAddress.lat,
+            lng: userProfile.homeAddress.lng,
+            placeId: userProfile.homeAddress.placeId,
+          );
+
+          _workAddress = Address(
+            formattedAddress: userProfile.workAddress.formattedAddress,
+            lat: userProfile.workAddress.lat,
+            lng: userProfile.workAddress.lng,
+            placeId: userProfile.workAddress.placeId,
+          );
+
           _isLoading = false;
         });
       } else {
@@ -83,9 +137,226 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _saveChanges() async {
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Get the UserService from Provider
+      final userService = Provider.of<UserService>(context, listen: false);
+
+      // Update the user profile with structured address data
+      await userService.updateUserProfile(
+        userId: _currentUser!.uid,
+        homeAddress: _homeAddress,
+        workAddress: _workAddress,
+      );
+
+      // Update local data
+      setState(() {
+        _userProfileData = {
+          ..._userProfileData!,
+          'homeAddress': {
+            'formattedAddress': _homeAddress.formattedAddress,
+            'lat': _homeAddress.lat,
+            'lng': _homeAddress.lng,
+            'placeId': _homeAddress.placeId,
+          },
+          'workAddress': {
+            'formattedAddress': _workAddress.formattedAddress,
+            'lat': _workAddress.lat,
+            'lng': _workAddress.lng,
+            'placeId': _workAddress.placeId,
+          },
+        };
+        _isEditing = false;
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profile updated successfully')),
+      );
+    } catch (e) {
+      print('Error updating profile: $e');
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $e')),
+      );
+    }
+  }
+
+  // In profile.dart - _pickProfileImage method
+  Future<void> _pickProfileImage() async {
+    if (!_isEditing) return;
+
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Get the current user
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) throw Exception('No authenticated user');
+
+        // Convert XFile to File
+        final File imageFile = File(image.path);
+
+        // Get services
+        final storageService = Provider.of<StorageService>(context, listen: false);
+        final userService = Provider.of<UserService>(context, listen: false);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+        // Get current profile data
+        String? oldImagePath;
+
+        // First check the UserProvider (most up-to-date source)
+        if (userProvider.userProfile?.profileImagePath != null) {
+          oldImagePath = userProvider.userProfile?.profileImagePath;
+          print('Found image path in UserProvider: $oldImagePath');
+        }
+        // Fall back to local state if needed
+        else if (_userProfileData != null &&
+            _userProfileData!['profileImagePath'] != null &&
+            _userProfileData!['profileImagePath'].isNotEmpty) {
+          oldImagePath = _userProfileData!['profileImagePath'];
+          print('Found image path in local state: $oldImagePath');
+        }
+
+        // Delete old profile picture if exists
+        if (oldImagePath != null) {
+          print('Deleting previous profile image...');
+          await storageService.deleteProfileImage(oldImagePath);
+        } else {
+          print('No previous profile image found to delete');
+        }
+
+        // Upload new image
+        final uploadResult = await storageService.uploadProfileImage(user.uid, imageFile);
+        final downloadUrl = uploadResult['url']!;
+        final storagePath = uploadResult['path']!;
+
+        print('New image uploaded to: $storagePath');
+        print('New image URL: $downloadUrl');
+
+        // Update user profile with new image URL
+        await userService.updateProfilePicture(
+          userId: user.uid,
+          imageUrl: downloadUrl,
+          imagePath: storagePath,
+        );
+
+        // Refresh the UserProvider to update all UI components
+        await userProvider.refreshUserData();
+
+        // Update local state (important for profile screen)
+        setState(() {
+          if (_userProfileData != null) {
+            _userProfileData = {
+              ..._userProfileData!,
+              'profileImageUrl': downloadUrl,
+              'profileImagePath': storagePath,
+            };
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated successfully')),
+        );
+      } catch (e) {
+        print('Error updating profile picture: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile picture: $e')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  // Method to open Google Places search and handle selected location
+  Future<void> _openPlacesSearch(String type) async {
+    // First, hide keyboard if showing
+    FocusScope.of(context).unfocus();
+
+    // Show a loading indicator
+    setState(() => _isLoading = true);
+
+    try {
+      // Navigate to a search screen (simplified for this example)
+      final searchText = await showSearch<String>(
+        context: context,
+        delegate: LocationSearchDelegate(),
+      );
+
+      if (searchText != null && searchText.isNotEmpty) {
+        // Get suggestions
+        final suggestions = await api.GoogleApiServices.getPlaceSuggestions(searchText);
+
+        if (suggestions.isNotEmpty) {
+          // Show suggestions in a dialog
+          final selectedSuggestion = await showDialog<api.PlaceSuggestion>(
+            context: context,
+            builder: (context) => PlaceSuggestionsDialog(suggestions: suggestions),
+          );
+
+          // Handle selected suggestion
+          if (selectedSuggestion != null) {
+            // Get place details
+            final placeDetails = await api.GoogleApiServices.getPlaceDetails(selectedSuggestion.placeId);
+
+            if (placeDetails != null) {
+              // Create address object
+              final address = Address(
+                formattedAddress: placeDetails.address,
+                lat: placeDetails.latLng.latitude,
+                lng: placeDetails.latLng.longitude,
+                placeId: placeDetails.id,
+              );
+
+              // Update the appropriate address
+              setState(() {
+                if (type == 'home') {
+                  _homeAddress = address;
+                } else if (type == 'work') {
+                  _workAddress = address;
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error with place search: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error searching for location: $e')),
+      );
+    } finally {
+      // Hide loading indicator
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+
     if (_isLoading) {
       return Scaffold(
         body: Center(
@@ -95,187 +366,248 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     // Use the username from _userProfileData if available, otherwise fallback
-    final username = _userProfileData?['username'] ?? 'janedoe';
-    final email = _userProfileData?['email'] ?? 'janedoe202024@gmail.com';
-    final homeAddress = _userProfileData?['homeAddress']?['formattedAddress'] ?? 'Cebu N Rd, Consolacion, Cebu';
-    final workAddress = _userProfileData?['workAddress']?['formattedAddress'] ?? 'Set up Work Address';
+    final username = userProvider.userProfile?.username ??
+        _userProfileData?['username'] ??
+        'janedoe';
+
+    final email = userProvider.userProfile?.email ??
+        _userProfileData?['email'] ??
+        'janedoe202024@gmail.com';
+
+    final profileImageUrl = userProvider.userProfile?.profileImageUrl ??
+        _userProfileData?['profileImageUrl'];
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Shortened blue header with username and profile pic
-          Container(
-            height: 200, // Reduced height for shorter gradient
-            width: double.infinity, // Ensure full width
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                // Blue curved background - no left/right padding to reach edges
-                Positioned.fill(
-                  child: ClipPath(
-                    clipper: HeaderClipper(),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.lightBlue.shade300, Colors.blue],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // Back button (left arrow)
-                Positioned(
-                  top: 40,
-                  left: 20,
-                  child: IconButton(
-                    icon: Icon(Icons.arrow_back, color: Colors.black, size: 28),
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-                // Username text positioned above profile picture
-                Positioned(
-                  top: 80, // Adjusted for shorter gradient
-                  child: Text(
-                    username,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                // Profile picture - positioned to overlap the curved edge by 50%
-                Positioned(
-                  bottom: -60, // This makes it overlap by 50%
-                  child: GestureDetector(
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.white,
-                      backgroundImage: _userProfileData?['profilePictureUrl']?.isNotEmpty == true
-                          ? NetworkImage(_userProfileData!['profilePictureUrl'])
-                          : AssetImage('assetsprofile/.jpg') as ImageProvider,
-                      child: Align(
-                        alignment: Alignment.bottomRight,
-                        child: CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.person,
-                            size: 50,
-                            color: Colors.grey[400],
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            // Shortened blue header with username and profile pic
+            Container(
+              height: 200, // Reduced height for shorter gradient
+              width: double.infinity, // Ensure full width
+              child: Stack(
+                children: [
+                  // Blue curved background - no left/right padding to reach edges
+                  Positioned.fill(
+                    child: ClipPath(
+                      clipper: HeaderClipper(),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.lightBlue.shade300, Colors.blue],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Space to account for the overlapping profile picture
-          SizedBox(height: 70),
-
-          // Profile details list
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                buildProfileItem(
-                  'assets/icons/user_id.png',
-                  'Username',
-                  username,
-                ),
-                Divider(height: 1),
-                buildProfileItem(
-                  'assets/icons/email.png',
-                  'Email',
-                  email,
-                ),
-                Divider(height: 1),
-                GestureDetector(
-                  child: buildProfileItem(
-                    'assets/icons/home.png',
-                    'Home Address',
-                    homeAddress,
-                  ),
-                ),
-                Divider(height: 1),
-                buildProfileItem(
-                  'assets/icons/work.png',
-                  'Work Address',
-                  workAddress,
-                ),
-                Divider(height: 1),
-                buildProfileItem(
-                  'assets/icons/connected.png',
-                  'Connected Accounts',
-                  '',
-                ),
-              ],
-            ),
-          ),
-
-          // Edit button
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    // Changed navigation to redirect to AccountLoginPage instead
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => LoginScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                  // Back button (left arrow)
+                  Positioned(
+                    top: 40,
+                    left: 20,
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back, color: Colors.black, size: 28),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                   ),
-                  child: Text(
-                    'Edit',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // Bottom space to account for navigation bar or home indicator
-          SizedBox(height: 10),
-        ],
+            // Profile picture - improved positioning
+            Transform.translate(
+              offset: Offset(0, -50),
+              child: GestureDetector(
+                onTap: _pickProfileImage,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    // Profile picture container
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: profileImageUrl != null && profileImageUrl.isNotEmpty
+                            ? Image.network(
+                          profileImageUrl,
+                          fit: BoxFit.cover,
+                          width: 120,
+                          height: 120,
+                          // Force the image to reload by adding a cache-busting parameter
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print('Error loading profile image: $error');
+                            return Icon(
+                              Icons.person,
+                              size: 60,
+                              color: Colors.grey[400],
+                            );
+                          },
+                          // Add a cache-busting parameter to ensure fresh image
+                          cacheWidth: 240, // Set to double the display size for quality
+                          // Add a unique timestamp to force reload
+                          key: ValueKey(DateTime.now().toString()),
+                        )
+                            : Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                    ),
+
+                    // Camera icon for editing
+                    if (_isEditing && !_isLoading)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+
+                    // Loading indicator overlay
+                    if (_isLoading)
+                      Positioned.fill(
+                        child: ClipOval(
+                          child: Container(
+                            color: Colors.black.withOpacity(0.5),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Space to account for the overlapping profile picture (reduced since we use Transform)
+            SizedBox(height: 20),
+
+            // Profile details list
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: ListView(
+                  physics: BouncingScrollPhysics(),
+                  children: [
+                    // Username (always read-only)
+                    buildProfileItem(
+                      title: 'Username',
+                      value: username,
+                      icon: Icons.badge,
+                      isEditable: false,
+                    ),
+                    Divider(height: 1),
+
+                    // Email (always read-only)
+                    buildProfileItem(
+                      title: 'Email',
+                      value: email,
+                      icon: Icons.email,
+                      isEditable: false,
+                    ),
+                    Divider(height: 1),
+
+                    // Home Address (with location picker in edit mode)
+                    buildAddressItem(
+                      title: 'Home Address',
+                      address: _homeAddress,
+                      icon: Icons.home,
+                      isEditable: _isEditing,
+                      onEditTap: () => _openPlacesSearch('home'),
+                    ),
+                    Divider(height: 1),
+
+                    // Work Address (with location picker in edit mode)
+                    buildAddressItem(
+                      title: 'Work Address',
+                      address: _workAddress,
+                      icon: Icons.work,
+                      isEditable: _isEditing,
+                      onEditTap: () => _openPlacesSearch('work'),
+                    ),
+                    Divider(height: 1),
+
+                    // Connected Accounts (non-editable)
+                    buildProfileItem(
+                      title: 'Connected Accounts',
+                      value: '',
+                      icon: Icons.people,
+                      isEditable: false,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Edit/Save button
+            buildEditButton(),
+          ],
+        ),
       ),
     );
   }
 
-  // Custom widget for profile items with custom icons
-  Widget buildProfileItem(String iconAsset, String title, String value) {
+  // Widget for non-address profile items
+  Widget buildProfileItem({
+    required String title,
+    required String value,
+    required IconData icon,
+    required bool isEditable,
+  }) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Since the design appears to use custom icons, we'll use Image instead of Icon
+          // Icon
           Container(
             width: 40,
             height: 40,
             alignment: Alignment.center,
-            child: getIconForTitle(title),
+            child: Icon(icon, size: 24, color: Colors.black),
           ),
           SizedBox(width: 20),
+
+          // Text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,24 +630,326 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Helper method to get the appropriate icon for each profile item
-  Widget getIconForTitle(String title) {
-    // You should replace these with custom icons that match the design
-    switch (title) {
-      case 'Username':
-        return Icon(Icons.badge, size: 24, color: Colors.black);
-      case 'Email':
-        return Icon(Icons.email, size: 24, color: Colors.black);
-      case 'Home Address':
-        return Icon(Icons.home, size: 24, color: Colors.black);
-      case 'Work Address':
-        return Icon(Icons.work, size: 24, color: Colors.black);
-      case 'Connected Accounts':
-        return Icon(Icons.people, size: 24, color: Colors.black);
-      default:
-        return Icon(Icons.circle, size: 24, color: Colors.black);
-    }
+  // Special widget for address items
+  Widget buildAddressItem({
+    required String title,
+    required Address address,
+    required IconData icon,
+    required bool isEditable,
+    required VoidCallback onEditTap,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Icon
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            child: Icon(icon, size: 24, color: Colors.black),
+          ),
+          SizedBox(width: 20),
+
+          // Address content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                SizedBox(height: 4),
+
+                // In edit mode, make this a button to open address picker
+                if (isEditable)
+                  InkWell(
+                    onTap: onEditTap,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.blue, width: 1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              address.formattedAddress.isEmpty ? 'Select location' : address.formattedAddress,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: address.formattedAddress.isEmpty ? Colors.grey.shade600 : Colors.black,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.location_on, color: Colors.blue, size: 18),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    address.formattedAddress.isEmpty ? 'Not set' : address.formattedAddress,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Improved edit button with animation and state changes
+  Widget buildEditButton() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton(
+          onPressed: _isLoading || _isSaving
+              ? null
+              : () {
+            if (_isEditing) {
+              _saveChanges();
+            } else {
+              setState(() => _isEditing = true);
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isEditing ? Colors.green : Colors.blue,
+            foregroundColor: Colors.white,
+            elevation: 3,
+            shadowColor: Colors.black.withOpacity(0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: _isSaving
+              ? Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Saving...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          )
+              : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_isEditing ? Icons.save : Icons.edit),
+              SizedBox(width: 8),
+              Text(
+                _isEditing ? 'Save Changes' : 'Edit Profile',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
-// The rest of your code (AccountLoginPage, etc.) remains unchanged
+// Custom search delegate for location search
+class LocationSearchDelegate extends SearchDelegate<String> {
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, '');
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    if (query.trim().length < 2) {
+      return Center(
+        child: Text('Please enter at least 2 characters to search'),
+      );
+    }
+
+    // Return the query to be processed by the caller
+    return Center(
+      child: ElevatedButton(
+        onPressed: () {
+          close(context, query);
+        },
+        child: Text('Search for "$query"'),
+      ),
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    if (query.trim().length < 2) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.location_on, size: 48, color: Colors.grey.shade400),
+            SizedBox(height: 16),
+            Text(
+              'Enter an address to search',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show common locations and search history here
+    return ListView(
+      children: [
+        ListTile(
+          leading: Icon(Icons.history),
+          title: Text('Previous search 1'),
+          onTap: () {
+            query = 'Previous search 1';
+            showResults(context);
+          },
+        ),
+        ListTile(
+          leading: Icon(Icons.history),
+          title: Text('Previous search 2'),
+          onTap: () {
+            query = 'Previous search 2';
+            showResults(context);
+          },
+        ),
+        // Divider
+        Divider(thickness: 1),
+
+        // Recent locations or suggestions would go here
+        ListTile(
+          leading: Icon(Icons.search),
+          title: Text('Search for "$query"'),
+          onTap: () {
+            showResults(context);
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// Dialog to display place suggestions
+class PlaceSuggestionsDialog extends StatelessWidget {
+  final List<api.PlaceSuggestion> suggestions;
+
+  const PlaceSuggestionsDialog({
+    Key? key,
+    required this.suggestions,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 8,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        constraints: BoxConstraints(maxHeight: 400),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Select a location',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Divider(),
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: suggestions.length,
+                itemBuilder: (context, index) {
+                  final suggestion = suggestions[index];
+                  return ListTile(
+                    leading: Icon(Icons.location_on, color: Colors.blue),
+                    title: Text(suggestion.mainText),
+                    subtitle: Text(
+                      suggestion.secondaryText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      Navigator.of(context).pop(suggestion);
+                    },
+                  );
+                },
+              ),
+            ),
+            Divider(),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('CANCEL'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Custom path clipper for the curved header
+class HeaderClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+    path.lineTo(0, size.height - 30);
+    path.quadraticBezierTo(
+      size.width / 2,
+      size.height + 20,
+      size.width,
+      size.height - 30,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}

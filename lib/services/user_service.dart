@@ -115,6 +115,25 @@ class UserService {
     }, 'updateUserProfile');
   }
 
+  /// Update user profile picture
+  Future<void> updateProfilePicture({
+    required String userId,
+    required String imageUrl,
+    required String imagePath,
+  }) async {
+    return _firebaseUtils.safeOperation(() async {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .update({
+        'profileImageUrl': imageUrl,
+        'profileImagePath': imagePath,
+        'profileImageUpdatedAt': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+    }, 'updateProfilePicture');
+  }
+
   /// Update home address
   Future<void> updateHomeAddress({
     required String userId,

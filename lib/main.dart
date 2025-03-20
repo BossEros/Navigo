@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:project_navigo/screens/login_screen.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
@@ -8,6 +9,7 @@ import 'screens/landing_page.dart';
 import 'services/firebase_options.dart';
 import 'services/service_provider.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   void main() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,6 @@ import 'services/service_provider.dart';
     );
 
     runApp(
-      // Wrap your app with ServiceProvider
       ServiceProvider(
         child: NaviGoApp(),
       ),

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/services/onboarding_service.dart';
 
+import '../../services/user_provider.dart';
+
 void main() {
   runApp(const OnboardingScreen());
 }
@@ -910,8 +912,15 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
 }
 
 // 4. Final Welcome Screen
-class FinalWelcomeScreen extends StatelessWidget {
+class FinalWelcomeScreen extends StatefulWidget {
   const FinalWelcomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<FinalWelcomeScreen> createState() => _FinalWelcomeScreenState();
+}
+
+class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
+  bool _isLoading = false; // Define the loading state variable
 
   @override
   Widget build(BuildContext context) {
@@ -1072,11 +1081,32 @@ class FinalWelcomeScreen extends StatelessWidget {
                         shadowColor: Colors.black38,
                         minimumSize: const Size(220, 58),
                       ),
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const MyApp()),
-                        );
+                      onPressed: () async {
+
+                        try {
+                          // Get UserProvider instance
+                          final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+                          // Refresh user data from Firestore
+                          await userProvider.loadUserData();
+
+                          // Navigate to main app only after data is loaded
+                          if (mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const MyApp()),
+                            );
+                          }
+                        } catch (e) {
+                          print('Error loading user data: $e');
+
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              _isLoading = false;
+                            });
+                          }
+                        }
                       },
                       child: const Text(
                         'Get Started',
