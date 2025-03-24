@@ -4,6 +4,7 @@ import 'package:project_navigo/config/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'dart:math';
 
 class GoogleApiServices {
   // Replace with your actual API key
@@ -273,7 +274,6 @@ class GoogleApiServices {
         travelMode = 'BICYCLE';
         break;
       case 'transit':
-      // Transit is not directly supported in the same way
         travelMode = 'DRIVE'; // Default fallback
         break;
       default:
@@ -309,7 +309,8 @@ class GoogleApiServices {
           "avoidHighways": avoidHighways
         },
         "languageCode": "en-US",
-        "units": "IMPERIAL" // Change to METRIC if desired
+        "units": "IMPERIAL",
+        "extraComputations": ["TRAFFIC_ON_ROUTE"]
       };
 
       // Add departure time if provided
@@ -334,7 +335,7 @@ class GoogleApiServices {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'routes.legs,routes.polyline,routes.duration,routes.distanceMeters,routes.travelAdvisory,routes.viewport'
+          'X-Goog-FieldMask': 'routes.legs,routes.polyline,routes.duration,routes.distanceMeters,routes.travelAdvisory,routes.viewport,routes.trafficOnRoute'
         },
         body: json.encode(requestBody),
       );
@@ -347,6 +348,30 @@ class GoogleApiServices {
 
           for (var routeData in data['routes']) {
             List<Leg> legs = [];
+            List<TrafficSegment> trafficSegments = [];
+
+            // Handle traffic data if available
+            if (routeData['trafficOnRoute'] != null) {
+              final trafficData = routeData['trafficOnRoute'];
+              if (trafficData['trafficSegments'] != null) {
+                for (var segment in trafficData['trafficSegments']) {
+                  List<LatLng> segmentPoints = [];
+                  if (segment['polyline'] != null) {
+                    final polylinePoints = PolylinePoints().decodePolyline(segment['polyline']);
+                    segmentPoints = polylinePoints.map((point) => 
+                      LatLng(point.latitude, point.longitude)
+                    ).toList();
+                  }
+
+                  trafficSegments.add(TrafficSegment(
+                    points: segmentPoints,
+                    trafficDensity: segment['trafficDensity']?.toDouble() ?? 0.0,
+                    speed: segment['speed']?.toDouble() ?? 0.0,
+                    speedLimit: segment['speedLimit']?.toDouble() ?? 0.0,
+                  ));
+                }
+              }
+            }
 
             // Handle the case where legs might be missing or empty
             final legsList = routeData['legs'] ?? [];
@@ -426,11 +451,10 @@ class GoogleApiServices {
                 }
               } catch (e) {
                 print('Error decoding polyline: $e');
-                // Use empty list if decoding fails
               }
             }
 
-            // Create route with safe navigation
+            // Create route with traffic segments
             routes.add(
                 Route(
                   legs: legs,
@@ -439,6 +463,7 @@ class GoogleApiServices {
                   summary: routeData['description'] ?? '',
                   warnings: routeData['travelAdvisory'] != null ?
                   List<String>.from(routeData['travelAdvisory']['warnings'] ?? []) : [],
+                  trafficSegments: trafficSegments,
                 )
             );
           }
@@ -464,7 +489,6 @@ class GoogleApiServices {
       }
     } catch (e) {
       print('Error getting directions: $e');
-      print('Stack trace: ${StackTrace.current}'); // Add stack trace for better debugging
       return null;
     }
   }
@@ -656,6 +680,7 @@ class GoogleApiServices {
     final LatLngBounds bounds;
     final String summary;
     final List<String> warnings;
+    final List<TrafficSegment> trafficSegments;
 
     Route({
       required this.legs,
@@ -663,7 +688,74 @@ class GoogleApiServices {
       required this.bounds,
       required this.summary,
       required this.warnings,
+      this.trafficSegments = const [],
     });
+
+    Color getTrafficColor(LatLng point) {
+      // Find the traffic segment that contains this point
+      for (var segment in trafficSegments) {
+        if (segment.containsPoint(point)) {
+          return segment.getTrafficColor();
+        }
+      }
+      return Colors.blue; // Default color for no traffic data
+    }
+  }
+
+  class TrafficSegment {
+    final List<LatLng> points;
+    final double trafficDensity; // 0.0 to 1.0
+    final double speed; // Current speed in km/h
+    final double speedLimit; // Speed limit in km/h
+
+    TrafficSegment({
+      required this.points,
+      required this.trafficDensity,
+      required this.speed,
+      required this.speedLimit,
+    });
+
+    bool containsPoint(LatLng point) {
+      // Simple point-in-segment check
+      for (int i = 0; i < points.length - 1; i++) {
+        if (_isPointOnLine(point, points[i], points[i + 1])) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool _isPointOnLine(LatLng point, LatLng lineStart, LatLng lineEnd) {
+      // Calculate distances
+      double d1 = _calculateDistance(point, lineStart);
+      double d2 = _calculateDistance(point, lineEnd);
+      double lineLength = _calculateDistance(lineStart, lineEnd);
+
+      // Allow for some tolerance
+      double tolerance = 0.0001; // Adjust as needed
+      return (d1 + d2 - lineLength).abs() < tolerance;
+    }
+
+    double _calculateDistance(LatLng p1, LatLng p2) {
+      return sqrt(
+        pow(p2.latitude - p1.latitude, 2) + 
+        pow(p2.longitude - p1.longitude, 2)
+      );
+    }
+
+    Color getTrafficColor() {
+      if (speedLimit <= 0) return Colors.blue;
+
+      // Calculate speed ratio (current speed / speed limit)
+      double speedRatio = speed / speedLimit;
+
+      // Define color thresholds
+      if (speedRatio >= 0.8) return Colors.blue; // Free flow
+      if (speedRatio >= 0.6) return Colors.green; // Light traffic
+      if (speedRatio >= 0.4) return Colors.yellow; // Moderate traffic
+      if (speedRatio >= 0.2) return Colors.orange; // Heavy traffic
+      return Colors.red; // Severe traffic
+    }
   }
 
   class Leg {

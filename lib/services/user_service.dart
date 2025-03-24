@@ -1,6 +1,6 @@
-// lib/services/user_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/user_profile.dart';
 import 'package:project_navigo/services/utils/firebase_utils.dart';
 
@@ -203,26 +203,77 @@ class UserService {
 
   /// Delete user account and profile data
   Future<void> deleteAccount(String userId) async {
-    return _firebaseUtils.safeOperation(() async {
-      // In a production app, you might want to:
-      // 1. Delete other user-related data first (saved maps, routes, etc.)
-      // 2. Create a deletion log for audit purposes
-      // 3. Delete the Auth account
-
-      // For Navigo college project, simply delete the profile
-      await _firestore.collection('users').doc(userId).delete();
-
-      // Note: This doesn't delete the Firebase Auth account
-      // Ideally, also delete from Auth
+    try {
+      // Get user data for cleanup (mainly for profile image)
+      UserProfile? userProfile;
       try {
-        User? user = FirebaseAuth.instance.currentUser;
-        if (user != null && user.uid == userId) {
-          await user.delete();
-        }
+        userProfile = await getUserProfile(userId);
       } catch (e) {
-        print('Error deleting Auth account: $e');
-        // Don't throw - we successfully deleted profile data
+        print('Could not retrieve user profile for deletion: $e');
+        // Continue even if we can't get the profile
       }
-    }, 'deleteAccount');
+
+      // 1. Delete user profile document
+      try {
+        await _firestore.collection('users').doc(userId).delete();
+        print('User profile document deleted successfully');
+      } catch (e) {
+        print('Error deleting user profile: $e');
+        // This is a critical error - if we can't delete the profile, throw an exception
+        throw Exception('Failed to delete user profile: $e');
+      }
+
+      // 2. Delete profile picture if it exists
+      if (userProfile != null && userProfile.profileImagePath != null && userProfile.profileImagePath!.isNotEmpty) {
+        try {
+          final storageRef = FirebaseStorage.instance.ref(userProfile.profileImagePath);
+          await storageRef.delete();
+          print('Profile image deleted successfully');
+        } catch (e) {
+          print('Error deleting profile image: $e');
+          // Non-critical error - continue with deletion
+        }
+      }
+
+      // 3. Delete any other files in user's storage folder
+      try {
+        final storageRef = FirebaseStorage.instance.ref().child('users/$userId');
+        final listResult = await storageRef.listAll();
+
+        for (var item in listResult.items) {
+          await item.delete();
+        }
+        print('All user storage files deleted successfully');
+      } catch (e) {
+        print('Error deleting user storage files: $e');
+        // Non-critical error - continue with auth deletion
+      }
+
+      // 4. Finally, delete the Authentication account
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null && user.uid == userId) {
+        try {
+          await user.delete();
+          print('User authentication account deleted successfully');
+        } catch (e) {
+          print('Error deleting authentication account: $e');
+
+          // This is the most critical part - check for specific Firebase errors
+          if (e is FirebaseAuthException) {
+            if (e.code == 'requires-recent-login') {
+              throw Exception('For security reasons, please log out and log back in before deleting your account.');
+            }
+          }
+
+          throw Exception('Could not delete authentication account: $e');
+        }
+      } else {
+        throw Exception('Could not delete authentication account: User not logged in or UID mismatch');
+      }
+
+    } catch (e) {
+      print('Error during account deletion: $e');
+      rethrow; // Rethrow to allow UI to handle the error
+    }
   }
 }
