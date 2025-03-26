@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:project_navigo/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() {
   runApp(NaviGoApp());
@@ -32,6 +32,8 @@ class IntroScreen extends StatefulWidget {
 class _IntroScreenState extends State<IntroScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
+  bool _isRequestingPermission = false;
+  bool _locationPermissionGranted = false;
 
   List<Map<String, String>> introData = [
     {
@@ -100,134 +102,296 @@ class _IntroScreenState extends State<IntroScreen> {
         curve: Curves.ease,
       );
     } else {
-      _skipIntro();
+      // If we're on the last page, go to login instead of cycling through pages
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => LoginScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            var offsetAnimation = animation.drive(tween);
+
+            return SlideTransition(
+              position: offsetAnimation,
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: Duration(milliseconds: 500),
+        ),
+      );
     }
   }
 
   void _skipIntro() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => LoginScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOutCubic;
+    // Find the index of the location access page
+    int locationPageIndex = -1;
+    for (int i = 0; i < introData.length; i++) {
+      if (introData[i]['isLocationAccessPage'] == "true") {
+        locationPageIndex = i;
+        break;
+      }
+    }
 
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          var offsetAnimation = animation.drive(tween);
+    // Navigate to the location access page (or last page if not found)
+    if (locationPageIndex != -1) {
+      _controller.animateToPage(
+        locationPageIndex,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.ease,
+      );
+    } else {
+      // Fallback to original behavior if location page not found
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => LoginScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
 
-          return SlideTransition(
-            position: offsetAnimation,
-            child: FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
-          );
-        },
-        transitionDuration: Duration(milliseconds: 500),
-      ),
-    );
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            var offsetAnimation = animation.drive(tween);
+
+            return SlideTransition(
+              position: offsetAnimation,
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: Duration(milliseconds: 500),
+        ),
+      );
+    }
   }
 
   Future<void> _requestLocationPermission() async {
-    // First check if location service is enabled
+    setState(() {
+      _isRequestingPermission = true;
+    });
+
     try {
-      LocationPermission permission;
-
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: Text('Location Services Disabled'),
-            content: Text('Please enable location services to continue.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
-
-    // Check current permission status
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      // Request permission - This works on web and will show the browser's
-      // permission dialog on web platforms
-      permission = await Geolocator.requestPermission();
-
-      if (permission == LocationPermission.denied) {
-        // Permission denied
+      // First check if location service is enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services are not enabled
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Location permission is needed for navigation')),
+          setState(() {
+            _isRequestingPermission = false;
+          });
+
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) => AlertDialog(
+              title: Text('Location Services Disabled'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Please enable location services to use navigation features.'),
+                  SizedBox(height: 12),
+                  Text(
+                    'Without location services, Navigo won\'t be able to:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  _buildFeatureItem(Icons.navigation, 'Provide turn-by-turn navigation'),
+                  _buildFeatureItem(Icons.route, 'Calculate optimal routes'),
+                  _buildFeatureItem(Icons.traffic, 'Alert you about traffic conditions'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _nextPage(); // Still allow to continue without location
+                  },
+                  child: Text('CONTINUE ANYWAY'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Open location settings if possible
+                    if (!kIsWeb) {
+                      Geolocator.openLocationSettings();
+                    }
+                    // We don't move to next page here since user needs to enable location first
+                  },
+                  child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
           );
         }
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are permanently denied
+      // Check current permission status
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        // Request permission - This works on web and will show the browser's
+        // permission dialog on web platforms
+        permission = await Geolocator.requestPermission();
+
+        if (permission == LocationPermission.denied) {
+          // Permission denied
+          if (mounted) {
+            setState(() {
+              _isRequestingPermission = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Location permission is needed for navigation'),
+                action: SnackBarAction(
+                  label: 'Try Again',
+                  onPressed: _requestLocationPermission,
+                ),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Permissions are permanently denied
+        if (mounted) {
+          setState(() {
+            _isRequestingPermission = false;
+          });
+
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) => AlertDialog(
+              title: Text('Location Permission Required'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Location permissions are permanently denied. Please enable them in device settings to use all navigation features.',
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Navigation features that require location:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
+                  _buildFeatureItem(Icons.directions, 'Turn-by-turn directions'),
+                  _buildFeatureItem(Icons.alt_route, 'Route recalculation'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _nextPage(); // Still allow to continue without location
+                  },
+                  child: Text('CONTINUE ANYWAY'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    if (!kIsWeb) {
+                      Geolocator.openAppSettings();
+                    }
+                    // We don't move to next page since user needs to change settings first
+                  },
+                  child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // If we get here, permission is granted
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: Text('Location Permission'),
-            content: Text('Location permissions are permanently denied. Please enable in browser settings or app settings.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (!kIsWeb) {
-                    Geolocator.openAppSettings();
-                  }
-                  Navigator.of(context).pop();
-                },
-                child: Text('Open Settings'),
-              ),
-            ],
+        setState(() {
+          _isRequestingPermission = false;
+          _locationPermissionGranted = true;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location permission granted'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-      }
-      return;
-    }
 
-    // If we get here, permission is granted
-    if (mounted) {
-      // Try to get location to ensure the permission is working
-      try {
-        await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.low,
-          timeLimit: Duration(seconds: 5),
-        );
-      } catch (e) {
-        // Just continue if there's an error getting position
-        print('Error getting position: $e');
-      }
+        // Try to get location to ensure the permission is working
+        try {
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          );
+        } catch (e) {
+          // Just log if there's an error getting position
+          print('Error getting position: $e');
+        }
 
-      // Move to next page
-      _nextPage();
-    }
+        // Move to next page
+        _nextPage();
+      }
     } catch (e) {
       // Handle errors and continue
       if (mounted) {
+        setState(() {
+          _isRequestingPermission = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error accessing location: $e')),
+          SnackBar(
+            content: Text('Error accessing location: $e'),
+            action: SnackBarAction(
+              label: 'Try Again',
+              onPressed: _requestLocationPermission,
+            ),
+          ),
         );
-        _nextPage(); // Continue anyway after error
+
+        // Continue anyway after error
+        _nextPage();
       }
     }
+  }
+
+  // Helper widget to display feature items in dialogs
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.blue),
+          SizedBox(width: 8),
+          Flexible(child: Text(text)),
+        ],
+      ),
+    );
   }
 
   @override
@@ -254,32 +418,8 @@ class _IntroScreenState extends State<IntroScreen> {
                   : _nextPage,
               isFirstPage: index == 0,
               isLocationAccessPage: introData[index]['isLocationAccessPage'] == "true",
-              onDenyLocation: () {
-                // Show custom dialog explaining why location is important
-                showDialog(
-                  context: context,
-                  builder: (BuildContext context) => AlertDialog(
-                    title: Text('Location is Important'),
-                    content: Text('NaviGo needs your location to provide turn-by-turn navigation. Without it, some features will be limited.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _nextPage(); // Continue anyway if they insist
-                        },
-                        child: Text('Continue without Location'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _requestLocationPermission(); // Try again
-                        },
-                        child: Text('Grant Access'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onDenyLocation: _showLocationImportanceDialog,
+              isRequestingPermission: _isRequestingPermission,
             ),
           ),
 
@@ -332,6 +472,67 @@ class _IntroScreenState extends State<IntroScreen> {
       ),
     );
   }
+
+  // Enhanced dialog shown when user denies location permission
+  // Replace the _showLocationImportanceDialog method with this fixed version
+  void _showLocationImportanceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Wrap( // Use Wrap instead of Row to handle overflow
+          alignment: WrapAlignment.start,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8, // Add spacing between items
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue),
+            Text(
+              'Location Enhances Navigation',
+              style: TextStyle(fontSize: 18), // Slightly smaller font size
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Navigo works best with location access. Without it, you\'ll miss out on:',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
+            _buildFeatureItem(Icons.navigation, 'Turn-by-turn directions'),
+            _buildFeatureItem(Icons.traffic, 'Live traffic updates'),
+            _buildFeatureItem(Icons.electric_car, 'Suggested routes based on road conditions'),
+            SizedBox(height: 12),
+            Text(
+              'You can always enable location permissions later in Settings.',
+              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _nextPage(); // Continue anyway
+            },
+            child: Text('Continue Without Location'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _requestLocationPermission(); // Try again
+            },
+            child: Text('Grant Permission', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class IntroContent extends StatelessWidget {
@@ -342,6 +543,8 @@ class IntroContent extends StatelessWidget {
   final VoidCallback onNext;
   final bool isFirstPage;
   final bool isLocationAccessPage;
+  final VoidCallback? onDenyLocation;
+  final bool isRequestingPermission;
 
   const IntroContent({
     super.key,
@@ -353,12 +556,132 @@ class IntroContent extends StatelessWidget {
     required this.isFirstPage,
     this.isLocationAccessPage = false,
     this.onDenyLocation,
+    this.isRequestingPermission = false,
   });
-
-  final VoidCallback? onDenyLocation;
 
   @override
   Widget build(BuildContext context) {
+    // Special UI for the location permission page
+    if (isLocationAccessPage) {
+      return Container(
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Location animation/image
+              if (image != null)
+                Image.asset(image!, width: 150, height: 150, fit: BoxFit.contain),
+              SizedBox(height: 24),
+
+              // Title with icon
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_on, color: Colors.blue, size: 28),
+                  SizedBox(width: 8),
+                  if (title != null)
+                    Text(
+                      title!,
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                ],
+              ),
+
+              SizedBox(height: 16),
+
+              // Enhanced subtitle explaining why location is needed
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              SizedBox(height: 8),
+
+              // Location features list
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3))
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Location enables Navigo to:",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    SizedBox(height: 12),
+                    _buildFeatureRow(Icons.navigation, "Provide turn-by-turn directions"),
+                    SizedBox(height: 8),
+                    _buildFeatureRow(Icons.traffic, "Alert you about traffic conditions"),
+                    SizedBox(height: 8),
+                    _buildFeatureRow(Icons.speed, "Estimate arrival times accurately"),
+                    SizedBox(height: 8),
+                    _buildFeatureRow(Icons.pin_drop, "Show nearby places and services"),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 20),
+
+              // Permission buttons
+              isRequestingPermission
+                  ? Center(child: CircularProgressIndicator())
+                  : Column(
+                children: [
+                  ElevatedButton(
+                    onPressed: onNext,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF4169E1),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      minimumSize: Size(250, 50),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(buttonText ?? "Allow Location", style: TextStyle(fontSize: 16)),
+                        SizedBox(width: 8),
+                        Icon(Icons.location_on),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  TextButton(
+                    onPressed: onDenyLocation ?? () {},
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    ),
+                    child: Text(
+                        "Not Now",
+                        style: TextStyle(color: Colors.grey[700])
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "You can change this later in app settings",
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Regular intro page layout for non-location pages
     return Container(
       color: Colors.white,
       child: Padding(
@@ -413,6 +736,19 @@ class IntroContent extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  // Helper method to build feature rows in the location permission page
+  Widget _buildFeatureRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.blue, size: 20),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(text),
+        ),
+      ],
     );
   }
 }

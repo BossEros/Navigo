@@ -1,10 +1,10 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:project_navigo/config/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'dart:math';
 
 class GoogleApiServices {
   // Replace with your actual API key
@@ -80,41 +80,73 @@ class GoogleApiServices {
   static Future<List<String>> getPlacePhotos(String placeId) async {
     try {
       final String url = '$_placesBaseUrl/places/$placeId';
+      print('Fetching photos for place: $placeId');
+      print('URL: $url');
 
       final response = await http.get(
         Uri.parse(url),
         headers: {
           'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'id,photos'
+          'X-Goog-FieldMask': 'photos'
         },
       );
+
+      print('Photos API response status: ${response.statusCode}');
+      if (response.body.isNotEmpty) {
+        print('Response body preview: ${response.body.substring(0, min(100, response.body.length))}');
+      } else {
+        print('Response body is empty');
+      }
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        if (data.containsKey('photos') && data['photos'] is List) {
-          List<String> photoUrls = [];
+        List<String> photoUrls = [];
 
+        // Check if photos field exists and is non-empty
+        if (data.containsKey('photos') && data['photos'] is List && data['photos'].isNotEmpty) {
+          print('Found ${data['photos'].length} photos');
+
+          // Process each photo reference
           for (var photo in data['photos']) {
             if (photo.containsKey('name')) {
               try {
+                // Add a small delay between requests to avoid rate limiting
+                await Future.delayed(Duration(milliseconds: 300));
+
                 final photoUrl = await getPlacePhoto(placeId, photo['name']);
-                photoUrls.add(photoUrl);
+                if (photoUrl.isNotEmpty) {
+                  photoUrls.add(photoUrl);
+                  print('Successfully added photo URL: ${photoUrl.substring(0, min(50, photoUrl.length))}...');
+                }
               } catch (e) {
                 print('Error fetching individual photo: $e');
               }
+            } else {
+              print('Photo object missing "name" property: $photo');
             }
           }
-
-          return photoUrls;
+        } else {
+          print('No photos found in API response');
         }
-        return [];
+
+        return photoUrls;
       } else {
         print('Error fetching place photos: ${response.statusCode}');
+        if (response.body.isNotEmpty) {
+          try {
+            final errorData = json.decode(response.body);
+            final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
+            print('Error message: $errorMessage');
+          } catch (e) {
+            print('Could not parse error response: ${response.body}');
+          }
+        }
         return [];
       }
     } catch (e) {
       print('Exception fetching place photos: $e');
+      print('Stack trace: ${StackTrace.current}');
       return [];
     }
   }
@@ -224,7 +256,25 @@ class GoogleApiServices {
   }
 
   static Future<String> getPlacePhoto(String placeId, String photoId) async {
-    final String url = '$_placesBaseUrl/places/$placeId/photos/$photoId/media';
+    // Determine the correct URL based on the format of photoId
+    String baseUrl;
+
+    // If photoId starts with 'places/', it's a full resource path
+    if (photoId.startsWith('places/')) {
+      baseUrl = '$_placesBaseUrl/$photoId/media';
+    } else {
+      // Assume it's just a photo ID and construct the full path
+      baseUrl = '$_placesBaseUrl/places/$placeId/photos/$photoId/media';
+    }
+
+    // Create URI with query parameters for dimensions
+    final Uri uri = Uri.parse(baseUrl).replace(queryParameters: {
+      'max_width_px': '800',  // Reasonable width for mobile UI
+      'max_height_px': '600'  // Reasonable height for mobile UI
+    });
+
+    final String url = uri.toString();
+    print('Fetching photo media: $url');
 
     try {
       final response = await http.get(
@@ -234,17 +284,38 @@ class GoogleApiServices {
         },
       );
 
+      print('Photo media API response status: ${response.statusCode}');
+
+      // Check if we got a successful response
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['photoUri']; // URL to the photo
+        // The response is the actual image binary data, not JSON
+        // Simply return the URL which can be used directly in Image.network
+        return url;
+      } else if (response.statusCode == 302 || response.statusCode == 301) {
+        // Handle redirect
+        final location = response.headers['location'];
+        if (location != null && location.isNotEmpty) {
+          print('Redirect to photo: $location');
+          return location;
+        }
+        return '';
       } else {
-        final errorData = json.decode(response.body);
-        final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
-        throw Exception(
-            'Place Photos API error: ${response.statusCode} - $errorMessage');
+        print('Error status: ${response.statusCode}');
+        if (response.body.isNotEmpty) {
+          try {
+            final errorData = json.decode(response.body);
+            final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
+            print('Error message: $errorMessage');
+          } catch (e) {
+            print('Could not parse error response: ${response.body}');
+          }
+        }
+        return '';
       }
     } catch (e) {
-      throw Exception('Failed to get place photo: $e');
+      print('Exception in getPlacePhoto: $e');
+      print('Stack trace: ${StackTrace.current}');
+      return '';
     }
   }
 
@@ -274,6 +345,7 @@ class GoogleApiServices {
         travelMode = 'BICYCLE';
         break;
       case 'transit':
+      // Transit is not directly supported in the same way
         travelMode = 'DRIVE'; // Default fallback
         break;
       default:
@@ -309,8 +381,7 @@ class GoogleApiServices {
           "avoidHighways": avoidHighways
         },
         "languageCode": "en-US",
-        "units": "IMPERIAL",
-        "extraComputations": ["TRAFFIC_ON_ROUTE"]
+        "units": "IMPERIAL" // Change to METRIC if desired
       };
 
       // Add departure time if provided
@@ -335,7 +406,7 @@ class GoogleApiServices {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'routes.legs,routes.polyline,routes.duration,routes.distanceMeters,routes.travelAdvisory,routes.viewport,routes.trafficOnRoute'
+          'X-Goog-FieldMask': 'routes.legs,routes.polyline,routes.duration,routes.distanceMeters,routes.travelAdvisory,routes.viewport'
         },
         body: json.encode(requestBody),
       );
@@ -348,30 +419,6 @@ class GoogleApiServices {
 
           for (var routeData in data['routes']) {
             List<Leg> legs = [];
-            List<TrafficSegment> trafficSegments = [];
-
-            // Handle traffic data if available
-            if (routeData['trafficOnRoute'] != null) {
-              final trafficData = routeData['trafficOnRoute'];
-              if (trafficData['trafficSegments'] != null) {
-                for (var segment in trafficData['trafficSegments']) {
-                  List<LatLng> segmentPoints = [];
-                  if (segment['polyline'] != null) {
-                    final polylinePoints = PolylinePoints().decodePolyline(segment['polyline']);
-                    segmentPoints = polylinePoints.map((point) => 
-                      LatLng(point.latitude, point.longitude)
-                    ).toList();
-                  }
-
-                  trafficSegments.add(TrafficSegment(
-                    points: segmentPoints,
-                    trafficDensity: segment['trafficDensity']?.toDouble() ?? 0.0,
-                    speed: segment['speed']?.toDouble() ?? 0.0,
-                    speedLimit: segment['speedLimit']?.toDouble() ?? 0.0,
-                  ));
-                }
-              }
-            }
 
             // Handle the case where legs might be missing or empty
             final legsList = routeData['legs'] ?? [];
@@ -402,7 +449,7 @@ class GoogleApiServices {
                         text: _formatDistance(distanceMeters),
                         value: distanceMeters,
                       ),
-                      duration: Duration(
+                      duration: TravelDuration(
                         text: _formatDuration(durationStr),
                         value: _parseDuration(durationStr),
                       ),
@@ -425,7 +472,7 @@ class GoogleApiServices {
                       text: _formatDistance(legDistance),
                       value: legDistance,
                     ),
-                    duration: Duration(
+                    duration: TravelDuration(
                       text: _formatDuration(legDuration),
                       value: _parseDuration(legDuration),
                     ),
@@ -451,10 +498,11 @@ class GoogleApiServices {
                 }
               } catch (e) {
                 print('Error decoding polyline: $e');
+                // Use empty list if decoding fails
               }
             }
 
-            // Create route with traffic segments
+            // Create route with safe navigation
             routes.add(
                 Route(
                   legs: legs,
@@ -463,7 +511,6 @@ class GoogleApiServices {
                   summary: routeData['description'] ?? '',
                   warnings: routeData['travelAdvisory'] != null ?
                   List<String>.from(routeData['travelAdvisory']['warnings'] ?? []) : [],
-                  trafficSegments: trafficSegments,
                 )
             );
           }
@@ -489,6 +536,7 @@ class GoogleApiServices {
       }
     } catch (e) {
       print('Error getting directions: $e');
+      print('Stack trace: ${StackTrace.current}'); // Add stack trace for better debugging
       return null;
     }
   }
@@ -633,187 +681,133 @@ class GoogleApiServices {
   }
 }
 
-  // Model classes
-  class PlaceSuggestion {
-    final String placeId;
-    final String description;
-    final String mainText;
-    final String secondaryText;
+// Model classes
+class PlaceSuggestion {
+  final String placeId;
+  final String description;
+  final String mainText;
+  final String secondaryText;
 
-    PlaceSuggestion({
-      required this.placeId,
-      required this.description,
-      required this.mainText,
-      required this.secondaryText,
-    });
+  PlaceSuggestion({
+    required this.placeId,
+    required this.description,
+    required this.mainText,
+    required this.secondaryText,
+  });
+}
+
+class Place {
+  final String id;
+  final String name;
+  final String address;
+  final LatLng latLng;
+  final List<String> types;
+  List<String> photoUrls = [];  // Add this field
+
+  Place({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.latLng,
+    required this.types,
+  });
+}
+
+// Model classes for Directions API
+class RouteDetails {
+  final List<Route> routes;
+
+  RouteDetails({
+    required this.routes,
+  });
+}
+
+class Route{
+  final List<Leg> legs;
+  final List<LatLng> polylinePoints;
+  final LatLngBounds bounds;
+  final String summary;
+  final List<String> warnings;
+
+  Route({
+    required this.legs,
+    required this.polylinePoints,
+    required this.bounds,
+    required this.summary,
+    required this.warnings,
+  });
+}
+
+class Leg {
+  final List<Step> steps;
+  final Distance distance;
+  final TravelDuration duration;
+  final String startAddress;
+  final String endAddress;
+  final LatLng startLocation;
+  final LatLng endLocation;
+
+  Leg({
+    required this.steps,
+    required this.distance,
+    required this.duration,
+    required this.startAddress,
+    required this.endAddress,
+    required this.startLocation,
+    required this.endLocation,
+  });
+}
+
+class Step {
+  final String instruction;
+  final Distance distance;
+  final TravelDuration duration;
+  final LatLng startLocation;
+  final LatLng endLocation;
+  final String polyline;
+  final String travelMode;
+
+  Step({
+    required this.instruction,
+    required this.distance,
+    required this.duration,
+    required this.startLocation,
+    required this.endLocation,
+    required this.polyline,
+    required this.travelMode,
+  });
+}
+
+class Distance {
+  final String text;
+  final int value;
+
+  Distance({
+    required this.text,
+    required this.value,
+  });
+}
+
+class TravelDuration {
+  final String text;
+  final int value;
+
+  TravelDuration({
+    required this.text,
+    required this.value,
+  });
+
+  factory TravelDuration.fromMap(Map<String, dynamic> map) {
+    return TravelDuration(
+      text: map['text'] ?? '0 min',
+      value: map['value'] ?? 0,
+    );
   }
 
-  class Place {
-    final String id;
-    final String name;
-    final String address;
-    final LatLng latLng;
-    final List<String> types;
-    List<String> photoUrls = [];  // Add this field
-
-    Place({
-      required this.id,
-      required this.name,
-      required this.address,
-      required this.latLng,
-      required this.types,
-    });
+  Map<String, dynamic> toMap() {
+    return {
+      'text': text,
+      'value': value,
+    };
   }
-
-  // Model classes for Directions API
-  class RouteDetails {
-    final List<Route> routes;
-
-    RouteDetails({
-      required this.routes,
-    });
-  }
-
-  class Route{
-    final List<Leg> legs;
-    final List<LatLng> polylinePoints;
-    final LatLngBounds bounds;
-    final String summary;
-    final List<String> warnings;
-    final List<TrafficSegment> trafficSegments;
-
-    Route({
-      required this.legs,
-      required this.polylinePoints,
-      required this.bounds,
-      required this.summary,
-      required this.warnings,
-      this.trafficSegments = const [],
-    });
-
-    Color getTrafficColor(LatLng point) {
-      // Find the traffic segment that contains this point
-      for (var segment in trafficSegments) {
-        if (segment.containsPoint(point)) {
-          return segment.getTrafficColor();
-        }
-      }
-      return Colors.blue; // Default color for no traffic data
-    }
-  }
-
-  class TrafficSegment {
-    final List<LatLng> points;
-    final double trafficDensity; // 0.0 to 1.0
-    final double speed; // Current speed in km/h
-    final double speedLimit; // Speed limit in km/h
-
-    TrafficSegment({
-      required this.points,
-      required this.trafficDensity,
-      required this.speed,
-      required this.speedLimit,
-    });
-
-    bool containsPoint(LatLng point) {
-      // Simple point-in-segment check
-      for (int i = 0; i < points.length - 1; i++) {
-        if (_isPointOnLine(point, points[i], points[i + 1])) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    bool _isPointOnLine(LatLng point, LatLng lineStart, LatLng lineEnd) {
-      // Calculate distances
-      double d1 = _calculateDistance(point, lineStart);
-      double d2 = _calculateDistance(point, lineEnd);
-      double lineLength = _calculateDistance(lineStart, lineEnd);
-
-      // Allow for some tolerance
-      double tolerance = 0.0001; // Adjust as needed
-      return (d1 + d2 - lineLength).abs() < tolerance;
-    }
-
-    double _calculateDistance(LatLng p1, LatLng p2) {
-      return sqrt(
-        pow(p2.latitude - p1.latitude, 2) + 
-        pow(p2.longitude - p1.longitude, 2)
-      );
-    }
-
-    Color getTrafficColor() {
-      if (speedLimit <= 0) return Colors.blue;
-
-      // Calculate speed ratio (current speed / speed limit)
-      double speedRatio = speed / speedLimit;
-
-      // Define color thresholds
-      if (speedRatio >= 0.8) return Colors.blue; // Free flow
-      if (speedRatio >= 0.6) return Colors.green; // Light traffic
-      if (speedRatio >= 0.4) return Colors.yellow; // Moderate traffic
-      if (speedRatio >= 0.2) return Colors.orange; // Heavy traffic
-      return Colors.red; // Severe traffic
-    }
-  }
-
-  class Leg {
-    final List<Step> steps;
-    final Distance distance;
-    final Duration duration;
-    final String startAddress;
-    final String endAddress;
-    final LatLng startLocation;
-    final LatLng endLocation;
-
-    Leg({
-      required this.steps,
-      required this.distance,
-      required this.duration,
-      required this.startAddress,
-      required this.endAddress,
-      required this.startLocation,
-      required this.endLocation,
-    });
-  }
-
-  class Step {
-    final String instruction;
-    final Distance distance;
-    final Duration duration;
-    final LatLng startLocation;
-    final LatLng endLocation;
-    final String polyline;
-    final String travelMode;
-
-    Step({
-      required this.instruction,
-      required this.distance,
-      required this.duration,
-      required this.startLocation,
-      required this.endLocation,
-      required this.polyline,
-      required this.travelMode,
-    });
-  }
-
-  class Distance {
-    final String text;
-    final int value;
-
-    Distance({
-      required this.text,
-      required this.value,
-    });
-  }
-
-  class Duration {
-    final String text;
-    final int value;
-
-    Duration({
-      required this.text,
-      required this.value,
-    });
-  }
+}

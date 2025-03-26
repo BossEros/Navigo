@@ -7,6 +7,7 @@ import 'package:location/location.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'dart:async';
+import '../config/config.dart';
 import '../services/google-api-services.dart' as api hide Duration;
 import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
 
@@ -93,6 +94,90 @@ class NavigoMapScreen extends StatefulWidget {
   State<NavigoMapScreen> createState() => _NavigoMapScreenState();
 }
 
+// A state variable to control traffic visibility
+bool _trafficEnabled = true;
+String? _currentMapStyle;
+
+final String? dayMapStyle = null; // Use null for default Google styling with traffic
+final String navigationMapStyle = '''
+[
+  {
+    "featureType": "poi",
+    "elementType": "labels",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "labels",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "weight": 3
+      }
+    ]
+  }
+]
+''';
+final String nightMapStyle = '''
+[
+  {
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#242f3e"
+      }
+    ]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#746855"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#38414e"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#212a37"
+      }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#9ca5b3"
+      }
+    ]
+  }
+]
+''';
+
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
   // Controllers
   GoogleMapController? _mapController;
@@ -109,6 +194,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   final Map<MarkerId, Marker> _markersMap = {};
   final Map<PolylineId, Polyline> _polylinesMap = {};
   MapType _currentMapType = MapType.normal;
+  bool _isLoadingPhotos = false;
 
   // Search state
   List<api.PlaceSuggestion> _placeSuggestions = [];
@@ -151,6 +237,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void initState() {
     super.initState();
     _initLocationService();
+    _trafficEnabled = true;
+    _currentMapStyle = _trafficEnabled ? null : dayMapStyle;
 
     _pulseController = AnimationController(
       vsync: this,
@@ -274,7 +362,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               Container(
                 height: 120,
                 padding: const EdgeInsets.only(left: 16),
-                child: _destinationPlace!.photoUrls.isEmpty
+                child: _destinationPlace!.photoUrls.isEmpty && _isLoadingPhotos
+                    ? Center(
+                  child: CircularProgressIndicator(),
+                )
+                    : _destinationPlace!.photoUrls.isEmpty
                     ? Center(
                   child: Text(
                     'No photos available',
@@ -413,15 +505,30 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
 
     try {
+      print('Loading photos for place: ${_destinationPlace!.id}');
+      setState(() {
+        // Optionally show a loading indicator
+        _isLoadingPhotos = true;
+      });
+
       final photos = await api.GoogleApiServices.getPlacePhotos(_destinationPlace!.id);
+      print('Loaded ${photos.length} photos');
 
       if (mounted) {
         setState(() {
           _destinationPlace!.photoUrls = photos;
+          _isLoadingPhotos = false;
         });
       }
     } catch (e) {
       print('Error loading place photos: $e');
+      print('Stack trace: ${StackTrace.current}');
+
+      if (mounted) {
+        setState(() {
+          _isLoadingPhotos = false;
+        });
+      }
     }
   }
 
@@ -455,9 +562,38 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          imageUrl,
           fit: BoxFit.cover,
+          headers: {
+            'X-Goog-Api-Key': AppConfig.apiKey,
+          },
+          // Add loading and error handling
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: Colors.grey[200],
+              child: Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            print('Error loading image: $error');
+            return Container(
+              color: Colors.grey[200],
+              child: Center(
+                child: Icon(Icons.broken_image, color: Colors.grey[400]),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1052,10 +1188,12 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               zoomControlsEnabled: false,
               compassEnabled: true,
               // Disable user gestures during navigation to prevent accidental map movement
+              trafficEnabled: _trafficEnabled,
+              style: _currentMapStyle,
               scrollGesturesEnabled: !_isInNavigationMode,
               zoomGesturesEnabled: !_isInNavigationMode,
               tiltGesturesEnabled: !_isInNavigationMode,
-              rotateGesturesEnabled: !_isInNavigationMode,
+              rotateGesturesEnabled: !_isInNavigationMode
             ),
 
             // Original SlidingUpPanel for location search
@@ -1697,6 +1835,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _isInNavigationMode = true;
       _showingRouteAlternatives = false;
       _currentStepIndex = 0;
+      _trafficEnabled = true;
+
 
       // Keep only the selected route
       _polylinesMap.clear();
@@ -1714,6 +1854,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         routes: [_routeAlternatives[0].routes[_selectedRouteIndex]],
       );
     });
+
+    print("Starting navigation mode. Traffic enabled: $_trafficEnabled");
 
     // Start more frequent location updates for navigation
     _startNavigationLocationTracking();
@@ -1970,6 +2112,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Map action buttons
         _buildMapActionButtons(),
 
+        // Report button
+        _buildReportButton(),
+
         // Selected place card only when in placeSelected state
         if (_navigationState == NavigationState.placeSelected)
           _buildSelectedPlaceCard(),
@@ -2095,28 +2240,57 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+  // Toggle function
+  void _toggleTrafficLayer() {
+    setState(() {
+      _trafficEnabled = !_trafficEnabled;
+      _currentMapStyle = _trafficEnabled ? null : navigationMapStyle;
+
+      print("Traffic Enabled: $_trafficEnabled");
+      print("Current Map Style: " + (_currentMapStyle == null ? "NULL (Default Google)" : "Custom Style"));
+    });
+  }
+
   Widget _buildMapActionButtons() {
     return Positioned(
-      bottom: 100,
+      bottom: 200,
       right: 16,
       child: Column(
         children: [
+          FloatingActionButton(
+            heroTag: "toggleTraffic",
+            mini: true,
+            backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
+            onPressed: _toggleTrafficLayer,
+            child: Icon(
+              Icons.traffic,
+              color: _trafficEnabled ? Colors.white : Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+
           _buildCircularButton(
             icon: _isNavigating ? Icons.close : Icons.navigation,
             color: _isNavigating ? Colors.red : null,
             onPressed: _isNavigating ? _stopNavigation : _startNavigation,
           ),
-          const SizedBox(height: 8),
-          _buildCircularButton(
-            icon: Icons.warning_amber_rounded,
-            onPressed: () {
-              // Hazard reporting
-            },
-          ),
         ],
       ),
     );
   }
+
+  Widget _buildReportButton(){
+    return Positioned(
+      bottom: 200,
+      left: 16,
+      child: _buildCircularButton(
+        icon: Icons.warning_amber_rounded,
+        onPressed: () {
+          // Implement Hazard Reporting here
+      },
+    ),
+  );
+}
 
   Widget _buildNavigationInfoPanel() {
     if (!_isInNavigationMode || _routeDetails == null) {
