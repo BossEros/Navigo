@@ -800,6 +800,39 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  Widget _buildRouteSelectionTopButtons() {
+    if (_navigationState != NavigationState.routePreview)
+      return const SizedBox.shrink();
+
+    return Positioned(
+      top: 16,
+      left: 16,
+      right: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Back button to go to location details
+          _buildCircularButton(
+            icon: Icons.arrow_back,
+            onPressed: () {
+              // Go back to location details screen
+              setState(() {
+                _navigationState = NavigationState.placeSelected;
+                _showingRouteAlternatives = false;
+              });
+            },
+          ),
+
+          // Close button (optional)
+          _buildCircularButton(
+            icon: Icons.close,
+            onPressed: _handleCloseButtonPressed,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDestinationIndicator() {
     if (_destinationPlace == null) return const SizedBox.shrink();
 
@@ -2279,6 +2312,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Back and close buttons only in placeSelected state and not during route preview
         if (_navigationState == NavigationState.placeSelected && !_showingRouteAlternatives)
           _buildNavigationTopButtons(),
+
+        // Add the new buttons for route preview state
+        if (_navigationState == NavigationState.routePreview)
+          _buildRouteSelectionTopButtons(),
 
         // Map action buttons (conditional based on navigation state)
         _buildMapActionButtons(),
