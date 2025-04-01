@@ -1,0 +1,38 @@
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{0}: reset: moving to 4a67476
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{1}: reset: moving to 4a67476
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{2}: reset: moving to HEAD
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{3}: reset: moving to origin/development/location-details-card
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{4}: checkout: moving from development/user-CRUD to development/location-details-card
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{5}: checkout: moving from main to development/user-CRUD
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{6}: checkout: moving from development/user-CRUD to main
+[33m4a67476[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/location-details-card[m[33m, [m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m)[m HEAD@{7}: commit: Added Image in the Location details card and Change the location of Icons in the Main UI
+[33ma5497bb[m HEAD@{8}: checkout: moving from main to development/user-CRUD
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{9}: checkout: moving from development/user-CRUD to main
+[33ma5497bb[m HEAD@{10}: checkout: moving from main to development/user-CRUD
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{11}: checkout: moving from main to main
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{12}: checkout: moving from development/user-CRUD to main
+[33ma5497bb[m HEAD@{13}: commit: Fixing bug
+[33md766202[m[33m ([m[1;31morigin/development/user-CRUD[m[33m)[m HEAD@{14}: commit: Added function to update and retrieve user profile picture
+[33mc41ed9b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevelopment/map-explorer[m[33m, [m[1;32mall[m[33m)[m HEAD@{15}: checkout: moving from development/map-explorer to development/user-CRUD
+[33mc41ed9b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevelopment/map-explorer[m[33m, [m[1;32mall[m[33m)[m HEAD@{16}: pull origin main: Fast-forward
+[33m8c918c9[m HEAD@{17}: reset: moving to origin/main
+[33m69f2901[m[33m ([m[1;31morigin/development/map-explorer[m[33m)[m HEAD@{18}: checkout: moving from main to development/map-explorer
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{19}: checkout: moving from development/map-explorer to main
+[33m69f2901[m[33m ([m[1;31morigin/development/map-explorer[m[33m)[m HEAD@{20}: commit: Added the onboarding screens and the functionalities
+[33mecdba85[m HEAD@{21}: commit: Just a commit to save progress
+[33m57a596d[m HEAD@{22}: commit: Merge map explorer and hamburger-menu branches
+[33m8690ef1[m HEAD@{23}: pull --no-stat -v --progress origin development/map-explorer: Fast-forward
+[33m64dd0db[m HEAD@{24}: commit: Added Location Card and Search Functionality
+[33meb82973[m HEAD@{25}: checkout: moving from development/map-explorer to development/map-explorer
+[33meb82973[m HEAD@{26}: checkout: moving from development/map-explorer to development/map-explorer
+[33meb82973[m HEAD@{27}: checkout: moving from development/map-explorer to development/map-explorer
+[33meb82973[m HEAD@{28}: commit: Add new feature
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{29}: checkout: moving from development/map-explorer to development/map-explorer
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{30}: checkout: moving from main to development/map-explorer
+[33me4cac35[m[33m ([m[1;32mmain[m[33m)[m HEAD@{31}: commit: Add Map Explorer
+[33ma08ea0a[m HEAD@{32}: rebase (finish): returning to refs/heads/main
+[33ma08ea0a[m HEAD@{33}: rebase (continue): Commit
+[33me8f2dbb[m HEAD@{34}: pull --rebase origin main (start): checkout e8f2dbb9d1b681e536f7a739aac576e5f369db24
+[33m060493d[m HEAD@{35}: rebase (abort): returning to refs/heads/main
+[33me8f2dbb[m HEAD@{36}: pull --rebase origin main (start): checkout e8f2dbb9d1b681e536f7a739aac576e5f369db24
+[33m060493d[m HEAD@{37}: commit (initial): Commit

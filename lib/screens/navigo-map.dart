@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
@@ -200,6 +201,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   List<api.PlaceSuggestion> _placeSuggestions = [];
   bool _isSearching = false;
   Timer? _debounce;
+  Map<String, String> _suggestionDistances = {};
+
 
   // Panel state
   double _panelPosition = 0.0;
@@ -209,6 +212,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   api.Place? _destinationPlace;
   bool _isNavigating = false;
   api.RouteDetails? _routeDetails;
+  bool _isNavigationInProgress = false;
 
   bool _showingRouteAlternatives = false;
   int _selectedRouteIndex = 0;
@@ -257,6 +261,38 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     _locationSimulationTimer?.cancel();
     _dummyFocusNode.dispose();
     super.dispose();
+  }
+
+  // A method to ensure consistent state
+  void _updateNavigationState(NavigationState newState) {
+    // Only update if the state is actually changing
+    if (_navigationState == newState) return;
+
+    setState(() {
+      _navigationState = newState;
+
+      // Ensure other flags are synchronized with the navigation state
+      if (newState == NavigationState.placeSelected) {
+        _showingRouteAlternatives = false;
+        _isNavigating = false;
+        _isInNavigationMode = false;
+      } else if (newState == NavigationState.routePreview) {
+        _showingRouteAlternatives = true;
+        _isNavigating = false;
+        _isInNavigationMode = false;
+      } else if (newState == NavigationState.activeNavigation) {
+        _showingRouteAlternatives = false;
+        _isNavigating = true;
+        _isInNavigationMode = true;
+      } else if (newState == NavigationState.idle) {
+        _showingRouteAlternatives = false;
+        _isNavigating = false;
+        _isInNavigationMode = false;
+      }
+    });
+
+    // Debug logging to track state transitions
+    print('Navigation state changed to: $newState');
   }
 
   Widget _buildSelectedPlaceCard() {
@@ -504,15 +540,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return;
     }
 
-    try {
-      print('Loading photos for place: ${_destinationPlace!.id}');
-      setState(() {
-        // Optionally show a loading indicator
-        _isLoadingPhotos = true;
-      });
+    setState(() {
+      _isLoadingPhotos = true;
+    });
 
-      final photos = await api.GoogleApiServices.getPlacePhotos(_destinationPlace!.id);
-      print('Loaded ${photos.length} photos');
+    // Set a timeout for the entire operation
+    try {
+      final photos = await api.GoogleApiServices.getPlacePhotos(_destinationPlace!.id)
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        // Return any photos loaded so far or empty list
+        print('Photo loading timed out, returning partial results');
+        return <String>[];
+      });
 
       if (mounted) {
         setState(() {
@@ -521,9 +560,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         });
       }
     } catch (e) {
-      print('Error loading place photos: $e');
-      print('Stack trace: ${StackTrace.current}');
-
       if (mounted) {
         setState(() {
           _isLoadingPhotos = false;
@@ -612,7 +648,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   final FocusNode _dummyFocusNode = FocusNode();
 
   Widget _buildNavigationTopButtons() {
-    if (_navigationState != NavigationState.placeSelected) return const SizedBox.shrink();
+    if (_navigationState != NavigationState.placeSelected)
+      return const SizedBox.shrink();
 
     return Positioned(
       top: 16,
@@ -892,6 +929,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               _isSearching = false;
             });
 
+            // Start calculating distances for all suggestions
+            _updateAllSuggestionDistances();
+
             print('Found ${suggestions.length} suggestions for "$query"');
           }
         } catch (e) {
@@ -1012,28 +1052,47 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
 
   Future<void> _startNavigation() async {
+    _logNavigationEvent("Starting navigation");
+
+    // Check prerequisites
     if (_destinationPlace == null || _currentLocation == null) {
       _showErrorSnackBar('Please select a destination first');
       return;
     }
 
-    setState(() {
-      // Update the navigation state to route preview
-      _navigationState = NavigationState.routePreview;
-      _showingRouteAlternatives = true;
-      _routeAlternatives = [];
+    // Prevent duplicate navigation attempts
+    if (_isNavigationInProgress) {
+      _logNavigationEvent("Navigation already in progress - ignoring request");
+      return;
+    }
 
-      // Close the panel if it's open
-      if (_panelController.isPanelOpen) {
-        _panelController.close();
-      }
-    });
+    _isNavigationInProgress = true;
 
     try {
+      // Update UI state first
+      setState(() {
+        _navigationState = NavigationState.routePreview;
+        _showingRouteAlternatives = true;
+        _routeAlternatives = [];
+      });
+
+      // Close the panel if it's open
+      try {
+        if (_panelController.isPanelOpen) {
+          _panelController.close();
+        }
+      } catch (panelError) {
+        _logNavigationEvent("Panel close error", panelError);
+        // Continue despite panel errors
+      }
+
+      // Prepare the origin point
       final origin = LatLng(
         _currentLocation!.latitude!,
         _currentLocation!.longitude!,
       );
+
+      _logNavigationEvent("Requesting directions", "${origin.latitude},${origin.longitude} -> ${_destinationPlace!.latLng.latitude},${_destinationPlace!.latLng.longitude}");
 
       // Request routes with alternatives set to true
       final routeDetails = await api.GoogleApiServices.getDirections(
@@ -1042,33 +1101,80 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         alternatives: true,
       );
 
-      if (routeDetails != null && routeDetails.routes.isNotEmpty && mounted) {
+      // Check if we're still mounted
+      if (!mounted) {
+        _logNavigationEvent("Widget no longer mounted after API call");
+        return;
+      }
+
+      // Validate the response
+      if (routeDetails == null) {
+        _logNavigationEvent("Null route details received");
+        throw Exception("No route data received from the API");
+      }
+
+      if (routeDetails.routes.isEmpty) {
+        _logNavigationEvent("Empty routes list received");
+        throw Exception("No routes available for this destination");
+      }
+
+      _logNavigationEvent("Received routes", "${routeDetails.routes.length} routes");
+
+      // Process the route data
+      try {
         setState(() {
           _routeAlternatives = [routeDetails];
           _selectedRouteIndex = 0;
           _routeDetails = routeDetails;
           _updateDisplayedRoute(0);
         });
+        _logNavigationEvent("Route data updated");
+      } catch (stateError) {
+        _logNavigationEvent("Error updating route state", stateError);
+        throw Exception("Failed to update route display: $stateError");
+      }
 
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngBounds(routeDetails.routes[0].bounds, 50),
-        );
+      // Update the camera
+      try {
+        if (_mapController != null) {
+          _logNavigationEvent("Updating camera");
+          await _mapController!.animateCamera(
+            CameraUpdate.newLatLngBounds(routeDetails.routes[0].bounds, 50),
+          );
+          _logNavigationEvent("Camera updated");
+        }
+      } catch (cameraError) {
+        _logNavigationEvent("Camera update error", cameraError);
+        // Continue despite camera errors
+      }
 
-        // Ensure the route panel is in collapsed state
+      // Handle the route panel
+      try {
         if (_routePanelController.isAttached) {
           _routePanelController.close();
         }
+      } catch (panelError) {
+        _logNavigationEvent("Route panel handling error", panelError);
+        // Continue despite panel errors
       }
+
     } catch (e) {
-      _showErrorSnackBar('Failed to get directions. Please try again.');
-      setState(() {
-        // Revert to place selected state on error
-        _navigationState = NavigationState.placeSelected;
-        _showingRouteAlternatives = false;
-      });
+      _logNavigationEvent("Navigation error", e);
+
+      // Only update UI if still mounted
+      if (mounted) {
+        _showErrorSnackBar('Failed to get directions. Please try again.');
+        setState(() {
+          _navigationState = NavigationState.placeSelected;
+          _showingRouteAlternatives = false;
+        });
+      }
+    } finally {
+      // Always reset progress flag
+      _isNavigationInProgress = false;
+      _logNavigationEvent("Navigation process completed");
     }
   }
-
 
   // Method to update the displayed route
   void _updateDisplayedRoute(int routeIndex) {
@@ -1101,37 +1207,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   void _stopNavigation() {
-    setState(() {
-      _navigationState = NavigationState.idle;
-      _isNavigating = false;
-      _routeDetails = null;
-      _polylinesMap.clear();
-      _markersMap.remove(const MarkerId('destination'));
-      _destinationPlace = null;
-      _searchController.clear();
-    });
-
-    if (_currentLocation != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(
-              _currentLocation!.latitude!,
-              _currentLocation!.longitude!,
-            ),
-            zoom: 15,
-          ),
-        ),
-      );
-    }
-
-    // Instead, ensure the panel stays closed or minimized
-    if (_panelController.isPanelOpen) {
-      _panelController.close();
-    }
-
-    // Also ensure the keyboard is hidden
-    _ensureKeyboardHidden(context);
+    _completeNavigationReset();
   }
 
   void _fitBounds(List<LatLng> points, {double padding = 50}) {
@@ -1172,28 +1248,28 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Stack(
           children: [
             GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _defaultLocation,
-                zoom: 15,
-              ),
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                _updateCurrentLocationMarker();
-              },
-              markers: _markers,
-              polylines: _polylines,
-              mapType: _currentMapType,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: true,
-              // Disable user gestures during navigation to prevent accidental map movement
-              trafficEnabled: _trafficEnabled,
-              style: _currentMapStyle,
-              scrollGesturesEnabled: !_isInNavigationMode,
-              zoomGesturesEnabled: !_isInNavigationMode,
-              tiltGesturesEnabled: !_isInNavigationMode,
-              rotateGesturesEnabled: !_isInNavigationMode
+                initialCameraPosition: CameraPosition(
+                  target: _defaultLocation,
+                  zoom: 15,
+                ),
+                onMapCreated: (GoogleMapController controller) {
+                  _mapController = controller;
+                  _updateCurrentLocationMarker();
+                },
+                markers: _markers,
+                polylines: _polylines,
+                mapType: _currentMapType,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                compassEnabled: true,
+                // Disable user gestures during navigation to prevent accidental map movement
+                trafficEnabled: _trafficEnabled,
+                style: _currentMapStyle,
+                scrollGesturesEnabled: !_isInNavigationMode,
+                zoomGesturesEnabled: !_isInNavigationMode,
+                tiltGesturesEnabled: !_isInNavigationMode,
+                rotateGesturesEnabled: !_isInNavigationMode
             ),
 
             // Original SlidingUpPanel for location search
@@ -1224,24 +1300,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 right: 0,
                 child: _buildNavigationInfoPanel(),
               ),
-
-              // Show a recenter button during navigation
-              if (_isInNavigationMode)
-                Positioned(
-                  bottom: 120,
-                  right: 16,
-                  child: FloatingActionButton(
-                    mini: true,
-                    backgroundColor: Colors.white,
-                    child: const Icon(Icons.my_location, color: Colors.blue),
-                    onPressed: () {
-                      // Recenter the camera on user's current location
-                      if (_lastKnownLocation != null) {
-                        _updateNavigationCamera();
-                      }
-                    }
-                  )
-                )
           ],
         ),
       ),
@@ -1790,8 +1848,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   String _getRouteDescription(api.Route route) {
-      // This is a placeholder - in a real app, you'd extract the main roads
-      // from the route instructions
+    // This is a placeholder - in a real app, you'd extract the main roads
+    // from the route instructions
     if (route.summary.isNotEmpty) {
       return route.summary;
     }
@@ -1829,16 +1887,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return;
     }
 
+    // Use the helper method to ensure consistent state
+    _updateNavigationState(NavigationState.activeNavigation);
+
     setState(() {
-      _navigationState = NavigationState.activeNavigation;
-      _isNavigating = true;
-      _isInNavigationMode = true;
-      _showingRouteAlternatives = false;
-      _currentStepIndex = 0;
-      _trafficEnabled = true;
-
-
-      // Keep only the selected route
+      // Additional state updates specific to active navigation
       _polylinesMap.clear();
       final polylineId = const PolylineId('active_route');
       final polyline = Polyline(
@@ -1867,6 +1920,119 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         _currentLocation!.longitude!,
       );
       _updateNavigationCamera();
+    }
+  }
+
+  void _completeNavigationReset() {
+    // First, cancel any active navigation subscriptions or timers
+    _navigationLocationSubscription?.cancel();
+    _locationSimulationTimer?.cancel();
+
+    // Restore normal location tracking settings
+    _location.changeSettings(
+      accuracy: LocationAccuracy.high,
+      interval: 10000, // 10 seconds
+      distanceFilter: 10, // 10 meters
+    );
+
+    // Update navigation state to idle (using our centralized method)
+    _updateNavigationState(NavigationState.idle);
+
+    setState(() {
+      // Clear all navigation-related state
+      _routeDetails = null;
+      _routeAlternatives = [];
+      _selectedRouteIndex = 0;
+      _destinationPlace = null;
+      _polylinesMap.clear();
+      _currentStepIndex = 0;
+      _lastKnownLocation = null;
+
+      // Reset map view parameters
+      _navigationZoom = 17.5;
+      _navigationTilt = 45.0;
+      _navigationBearing = 0.0;
+
+      // Reset search-related state
+      _searchController.clear();
+      _placeSuggestions = [];
+      _isSearching = false;
+
+      // Clear all markers except current location
+      final currentLocationMarkerId = const MarkerId('currentLocation');
+      final currentLocationMarker = _markersMap[currentLocationMarkerId];
+      _markersMap.clear();
+      if (currentLocationMarker != null) {
+        _markersMap[currentLocationMarkerId] = currentLocationMarker;
+      }
+
+      // Reset panel states
+      _isRoutePanelExpanded = false;
+      _isFullyExpanded = false;
+      _panelPosition = 0.0;
+    });
+
+    // Reset map camera to current location
+    if (_currentLocation != null && _mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(
+              _currentLocation!.latitude!,
+              _currentLocation!.longitude!,
+            ),
+            zoom: 15,
+            tilt: 0, // Reset tilt
+            bearing: 0, // Reset bearing
+          ),
+        ),
+      );
+    }
+
+    // Ensure the panel is in the proper initial state
+    // First close the route panel if it's open
+    if (_routePanelController.isAttached && _routePanelController.isPanelOpen) {
+      _routePanelController.close();
+    }
+
+    // Then handle the main panel - make sure it's visible but minimized
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted && _panelController != null) {
+        try {
+          // First show the panel if it's hidden
+          if (!_panelController.isPanelShown) {
+            _panelController.open();
+          }
+
+          // Then set it to the exact minimized position
+          _panelController.animatePanelToPosition(
+            0.0, // Exact minimized position - adjust if needed
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } catch (e) {
+          print("Error handling search panel: $e");
+        }
+      } else {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _panelController.open();
+            _panelController.animatePanelToPosition(
+              0, // Minimized position
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
+    // Ensure the keyboard is hidden
+    _ensureKeyboardHidden(context);
+
+    // Reset map style if needed
+    if (_mapController != null) {
+      _mapController!.setMapStyle(_currentMapStyle);
     }
   }
 
@@ -2021,6 +2187,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  void _logNavigationEvent(String event, [dynamic data]) {
+    print("NAVIGATION: $event ${data != null ? '- $data' : ''}");
+  }
+
   // Calculate straight-line distance between two points (in meters)
   double _calculateDistance2(LatLng point1, LatLng point2) {
     // Haversine formula for calculating distance between two coordinates
@@ -2070,7 +2240,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _stopNavigation();
+              _completeNavigationReset();
             },
             child: const Text('OK'),
           ),
@@ -2078,6 +2248,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
     );
   }
+
 
   Widget _buildMapView() {
     return Stack(
@@ -2101,23 +2272,27 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           compassEnabled: true,
         ),
 
-        // Top menu buttons when in idle state
+        // Top menu buttons only in idle state
         if (_navigationState == NavigationState.idle)
           _buildTopMenuButtons(),
 
-        // Back and close buttons when in placeSelected state
-        if (_navigationState == NavigationState.placeSelected)
+        // Back and close buttons only in placeSelected state and not during route preview
+        if (_navigationState == NavigationState.placeSelected && !_showingRouteAlternatives)
           _buildNavigationTopButtons(),
 
-        // Map action buttons
+        // Map action buttons (conditional based on navigation state)
         _buildMapActionButtons(),
 
-        // Report button
+        // Report button (conditional based on navigation state)
         _buildReportButton(),
 
-        // Selected place card only when in placeSelected state
-        if (_navigationState == NavigationState.placeSelected)
+        // Selected place card - only in placeSelected state and not during route preview
+        if (_navigationState == NavigationState.placeSelected && !_showingRouteAlternatives)
           _buildSelectedPlaceCard(),
+
+        // Conditionally show the route selection panel
+        if (_showingRouteAlternatives && _routeAlternatives.isNotEmpty)
+          _buildRouteSelectionPanel(),
 
         // Navigation info panel only when in activeNavigation state
         if (_navigationState == NavigationState.activeNavigation && _routeDetails != null)
@@ -2187,8 +2362,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             icon: Icons.menu,
             onPressed: () {
               Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Hamburgmenu()),
+                context,
+                MaterialPageRoute(builder: (context) => Hamburgmenu()),
               );
             },
           ),
@@ -2252,6 +2427,53 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildMapActionButtons() {
+    // When in route selection mode (_showingRouteAlternatives is true),
+    // we'll display only the recenter button
+    if (_showingRouteAlternatives) {
+      return Positioned(
+        top: 16,
+        right: 16,
+        child: _buildCircularButton(
+          icon: Icons.my_location,
+          onPressed: () {
+            if (_currentLocation != null) {
+              _mapController?.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                    target: LatLng(
+                      _currentLocation!.latitude ?? _defaultLocation.latitude,
+                      _currentLocation!.longitude ?? _defaultLocation.longitude,
+                    ),
+                    zoom: 15,
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+      );
+    }
+
+    // For navigation mode, we show the centered recenter button
+    if (_isInNavigationMode) {
+      return Positioned(
+        right: 16,
+        bottom: MediaQuery.of(context).size.height / 2 - 28, // Center vertically
+        child: FloatingActionButton(
+          heroTag: "recenterButton",
+          backgroundColor: Colors.white,
+          elevation: 4.0,
+          child: const Icon(Icons.my_location, color: Colors.blue, size: 24),
+          onPressed: () {
+            if (_lastKnownLocation != null) {
+              _updateNavigationCamera();
+            }
+          },
+        ),
+      );
+    }
+
+    // For other states, show the original buttons
     return Positioned(
       bottom: 200,
       right: 16,
@@ -2279,7 +2501,30 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildReportButton(){
+  Widget _buildReportButton() {
+    // Skip rendering the report button if we're in route selection mode
+    if (_showingRouteAlternatives) {
+      return const SizedBox.shrink(); // Return an empty widget
+    }
+
+    // For navigation mode, show the report button at bottom left
+    if (_isInNavigationMode) {
+      return Positioned(
+        bottom: 100, // Position at bottom with padding
+        left: 16, // Position at left
+        child: FloatingActionButton(
+          heroTag: "reportButton",
+          backgroundColor: Colors.white,
+          elevation: 4.0,
+          child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+          onPressed: () {
+            // Implement Hazard Reporting here
+          },
+        ),
+      );
+    }
+
+    // For other states, show the regular report button
     return Positioned(
       bottom: 200,
       left: 16,
@@ -2287,10 +2532,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         icon: Icons.warning_amber_rounded,
         onPressed: () {
           // Implement Hazard Reporting here
-      },
-    ),
-  );
-}
+        },
+      ),
+    );
+  }
 
   Widget _buildNavigationInfoPanel() {
     if (!_isInNavigationMode || _routeDetails == null) {
@@ -2532,34 +2777,55 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     final route = _routeDetails!.routes[0];
     final leg = route.legs[0];
 
-    // Get duration in seconds
-    int remainingSeconds = 0;
+    // Get duration in seconds from the leg
+    int remainingSeconds = leg.duration.value;
 
-    // Sum up remaining step durations
-    for (int i = _currentStepIndex; i < leg.steps.length; i++) {
-      remainingSeconds += leg.steps[i].duration.value;
+    // If we have steps, calculate more precisely using step durations
+    if (leg.steps.isNotEmpty) {
+      remainingSeconds = 0;
+
+      // Sum up remaining step durations
+      for (int i = _currentStepIndex; i < leg.steps.length; i++) {
+        // Ensure we have valid duration values
+        if (leg.steps[i].duration.value > 0) {
+          remainingSeconds += leg.steps[i].duration.value;
+        }
+      }
+
+      // If we're in the middle of a step, adjust for progress
+      if (_currentStepIndex < leg.steps.length && _lastKnownLocation != null) {
+        final currentStep = leg.steps[_currentStepIndex];
+        final distanceToStepEnd = _calculateDistance2(
+            _lastKnownLocation!,
+            currentStep.endLocation
+        );
+        final totalStepDistance = _calculateDistance2(
+            currentStep.startLocation,
+            currentStep.endLocation
+        );
+
+        if (totalStepDistance > 0) {
+          // Calculate how far through the current step we are (0 to 1)
+          // Need to invert since distanceToStepEnd measures remaining distance
+          double progressRatio = 1.0 - (distanceToStepEnd / totalStepDistance);
+
+          // Ensure progressRatio is within valid range to prevent calculation errors
+          progressRatio = progressRatio.clamp(0.0, 1.0);
+
+          // Adjust the current step time based on progress
+          final adjustedStepTime = (1.0 - progressRatio) * currentStep.duration.value;
+
+          // Update the remaining seconds by removing the completed portion
+          remainingSeconds = remainingSeconds - currentStep.duration.value + adjustedStepTime.toInt();
+        }
+      }
     }
 
-    // If we're in the middle of a step, reduce the time of the current step
-    if (_currentStepIndex < leg.steps.length && _lastKnownLocation != null) {
-      final currentStep = leg.steps[_currentStepIndex];
-      final distanceToStepEnd = _calculateDistance2(
-          _lastKnownLocation!,
-          currentStep.endLocation
-      );
-      final totalStepDistance = _calculateDistance2(
-          currentStep.startLocation,
-          currentStep.endLocation
-      );
-
-      if (totalStepDistance > 0) {
-        // Adjust remaining time based on progress in current step
-        final progressRatio = 1 - (distanceToStepEnd / totalStepDistance);
-        final adjustedStepTime = (1 - progressRatio) * currentStep.duration.value;
-
-        // Subtract the already traveled portion of the current step
-        remainingSeconds = remainingSeconds - currentStep.duration.value + adjustedStepTime.toInt();
-      }
+    // Validate: If remaining time is suspiciously short, use leg duration as fallback
+    // This ensures we don't show the current time as ETA
+    if (remainingSeconds < 60) {  // Less than a minute remaining seems unlikely
+      print('ETA calculation warning: Calculated time too short ($remainingSeconds seconds). Using route duration instead.');
+      remainingSeconds = leg.duration.value;
     }
 
     // Calculate arrival time
@@ -2928,12 +3194,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _stopNavigation();
-
-              // Ensure panel doesn't show up
-              if (_panelController.isPanelOpen) {
-                _panelController.close();
-              }
+              _completeNavigationReset();
             },
             child: const Text('End'),
           ),
@@ -3158,7 +3419,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             overflow: TextOverflow.ellipsis,
           ),
           trailing: Text(
-            "${_calculateDistance(suggestion)} km",
+            _calculateDistance(suggestion) == "-"
+                ? "-"
+                : "${_calculateDistance(suggestion)} km",
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -3171,9 +3434,58 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   String _calculateDistance(api.PlaceSuggestion suggestion) {
-    // This is a placeholder - you'll need to implement actual distance calculation
-    // based on the suggestion's location and current location
-    return "2.9"; // Example value
+    // Return cached distance if available
+    if (_suggestionDistances.containsKey(suggestion.placeId)) {
+      return _suggestionDistances[suggestion.placeId]!;
+    }
+
+    // Start a background calculation for this suggestion if we have location
+    if (_currentLocation != null) {
+      _calculateDistanceAsync(suggestion);
+    }
+
+    // Return a placeholder while calculating
+    return "-";
+  }
+
+  Future<void> _calculateDistanceAsync(api.PlaceSuggestion suggestion) async {
+    try {
+      // Get place details to access its coordinates
+      final place = await api.GoogleApiServices.getPlaceDetails(suggestion.placeId);
+
+      if (place != null && _currentLocation != null && mounted) {
+        // Calculate distance using the Haversine formula
+        final distanceInMeters = _calculateDistance2(
+            LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!),
+            place.latLng
+        );
+
+        // Format the distance appropriately
+        String formattedDistance;
+        if (distanceInMeters < 1000) {
+          formattedDistance = "${distanceInMeters.toInt()} m";
+        } else {
+          formattedDistance = "${(distanceInMeters / 1000).toStringAsFixed(1)}";
+        }
+
+        // Update the cache and trigger a UI refresh
+        setState(() {
+          _suggestionDistances[suggestion.placeId] = formattedDistance;
+        });
+      }
+    } catch (e) {
+      print('Error calculating distance for ${suggestion.placeId}: $e');
+    }
+  }
+
+  void _updateAllSuggestionDistances() {
+    if (_placeSuggestions.isEmpty || _currentLocation == null) return;
+
+    for (var suggestion in _placeSuggestions) {
+      if (!_suggestionDistances.containsKey(suggestion.placeId)) {
+        _calculateDistanceAsync(suggestion);
+      }
+    }
   }
 
   Widget _buildQuickAccessButton(IconData icon, String label) {

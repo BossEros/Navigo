@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:project_navigo/config/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class GoogleApiServices {
   // Replace with your actual API key
@@ -76,13 +78,10 @@ class GoogleApiServices {
     }
   }
 
-  // Place this in the GoogleApiServices class
   static Future<List<String>> getPlacePhotos(String placeId) async {
     try {
+      // First fetch photo references
       final String url = '$_placesBaseUrl/places/$placeId';
-      print('Fetching photos for place: $placeId');
-      print('URL: $url');
-
       final response = await http.get(
         Uri.parse(url),
         headers: {
@@ -91,62 +90,30 @@ class GoogleApiServices {
         },
       );
 
-      print('Photos API response status: ${response.statusCode}');
-      if (response.body.isNotEmpty) {
-        print('Response body preview: ${response.body.substring(0, min(100, response.body.length))}');
-      } else {
-        print('Response body is empty');
-      }
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        List<Future<String>> photoFutures = [];
 
-        List<String> photoUrls = [];
-
-        // Check if photos field exists and is non-empty
         if (data.containsKey('photos') && data['photos'] is List && data['photos'].isNotEmpty) {
-          print('Found ${data['photos'].length} photos');
-
-          // Process each photo reference
+          // Create a list of future requests for parallel execution
           for (var photo in data['photos']) {
             if (photo.containsKey('name')) {
-              try {
-                // Add a small delay between requests to avoid rate limiting
-                await Future.delayed(Duration(milliseconds: 300));
-
-                final photoUrl = await getPlacePhoto(placeId, photo['name']);
-                if (photoUrl.isNotEmpty) {
-                  photoUrls.add(photoUrl);
-                  print('Successfully added photo URL: ${photoUrl.substring(0, min(50, photoUrl.length))}...');
-                }
-              } catch (e) {
-                print('Error fetching individual photo: $e');
-              }
-            } else {
-              print('Photo object missing "name" property: $photo');
+              photoFutures.add(getPlacePhoto(placeId, photo['name']));
             }
           }
-        } else {
-          print('No photos found in API response');
-        }
 
-        return photoUrls;
-      } else {
-        print('Error fetching place photos: ${response.statusCode}');
-        if (response.body.isNotEmpty) {
-          try {
-            final errorData = json.decode(response.body);
-            final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
-            print('Error message: $errorMessage');
-          } catch (e) {
-            print('Could not parse error response: ${response.body}');
-          }
+          // Execute requests in parallel with a timeout
+          final results = await Future.wait(
+            photoFutures,
+          );
+
+          // Filter out empty results and return
+          return results.where((url) => url.isNotEmpty).toList();
         }
-        return [];
       }
+      return [];
     } catch (e) {
       print('Exception fetching place photos: $e');
-      print('Stack trace: ${StackTrace.current}');
       return [];
     }
   }
