@@ -8,7 +8,7 @@ class RouteHistory {
   final Address endLocation;
   final List<Address> waypoints;
   final Distance distance;
-  final Duration duration;
+  final TravelDuration duration;
   final DateTime createdAt;
   final String travelMode;
   final String polyline;
@@ -47,7 +47,7 @@ class RouteHistory {
       endLocation: Address.fromMap(data['end_location'] ?? {}),
       waypoints: waypoints,
       distance: Distance.fromMap(data['distance'] ?? {}),
-      duration: Duration.fromMap(data['duration'] ?? {}),
+      duration: TravelDuration.fromMap(data['duration'] ?? {}),
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       travelMode: data['travel_mode'] ?? 'DRIVING',
       polyline: data['polyline'] ?? '',
@@ -95,14 +95,14 @@ class Distance {
   }
 }
 
-class Duration {
+class TravelDuration {
   final String text;
   final int value;
 
-  Duration({required this.text, required this.value});
+  TravelDuration({required this.text, required this.value});
 
-  factory Duration.fromMap(Map<String, dynamic> map) {
-    return Duration(
+  factory TravelDuration.fromMap(Map<String, dynamic> map) {
+    return TravelDuration(
       text: map['text'] ?? '0 min',
       value: map['value'] ?? 0,
     );

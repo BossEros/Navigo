@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
@@ -9,8 +10,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'dart:async';
 import '../config/config.dart';
+import '../models/route_history.dart';
+import '../models/user_profile.dart';
 import '../services/google-api-services.dart' as api hide Duration;
 import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
+import '../services/route_history_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -213,6 +217,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   bool _isNavigating = false;
   api.RouteDetails? _routeDetails;
   bool _isNavigationInProgress = false;
+  DateTime _navigationStartTime = DateTime.now();
 
   bool _showingRouteAlternatives = false;
   int _selectedRouteIndex = 0;
@@ -1920,6 +1925,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return;
     }
 
+    _navigationStartTime = DateTime.now();
+
     // Use the helper method to ensure consistent state
     _updateNavigationState(NavigationState.activeNavigation);
 
@@ -2263,6 +2270,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       distanceFilter: 10, // 10 meters
     );
 
+    // Save the completed route to history
+    _saveCompletedRoute();
+
     // Show arrival dialog
     showDialog(
       context: context,
@@ -2282,6 +2292,103 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+  Future<void> _saveCompletedRoute() async {
+    // Skip if any required data is missing
+    if (_routeDetails == null ||
+        _destinationPlace == null ||
+        _currentLocation == null ||
+        _routeDetails!.routes.isEmpty) {
+      print('Missing data for saving route history');
+      return;
+    }
+
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('No authenticated user found');
+        return;
+      }
+
+      // Get the selected route and its first leg
+      final route = _routeDetails!.routes[_selectedRouteIndex];
+      final leg = route.legs[0];
+
+      // Create origin Address object
+      final startLocation = Address(
+        formattedAddress: leg.startAddress.isNotEmpty
+            ? leg.startAddress
+            : 'Your location',
+        lat: leg.startLocation.latitude,
+        lng: leg.startLocation.longitude,
+        placeId: '', // We might not have this
+      );
+
+      // Create destination Address object
+      final endLocation = Address(
+        formattedAddress: _destinationPlace!.address,
+        lat: _destinationPlace!.latLng.latitude,
+        lng: _destinationPlace!.latLng.longitude,
+        placeId: _destinationPlace!.id,
+      );
+
+      // Convert polyline points to encoded string if needed
+      String encodedPolyline = '';
+      if (route.polylinePoints.isNotEmpty) {
+        // This might need a custom encoder depending on how you're storing polylines
+        // For simplicity, we're just using a string representation
+        encodedPolyline = route.polylinePoints.toString();
+      }
+
+      // Determine traffic conditions (simplified)
+      String trafficCondition = 'normal';
+      final actualDuration = DateTime.now().difference(_navigationStartTime).inSeconds;
+      final estimatedDuration = leg.duration.value;
+
+      if (actualDuration > estimatedDuration * 1.2) {
+        trafficCondition = 'heavy';
+      } else if (actualDuration < estimatedDuration * 0.8) {
+        trafficCondition = 'light';
+      }
+
+      // Create the RouteHistory object
+      final routeHistory = RouteHistory(
+        id: '', // Will be set by Firebase
+        startLocation: startLocation,
+        endLocation: endLocation,
+        waypoints: [], // Add any waypoints if available
+        distance: Distance(
+          text: leg.distance.text,
+          value: leg.distance.value,
+        ),
+        duration: TravelDuration(
+          text: leg.duration.text,
+          value: actualDuration, // Use actual time rather than estimated
+        ),
+        createdAt: DateTime.now(),
+        travelMode: 'DRIVING', // Update based on actual mode
+        polyline: encodedPolyline,
+        routeName: _destinationPlace!.name,
+        trafficConditions: trafficCondition,
+        weatherConditions: null, // Would need weather API integration
+      );
+
+      // Get route history service
+      final routeHistoryService = RouteHistoryService();
+
+      // Save the route
+      final routeId = await routeHistoryService.saveCompletedRoute(
+        userId: user.uid,
+        routeHistory: routeHistory,
+      );
+
+      print('Route history saved successfully with ID: $routeId');
+
+    } catch (e) {
+      print('Error saving route history: $e');
+      // Don't show error to user - silently log it
+    }
+  }
 
   Widget _buildMapView() {
     return Stack(
