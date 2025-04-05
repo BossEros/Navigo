@@ -33,22 +33,128 @@ class RouteHistory {
 
   factory RouteHistory.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    print('Parsing document: ${doc.id}');
 
+    // Parse the created_at timestamp from the database
+    DateTime createdAt;
+    try {
+      if (data['created_at'] is Timestamp) {
+        createdAt = (data['created_at'] as Timestamp).toDate();
+      } else if (data['created_at'] is String) {
+        createdAt = DateTime.parse(data['created_at']);
+      } else {
+        createdAt = DateTime.now();
+        print('Warning: created_at not found or invalid format, using current time');
+      }
+    } catch (e) {
+      print('Error parsing created_at: $e');
+      createdAt = DateTime.now();
+    }
+
+    // Parse start_location object with error handling
+    Address startLocation;
+    try {
+      if (data['start_location'] is Map) {
+        Map<String, dynamic> startLocationMap = data['start_location'] as Map<String, dynamic>;
+        startLocation = Address(
+          formattedAddress: startLocationMap['formattedAddress'] ?? '',
+          lat: (startLocationMap['lat'] is num) ? (startLocationMap['lat'] as num).toDouble() : 0.0,
+          lng: (startLocationMap['lng'] is num) ? (startLocationMap['lng'] as num).toDouble() : 0.0,
+          placeId: startLocationMap['placeId'] ?? '',
+        );
+      } else {
+        startLocation = Address.empty();
+        print('Warning: start_location not found or invalid format, using empty address');
+      }
+    } catch (e) {
+      print('Error parsing start_location: $e');
+      startLocation = Address.empty();
+    }
+
+    // Parse end_location object with error handling
+    Address endLocation;
+    try {
+      if (data['end_location'] is Map) {
+        Map<String, dynamic> endLocationMap = data['end_location'] as Map<String, dynamic>;
+        endLocation = Address(
+          formattedAddress: endLocationMap['formattedAddress'] ?? '',
+          lat: (endLocationMap['lat'] is num) ? (endLocationMap['lat'] as num).toDouble() : 0.0,
+          lng: (endLocationMap['lng'] is num) ? (endLocationMap['lng'] as num).toDouble() : 0.0,
+          placeId: endLocationMap['placeId'] ?? '',
+        );
+      } else {
+        endLocation = Address.empty();
+        print('Warning: end_location not found or invalid format, using empty address');
+      }
+    } catch (e) {
+      print('Error parsing end_location: $e');
+      endLocation = Address.empty();
+    }
+
+    // Parse waypoints array with error handling
     List<Address> waypoints = [];
-    if (data.containsKey('waypoints') && data['waypoints'] is List) {
-      waypoints = (data['waypoints'] as List)
-          .map((wp) => Address.fromMap(wp as Map<String, dynamic>))
-          .toList();
+    try {
+      if (data['waypoints'] is List) {
+        List waypointsList = data['waypoints'] as List;
+        for (var wp in waypointsList) {
+          if (wp is Map) {
+            waypoints.add(Address(
+              formattedAddress: wp['formattedAddress'] ?? '',
+              lat: (wp['lat'] is num) ? (wp['lat'] as num).toDouble() : 0.0,
+              lng: (wp['lng'] is num) ? (wp['lng'] as num).toDouble() : 0.0,
+              placeId: wp['placeId'] ?? '',
+            ));
+          }
+        }
+      }
+    } catch (e) {
+      print('Error parsing waypoints: $e');
+    }
+
+    // Parse distance object with error handling
+    Distance distance;
+    try {
+      if (data['distance'] is Map) {
+        Map<String, dynamic> distanceMap = data['distance'] as Map<String, dynamic>;
+        distance = Distance(
+          text: distanceMap['text'] ?? '0 km',
+          value: (distanceMap['value'] is num) ? (distanceMap['value'] as num).toInt() : 0,
+        );
+      } else {
+        distance = Distance(text: '0 km', value: 0);
+        print('Warning: distance not found or invalid format, using default');
+      }
+    } catch (e) {
+      print('Error parsing distance: $e');
+      distance = Distance(text: '0 km', value: 0);
+    }
+
+    // Parse duration object with error handling
+    TravelDuration duration;
+    try {
+      if (data['duration'] is Map) {
+        Map<String, dynamic> durationMap = data['duration'] as Map<String, dynamic>;
+        duration = TravelDuration(
+          text: durationMap['text'] ?? '0 min',
+          value: (durationMap['value'] is num) ? (durationMap['value'] as num).toInt() : 0,
+        );
+      } else {
+        duration = TravelDuration(text: '0 min', value: 0);
+        print('Warning: duration not found or invalid format, using default');
+      }
+    } catch (e) {
+      print('Error parsing duration: $e');
+      duration = TravelDuration(text: '0 min', value: 0);
     }
 
     return RouteHistory(
       id: doc.id,
-      startLocation: Address.fromMap(data['start_location'] ?? {}),
-      endLocation: Address.fromMap(data['end_location'] ?? {}),
+      startLocation: startLocation,
+      endLocation: endLocation,
       waypoints: waypoints,
-      distance: Distance.fromMap(data['distance'] ?? {}),
-      duration: TravelDuration.fromMap(data['duration'] ?? {}),
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      distance: distance,
+      duration: duration,
+      createdAt: createdAt,
       travelMode: data['travel_mode'] ?? 'DRIVING',
       polyline: data['polyline'] ?? '',
       routeName: data['route_name'],

@@ -41,11 +41,18 @@ class RouteHistoryService {
     DocumentSnapshot? startAfterDocument,
   }) async {
     return _firebaseUtils.safeOperation(() async {
+      print('Fetching route history for user: $userId, limit: $limit');
+
+      // IMPORTANT: Use snake_case for the field name to match your Firestore structure
+      const String createdAtField = 'created_at';  // Changed from 'createdAt' to 'created_at'
+
+      print('Using field name for ordering: $createdAtField');
+
       Query query = _firestore
           .collection('users')
           .doc(userId)
           .collection('route_history')
-          .orderBy('createdAt', descending: true)
+          .orderBy(createdAtField, descending: true)
           .limit(limit);
 
       if (startAfterDocument != null) {
@@ -53,10 +60,19 @@ class RouteHistoryService {
       }
 
       final querySnapshot = await query.get();
+      print('Found ${querySnapshot.docs.length} route documents');
 
-      return querySnapshot.docs
-          .map((doc) => RouteHistory.fromFirestore(doc))
-          .toList();
+      List<RouteHistory> routes = [];
+      for (var doc in querySnapshot.docs) {
+        try {
+          routes.add(RouteHistory.fromFirestore(doc));
+        } catch (e) {
+          print('Error parsing route document ${doc.id}: $e');
+          // Continue to next document rather than failing the whole operation
+        }
+      }
+
+      return routes;
     }, 'getUserRouteHistory');
   }
 

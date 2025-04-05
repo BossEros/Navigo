@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
@@ -1223,25 +1225,201 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _selectedRouteIndex = routeIndex;
       _polylinesMap.clear();
 
+      // Clear any existing route info markers first
+      _clearRouteInfoMarkers();
+
       // Add all routes with different styles
       for (int i = 0; i < _routeAlternatives[0].routes.length; i++) {
         final route = _routeAlternatives[0].routes[i];
         final polylineId = PolylineId('route_$i');
-
-        // Selected route gets primary color and higher width
         final isSelected = i == _selectedRouteIndex;
 
+        // Selected route gets primary color and higher width
         final polyline = Polyline(
           polylineId: polylineId,
           points: route.polylinePoints,
           color: isSelected ? Colors.blue : Colors.grey,
           width: isSelected ? 7 : 4,
           zIndex: isSelected ? 2 : 1,
+          // Add tap handler to each polyline (simplified)
+          onTap: () {
+            // Only update if not already selected
+            if (!isSelected) {
+              _updateDisplayedRoute(i);
+            }
+          },
+          consumeTapEvents: true, // Prevent map from receiving the tap
         );
 
         _polylinesMap[polylineId] = polyline;
+
+        // Add duration markers for each route
+        _addRouteDurationMarker(route, i, isSelected);
       }
     });
+  }
+
+  // Create a custom bitmap for route duration bubbles
+  Future<BitmapDescriptor> _createRouteDurationBitmap(String duration, bool isSelected) async {
+    // Use a simple Flutter widget to generate a bitmap
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final size = Size(80, 40);
+
+    // Draw a rounded rectangle background
+    final paint = Paint()
+      ..color = isSelected
+          ? const Color(0xFF66B2FF) // Light blue for selected route
+          : const Color(0xFF888888); // Gray for alternate routes
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(20));
+    canvas.drawRRect(rrect, paint);
+
+    // Add text
+    final textSpan = TextSpan(
+      text: isSelected ? "$duration\nBest" : duration,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: isSelected ? 16 : 14,
+        fontWeight: FontWeight.bold,
+        height: 1.0,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    textPainter.layout(minWidth: size.width, maxWidth: size.width);
+    textPainter.paint(
+      canvas,
+      Offset((size.width - textPainter.width) / 2, (size.height - textPainter.height) / 2),
+    );
+
+    // Convert to image
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.width.toInt(), size.height.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) {
+      // Fallback to standard marker if conversion fails
+      return BitmapDescriptor.defaultMarkerWithHue(
+          isSelected ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueViolet
+      );
+    }
+
+    final Uint8List bytes = byteData.buffer.asUint8List();
+    return BitmapDescriptor.fromBytes(bytes);
+  }
+
+  // Helper method to add route duration markers
+  void _addRouteDurationMarker(api.Route route, int routeIndex, bool isSelected) {
+    // Skip if no legs
+    if (route.legs.isEmpty) return;
+
+    final leg = route.legs[0];
+    final points = route.polylinePoints;
+
+    // Find a good position for the marker (around 40% along the route)
+    // This helps ensure the marker is visible but not too close to either end
+    final markerPosition = _findPositionAlongRoute(points, 0.4);
+
+    // Create marker ID
+    final markerId = MarkerId('route_duration_$routeIndex');
+
+    // Get duration text
+    final durationText = leg.duration.text;
+
+    // Create a route duration bubble using a custom bitmap
+    _createRouteDurationBitmap(durationText, isSelected).then((BitmapDescriptor customIcon) {
+      if (!mounted) return;
+
+      setState(() {
+        _markersMap[markerId] = Marker(
+          markerId: markerId,
+          position: markerPosition,
+          // Use our custom bitmap for the route duration
+          icon: customIcon,
+          // No info window needed as we have a custom bubble
+          infoWindow: InfoWindow.noText,
+          // Higher z-index to ensure visibility over the route lines
+          zIndex: isSelected ? 3 : 2,
+          // Make the icon clickable
+          consumeTapEvents: true,
+          visible: true,
+          // When tapped, select this route
+          onTap: () {
+            if (!isSelected) {
+              _updateDisplayedRoute(routeIndex);
+            }
+          },
+        );
+      });
+    });
+  }
+
+  // Helper to find a position along the route at a certain percentage
+  LatLng _findPositionAlongRoute(List<LatLng> points, double percentage) {
+    if (points.isEmpty) return const LatLng(0, 0);
+    if (points.length == 1) return points[0];
+
+    // For a simple implementation, just pick a point at roughly the desired percentage
+    int index = (points.length * percentage).toInt();
+    // Ensure index is within bounds
+    index = index.clamp(0, points.length - 1);
+
+    return points[index];
+  }
+
+  // Clear all route info markers before creating new ones
+  void _clearRouteInfoMarkers() {
+    // Remove any markers with IDs starting with 'route_duration_'
+    _markersMap.removeWhere((markerId, marker) =>
+        markerId.value.startsWith('route_duration_'));
+  }
+
+  // Create a custom map style that enhances route visibility
+  void _applyOptimizedMapStyle() {
+    if (_mapController == null) return;
+
+    // Apply a map style that reduces visual noise and enhances route visibility
+    // This is optional but can improve the user experience
+    final String optimizedMapStyle = '''
+  [
+    {
+      "featureType": "poi",
+      "elementType": "labels",
+      "stylers": [
+        {
+          "visibility": "off"
+        }
+      ]
+    },
+    {
+      "featureType": "transit",
+      "elementType": "labels",
+      "stylers": [
+        {
+          "visibility": "off"
+        }
+      ]
+    },
+    {
+      "featureType": "road",
+      "elementType": "geometry.fill",
+      "stylers": [
+        {
+          "weight": 2
+        }
+      ]
+    }
+  ]
+  ''';
+
+    _mapController!.setMapStyle(optimizedMapStyle);
   }
 
   void _stopNavigation() {

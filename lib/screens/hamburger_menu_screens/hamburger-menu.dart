@@ -1,3 +1,5 @@
+import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
+
 import '../../widgets/profile_image.dart';
 import 'profile.dart';
 import 'settings.dart';
@@ -307,7 +309,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                   Icons.map_outlined,
                   'Your Route Data',
                   context,
-                  const EmptyPage(),
+                  RouteHistoryScreen(),
                 ),
                 const Divider(height: 1),
                 buildListTile(
