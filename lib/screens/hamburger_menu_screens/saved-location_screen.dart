@@ -7,6 +7,7 @@ import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/models/saved_map.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:project_navigo/services/app_constants.dart';
 
 class SavedLocationsScreen extends StatefulWidget {
   const SavedLocationsScreen({Key? key}) : super(key: key);
@@ -359,45 +360,49 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     );
   }
 
+  final Map<String, Map<String, dynamic>> locationCategories = {
+    'favorite': {
+      'displayName': 'Favorites',
+      'icon': Icons.favorite,
+      'color': Colors.red,
+    },
+    'food': {
+      'displayName': 'Food & Dining',
+      'icon': Icons.restaurant,
+      'color': Colors.orange,
+    },
+    'shopping': {
+      'displayName': 'Shopping',
+      'icon': Icons.shopping_bag,
+      'color': Colors.lightBlue,
+    },
+    'entertainment': {
+      'displayName': 'Entertainment',
+      'icon': Icons.movie,
+      'color': Colors.purple,
+    },
+    'services': {
+      'displayName': 'Services',
+      'icon': Icons.business,
+      'color': Colors.teal,
+    },
+    'other': {
+      'displayName': 'Other Places',
+      'icon': Icons.place,
+      'color': Colors.amber,
+    },
+  };
+
   String _getCategoryDisplayName(String category) {
-    switch (category) {
-      case 'favorite':
-        return 'Favorites';
-      case 'home':
-        return 'Home';
-      case 'work':
-        return 'Work';
-      case 'other':
-        return 'Other Places';
-      default:
-        return 'Other';
-    }
+    return getCategoryDisplayName(category);
   }
 
   IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'favorite':
-        return Icons.favorite;
-      case 'home':
-        return Icons.home;
-      case 'work':
-        return Icons.work;
-      default:
-        return Icons.place;
-    }
+    return getCategoryIcon(category);
   }
 
   Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'favorite':
-        return Colors.red;
-      case 'home':
-        return Colors.green;
-      case 'work':
-        return Colors.blue;
-      default:
-        return Colors.amber;
-    }
+    return getCategoryColor(category);
   }
 
   Widget _buildLocationCard(SavedMap location) {
@@ -544,42 +549,20 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                   _filterByCategory(null);
                 },
               ),
-              ListTile(
-                title: const Text('Favorites'),
-                leading: const Icon(Icons.favorite, color: Colors.red),
-                selected: _selectedCategory == 'favorite',
-                onTap: () {
-                  Navigator.pop(context);
-                  _filterByCategory('favorite');
-                },
-              ),
-              ListTile(
-                title: const Text('Home'),
-                leading: const Icon(Icons.home, color: Colors.green),
-                selected: _selectedCategory == 'home',
-                onTap: () {
-                  Navigator.pop(context);
-                  _filterByCategory('home');
-                },
-              ),
-              ListTile(
-                title: const Text('Work'),
-                leading: const Icon(Icons.work, color: Colors.blue),
-                selected: _selectedCategory == 'work',
-                onTap: () {
-                  Navigator.pop(context);
-                  _filterByCategory('work');
-                },
-              ),
-              ListTile(
-                title: const Text('Other Places'),
-                leading: const Icon(Icons.place, color: Colors.amber),
-                selected: _selectedCategory == 'other',
-                onTap: () {
-                  Navigator.pop(context);
-                  _filterByCategory('other');
-                },
-              ),
+              // Generate filter options dynamically from categories
+              ...locationCategories.entries.map((entry) {
+                final key = entry.key;
+                final data = entry.value;
+                return ListTile(
+                  title: Text(data['displayName']),
+                  leading: Icon(data['icon'], color: data['color']),
+                  selected: _selectedCategory == key,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _filterByCategory(key);
+                  },
+                );
+              }).toList(),
             ],
           ),
         );

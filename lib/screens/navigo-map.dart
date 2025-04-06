@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +12,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:project_navigo/models/recent_location.dart';
 import 'package:project_navigo/services/recent_locations_service.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 import '../config/config.dart';
 import '../models/route_history.dart';
@@ -23,6 +21,7 @@ import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dar
 import '../services/route_history_service.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:provider/provider.dart';
+import 'package:project_navigo/services/app_constants.dart';
 
 import 'login_screen.dart';
 
@@ -371,15 +370,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       if (_mapController == null) return;
     }
 
-    // First center the map on the location
-    _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: widget.savedCoordinates!,
-          zoom: 16,
-          tilt: 30,
-        ),
-      ),
+    // Use the new centralized method for camera positioning
+    _centerCameraOnLocation(
+      location: widget.savedCoordinates!,
+      zoom: 16,
+      tilt: 30,
     );
 
     // Create a place suggestion to work with existing code
@@ -1084,6 +1079,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         _markersMap[markerId] = marker;
 
         if (!_isNavigating && _mapController != null) {
+          // When centering on current location, we don't need the vertical offset
+          // since we don't show the details card for the current location
           _mapController!.animateCamera(
             CameraUpdate.newCameraPosition(
               CameraPosition(
@@ -1179,19 +1176,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         _addDestinationMarker(place);
         _loadPlacePhotos();
 
-        // Single smooth camera animation to the location
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: place.latLng,
-              zoom: 16,
-              tilt: 30,
-            ),
-          ),
+        // Use the new centralized method for camera positioning
+        _centerCameraOnLocation(
+          location: place.latLng,
+          zoom: 16,
+          tilt: 30,
         );
 
-        // Check if the location is saved
-        _checkIfLocationIsSaved();
+        // Check if the location is saved (if you have this functionality)
+        if (_savedMapService != null) {
+          _checkIfLocationIsSaved();
+        }
 
         print('Successfully set destination: ${place.name}');
       } else {
@@ -1964,7 +1959,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             _savedLocationCache[_destinationPlace!.id] = true;
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${_destinationPlace!.name} saved to ${_getCategoryDisplayName(selectedCategory)}')),
+              SnackBar(content: Text('${_destinationPlace!.name} saved to ${getCategoryDisplayName(selectedCategory)}')),
             );
           }
         }
@@ -2011,38 +2006,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           title: const Text('Save to...'),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildCategoryOption(
-                    'Favorite',
-                    Icons.favorite,
-                    'favorite',
-                    category,
-                        (value) => setState(() => category = value),
-                  ),
-                  _buildCategoryOption(
-                    'Home',
-                    Icons.home,
-                    'home',
-                    category,
-                        (value) => setState(() => category = value),
-                  ),
-                  _buildCategoryOption(
-                    'Work',
-                    Icons.work,
-                    'work',
-                    category,
-                        (value) => setState(() => category = value),
-                  ),
-                  _buildCategoryOption(
-                    'Other',
-                    Icons.place,
-                    'other',
-                    category,
-                        (value) => setState(() => category = value),
-                  ),
-                ],
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: locationCategories.entries.map((entry) {
+                    final key = entry.key;
+                    final data = entry.value;
+                    return _buildCategoryOption(
+                      data['displayName'],
+                      data['icon'],
+                      key,
+                      category,
+                          (value) => setState(() => category = value),
+                    );
+                  }).toList(),
+                ),
               );
             },
           ),
@@ -2085,22 +2063,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         }
       },
     );
-  }
-
-  // Helper method to get display name for category
-  String _getCategoryDisplayName(String category) {
-    switch (category) {
-      case 'favorite':
-        return 'Favorites';
-      case 'home':
-        return 'Home';
-      case 'work':
-        return 'Work';
-      case 'other':
-        return 'Other';
-      default:
-        return 'Saved Locations';
-    }
   }
 
   Widget _buildCollapsedRoutePanel() {
@@ -2637,6 +2599,68 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       );
       _updateNavigationCamera();
     }
+  }
+
+  void _centerCameraOnLocation({
+    required LatLng location,
+    double zoom = 16.0,
+    double tilt = 30.0,
+    double bearing = 0.0,
+    bool animate = true,
+  }) {
+    if (_mapController == null) return;
+
+    // Calculate the vertical offset based on screen size
+    // This moves the target point upward so marker isn't covered by details card
+    final screenHeight = MediaQuery.of(context).size.height;
+    final detailsCardHeight = screenHeight * 0.35; // Approximate height of details card
+
+    // Calculate a vertical offset in screen coordinates (pixels)
+    final verticalOffsetPixels = detailsCardHeight * 0.5; // Half the height of the card
+
+    // Convert pixel offset to LatLng offset
+    // This calculation depends on the current zoom level and latitude
+    final latitudeOffset = _calculateLatitudeOffset(
+        verticalOffsetPixels,
+        location.latitude,
+        zoom
+    );
+
+    // Create a new target with the offset applied
+    final offsetTarget = LatLng(
+        location.latitude - latitudeOffset, // Move south (down in screen coordinates)
+        location.longitude
+    );
+
+    // Create the camera update
+    final cameraUpdate = CameraUpdate.newCameraPosition(
+      CameraPosition(
+        target: offsetTarget,
+        zoom: zoom,
+        tilt: tilt,
+        bearing: bearing,
+      ),
+    );
+
+    // Apply the camera update
+    if (animate) {
+      _mapController!.animateCamera(cameraUpdate);
+    } else {
+      _mapController!.moveCamera(cameraUpdate);
+    }
+  }
+
+  /// Calculates latitude offset based on vertical pixel offset, current latitude, and zoom level.
+  /// This converts screen pixels to geographic coordinates.
+  double _calculateLatitudeOffset(double pixelOffset, double latitude, double zoom) {
+    // The number of pixels per degree varies based on latitude and zoom level
+    // This is an approximation based on the Mercator projection
+    final metersPerPixel = 156543.03392 * cos(latitude * pi / 180) / pow(2, zoom);
+    final metersOffset = pixelOffset * metersPerPixel;
+
+    // Convert meters to degrees (approximate)
+    // 111,111 meters per degree of latitude (roughly)
+    return metersOffset / 111111;
   }
 
   void _completeNavigationReset() {
