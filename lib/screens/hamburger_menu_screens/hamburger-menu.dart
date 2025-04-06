@@ -1,4 +1,5 @@
 import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
+import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
 
 import '../../widgets/profile_image.dart';
 import 'profile.dart';
@@ -10,6 +11,7 @@ import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/services/auth_service.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/services/saved-map_services.dart';
 
 class Hamburgmenu extends StatefulWidget {
   const Hamburgmenu({super.key});
@@ -313,11 +315,19 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 ),
                 const Divider(height: 1),
                 buildListTile(
+                  Icons.star_border,
+                  'Saved Locations',
+                  context,
+                  SavedLocationsScreen(), // Our new screen
+                ),
+                const Divider(height: 1),
+                buildListTile(
                   Icons.settings,
                   'Settings',
                   context,
                   SettingsPage(),
                 ),
+
                 const Divider(height: 1),
                 // Log out option with confirmation dialog
                 ListTile(

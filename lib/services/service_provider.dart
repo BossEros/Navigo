@@ -1,4 +1,5 @@
 // lib/services/service_provider.dart
+import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:project_navigo/services/storage_service.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -49,6 +50,12 @@ class ServiceProvider extends StatelessWidget {
         Provider<StorageService>(
           create: (_) => StorageService(),
         ),
+
+        // Saved Map Service (no dependencies)
+        Provider<SavedMapService>(
+          create: (_) => SavedMapService(),
+        ),
+
       ],
       child: child,
     );

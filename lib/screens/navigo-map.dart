@@ -21,6 +21,10 @@ import '../models/user_profile.dart';
 import '../services/google-api-services.dart' as api hide Duration;
 import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
 import '../services/route_history_service.dart';
+import 'package:project_navigo/services/saved-map_services.dart';
+import 'package:provider/provider.dart';
+
+import 'login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +68,18 @@ class PulsatingMarkerPainter extends CustomPainter {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  final String? savedPlaceId;
+  final LatLng? savedCoordinates;
+  final String? savedName;
+  final bool startNavigation;
+
+  const MyApp({
+    Key? key,
+    this.savedPlaceId,
+    this.savedCoordinates,
+    this.savedName,
+    this.startNavigation = false,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -92,14 +107,30 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const NavigoMapScreen(),
+      home: NavigoMapScreen(
+        savedPlaceId: savedPlaceId,
+        savedCoordinates: savedCoordinates,
+        savedName: savedName,
+        startNavigation: startNavigation,
+      ),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
 class NavigoMapScreen extends StatefulWidget {
-  const NavigoMapScreen({Key? key}) : super(key: key);
+  final String? savedPlaceId;
+  final LatLng? savedCoordinates;
+  final String? savedName;
+  final bool startNavigation;
+
+  const NavigoMapScreen({
+    Key? key,
+    this.savedPlaceId,
+    this.savedCoordinates,
+    this.savedName,
+    this.startNavigation = false,
+  }) : super(key: key);
 
   @override
   State<NavigoMapScreen> createState() => _NavigoMapScreenState();
@@ -236,6 +267,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   final PanelController _routePanelController = PanelController();
   bool _isRoutePanelExpanded = false;
 
+  bool _isLocationSaved = false;
+  bool _isLoadingLocationSave = false;
+  SavedMapService? _savedMapService;
+  Map<String, bool> _savedLocationCache = {};
+
   // Navigation state tracking
   bool _isInNavigationMode = false;
   int _currentStepIndex = 0;
@@ -266,6 +302,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     // Add this line to fetch recent locations
     _fetchRecentLocations();
+
+    // Get saved map service
+    Future.microtask(() {
+      _savedMapService = Provider.of<SavedMapService>(context, listen: false);
+
+      // Check if we should display a saved location
+      if (widget.savedPlaceId != null && widget.savedCoordinates != null) {
+        _showSavedLocationOnMap();
+      }
+    });
   }
 
   @override
@@ -311,6 +357,53 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     // Debug logging to track state transitions
     print('Navigation state changed to: $newState');
+  }
+
+  // Method to show saved location:
+  void _showSavedLocationOnMap() async {
+    if (widget.savedPlaceId == null || widget.savedCoordinates == null) return;
+
+    // Wait for map controller to be initialized
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (_mapController == null) {
+      // Retry once more if map controller isn't ready
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (_mapController == null) return;
+    }
+
+    // First center the map on the location
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: widget.savedCoordinates!,
+          zoom: 16,
+          tilt: 30,
+        ),
+      ),
+    );
+
+    // Create a place suggestion to work with existing code
+    final suggestion = api.PlaceSuggestion(
+      placeId: widget.savedPlaceId!,
+      description: widget.savedName ?? 'Saved Location',
+      mainText: widget.savedName ?? 'Saved Location',
+      secondaryText: '',
+    );
+
+    try {
+      // Select the place to show details card
+      await _selectPlace(suggestion);
+
+      // Start navigation if requested (after location is loaded)
+      if (widget.startNavigation && _destinationPlace != null) {
+        // Small delay to ensure UI is updated
+        await Future.delayed(const Duration(milliseconds: 300));
+        _startNavigation();
+      }
+    } catch (e) {
+      print('Error displaying saved location: $e');
+      _showErrorSnackBar('Could not load location details');
+    }
   }
 
   Widget _buildSelectedPlaceCard() {
@@ -387,20 +480,19 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
               const SizedBox(height: 16),
 
-              // Actions row - simplified to just Save and Navigate
+              /// Actions row - Save and Navigate buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  // Save button with updated functionality
                   _buildActionButton(
-                    icon: Icons.bookmark_border,
-                    label: 'Save',
-                    onPressed: () {
-                      // Save location functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${_destinationPlace!.name} saved to favorites')),
-                      );
-                    },
+                    icon: _isLocationSaved ? Icons.bookmark : Icons.bookmark_border,
+                    label: _isLocationSaved ? 'Saved' : 'Save',
+                    onPressed: _saveOrUnsaveLocation,
+                    isLoading: _isLoadingLocationSave,
                   ),
+
+                  // Keep the existing Navigate button unchanged
                   _buildActionButton(
                     icon: Icons.navigation,
                     label: 'Navigate',
@@ -491,6 +583,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+  // Method to show a saved location on the map
+  void showSavedLocation(String placeId, LatLng coordinates, String name) {
+    // Create a place suggestion to use with existing methods
+    final suggestion = api.PlaceSuggestion(
+      placeId: placeId,
+      description: name,
+      mainText: name,
+      secondaryText: '',
+    );
+
+    // Use existing method to select place
+    _selectPlace(suggestion);
+  }
+
   // Helper method to format place types for display
   String _getFormattedType(String type) {
     // Convert 'place_of_worship' to 'Place of Worship'
@@ -523,9 +629,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     required String label,
     required VoidCallback onPressed,
     bool isPrimary = false,
+    bool isLoading = false,
   }) {
     return GestureDetector(
-      onTap: onPressed,
+      onTap: isLoading ? null : onPressed,
       child: Column(
         children: [
           Container(
@@ -535,7 +642,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               color: isPrimary ? Colors.blue : Colors.grey[200],
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: isLoading
+                ? CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  isPrimary ? Colors.white : Colors.blue
+              ),
+              strokeWidth: 2,
+            )
+                : Icon(
               icon,
               color: isPrimary ? Colors.white : Colors.blue,
             ),
@@ -1076,23 +1190,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           ),
         );
 
-        // Add to recent locations
-        try {
-          await _recentLocationsService.addRecentLocation(
-            placeId: place.id,
-            name: place.name,
-            address: place.address,
-            lat: place.latLng.latitude,
-            lng: place.latLng.longitude,
-            iconType: place.types.isNotEmpty ? place.types.first : null,
-          );
-
-          // Refresh recent locations
-          _fetchRecentLocations();
-        } catch (e) {
-          print('Error saving to recent locations: $e');
-          // Continue even if saving to recents fails
-        }
+        // Check if the location is saved
+        _checkIfLocationIsSaved();
 
         print('Successfully set destination: ${place.name}');
       } else {
@@ -1747,6 +1846,261 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       collapsed: _buildCollapsedRoutePanel(),
       panel: _buildFullRoutePanel(),
     );
+  }
+
+  // Add this method to check if location is saved
+  Future<void> _checkIfLocationIsSaved() async {
+    if (_destinationPlace == null ||
+        FirebaseAuth.instance.currentUser == null ||
+        _savedMapService == null) {
+      setState(() {
+        _isLocationSaved = false;
+      });
+      return;
+    }
+
+    final placeId = _destinationPlace!.id;
+
+    // Check cache first
+    if (_savedLocationCache.containsKey(placeId)) {
+      setState(() {
+        _isLocationSaved = _savedLocationCache[placeId]!;
+      });
+      return;
+    }
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      final isSaved = await _savedMapService!.isLocationSaved(
+        userId: userId,
+        placeId: placeId,
+      );
+
+      // Update cache and state
+      _savedLocationCache[placeId] = isSaved;
+
+      if (mounted) {
+        setState(() {
+          _isLocationSaved = isSaved;
+        });
+      }
+    } catch (e) {
+      print('Error checking if location is saved: $e');
+      if (mounted) {
+        setState(() {
+          _isLocationSaved = false;
+        });
+      }
+    }
+  }
+
+// Add this method to handle saving/unsaving locations
+  Future<void> _saveOrUnsaveLocation() async {
+    if (_destinationPlace == null || _savedMapService == null) {
+      return;
+    }
+
+    if (FirebaseAuth.instance.currentUser == null) {
+      _showLoginPrompt();
+      return;
+    }
+
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
+    setState(() {
+      _isLoadingLocationSave = true;
+    });
+
+    try {
+      if (_isLocationSaved) {
+        // Location is already saved, so unsave it
+        // First get the saved location document
+        final savedLocation = await _savedMapService!.getSavedLocationByPlaceId(
+          userId: userId,
+          placeId: _destinationPlace!.id,
+        );
+
+        if (savedLocation != null) {
+          await _savedMapService!.deleteSavedLocation(
+            userId: userId,
+            savedMapId: savedLocation.id,
+          );
+
+          if (mounted) {
+            setState(() {
+              _isLocationSaved = false;
+            });
+
+            // Update cache
+            _savedLocationCache[_destinationPlace!.id] = false;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${_destinationPlace!.name} removed from saved locations')),
+            );
+          }
+        }
+      } else {
+        // Location is not saved, so save it
+        // Show category selection dialog
+        final selectedCategory = await _showCategorySelectionDialog();
+
+        if (selectedCategory != null) {
+          final savedMapId = await _savedMapService!.saveLocation(
+            userId: userId,
+            placeId: _destinationPlace!.id,
+            name: _destinationPlace!.name,
+            address: _destinationPlace!.address,
+            lat: _destinationPlace!.latLng.latitude,
+            lng: _destinationPlace!.latLng.longitude,
+            category: selectedCategory,
+          );
+
+          if (mounted) {
+            setState(() {
+              _isLocationSaved = true;
+            });
+
+            // Update cache
+            _savedLocationCache[_destinationPlace!.id] = true;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${_destinationPlace!.name} saved to ${_getCategoryDisplayName(selectedCategory)}')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print('Error saving/unsaving location: $e');
+      _showErrorSnackBar('Error saving location: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingLocationSave = false;
+        });
+      }
+    }
+  }
+
+// Helper method to show login prompt
+  void _showLoginPrompt() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Please log in to save locations'),
+        action: SnackBarAction(
+          label: 'Login',
+          onPressed: () {
+            // Navigate to login screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+// Helper method to show category selection dialog
+  Future<String?> _showCategorySelectionDialog() async {
+    String category = 'favorite'; // Default category
+
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Save to...'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildCategoryOption(
+                    'Favorite',
+                    Icons.favorite,
+                    'favorite',
+                    category,
+                        (value) => setState(() => category = value),
+                  ),
+                  _buildCategoryOption(
+                    'Home',
+                    Icons.home,
+                    'home',
+                    category,
+                        (value) => setState(() => category = value),
+                  ),
+                  _buildCategoryOption(
+                    'Work',
+                    Icons.work,
+                    'work',
+                    category,
+                        (value) => setState(() => category = value),
+                  ),
+                  _buildCategoryOption(
+                    'Other',
+                    Icons.place,
+                    'other',
+                    category,
+                        (value) => setState(() => category = value),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(category),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Helper method to build category option
+  Widget _buildCategoryOption(
+      String label,
+      IconData icon,
+      String value,
+      String selectedCategory,
+      Function(String) onChanged,
+      ) {
+    return RadioListTile<String>(
+      title: Row(
+        children: [
+          Icon(icon),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+      value: value,
+      groupValue: selectedCategory,
+      onChanged: (String? newValue) {
+        if (newValue != null) {
+          onChanged(newValue);
+        }
+      },
+    );
+  }
+
+  // Helper method to get display name for category
+  String _getCategoryDisplayName(String category) {
+    switch (category) {
+      case 'favorite':
+        return 'Favorites';
+      case 'home':
+        return 'Home';
+      case 'work':
+        return 'Work';
+      case 'other':
+        return 'Other';
+      default:
+        return 'Saved Locations';
+    }
   }
 
   Widget _buildCollapsedRoutePanel() {

@@ -10,8 +10,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/google-api-services.dart' as api;
 import 'package:project_navigo/services/storage_service.dart';
 
+import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
 import '../../widgets/profile_image.dart';
+import 'package:project_navigo/component/reusable-location-search_screen.dart'; // Import our new component
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -174,6 +176,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isSaving = false;
       });
 
+      // Refresh user provider data
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.refreshUserData();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Profile updated successfully')),
       );
@@ -290,66 +296,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Method to open Google Places search and handle selected location
-  Future<void> _openPlacesSearch(String type) async {
+  // New method to open location search screen
+  Future<void> _openLocationSearch(String type) async {
     // First, hide keyboard if showing
     FocusScope.of(context).unfocus();
 
-    // Show a loading indicator
-    setState(() => _isLoading = true);
-
     try {
-      // Navigate to a search screen (simplified for this example)
-      final searchText = await showSearch<String>(
-        context: context,
-        delegate: LocationSearchDelegate(),
+      // Navigate to our new location search screen
+      final api.Place? selectedPlace = await Navigator.push<api.Place>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LocationSearchScreen(
+            title: type == 'home' ? 'Set Home Address' : 'Set Work Address',
+            searchHint: 'Search for your ${type == 'home' ? 'home' : 'work'} address',
+            initialQuery: type == 'home'
+                ? _homeAddress.formattedAddress
+                : _workAddress.formattedAddress,
+          ),
+        ),
       );
 
-      if (searchText != null && searchText.isNotEmpty) {
-        // Get suggestions
-        final suggestions = await api.GoogleApiServices.getPlaceSuggestions(searchText);
+      if (selectedPlace != null) {
+        // Create address object from selected place
+        final newAddress = Address(
+          formattedAddress: selectedPlace.address,
+          lat: selectedPlace.latLng.latitude,
+          lng: selectedPlace.latLng.longitude,
+          placeId: selectedPlace.id,
+        );
 
-        if (suggestions.isNotEmpty) {
-          // Show suggestions in a dialog
-          final selectedSuggestion = await showDialog<api.PlaceSuggestion>(
-            context: context,
-            builder: (context) => PlaceSuggestionsDialog(suggestions: suggestions),
-          );
-
-          // Handle selected suggestion
-          if (selectedSuggestion != null) {
-            // Get place details
-            final placeDetails = await api.GoogleApiServices.getPlaceDetails(selectedSuggestion.placeId);
-
-            if (placeDetails != null) {
-              // Create address object
-              final address = Address(
-                formattedAddress: placeDetails.address,
-                lat: placeDetails.latLng.latitude,
-                lng: placeDetails.latLng.longitude,
-                placeId: placeDetails.id,
-              );
-
-              // Update the appropriate address
-              setState(() {
-                if (type == 'home') {
-                  _homeAddress = address;
-                } else if (type == 'work') {
-                  _workAddress = address;
-                }
-              });
-            }
+        // Update the appropriate address
+        setState(() {
+          if (type == 'home') {
+            _homeAddress = newAddress;
+          } else if (type == 'work') {
+            _workAddress = newAddress;
           }
-        }
+        });
+
+        // Show a confirmation toast
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                type == 'home'
+                    ? 'Home address updated'
+                    : 'Work address updated'
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
       print('Error with place search: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error searching for location: $e')),
       );
-    } finally {
-      // Hide loading indicator
-      setState(() => _isLoading = false);
     }
   }
 
@@ -368,11 +369,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Use the username from _userProfileData if available, otherwise fallback
     final username = userProvider.userProfile?.username ??
         _userProfileData?['username'] ??
-        'janedoe';
+        'User';
 
     final email = userProvider.userProfile?.email ??
         _userProfileData?['email'] ??
-        'janedoe202024@gmail.com';
+        'No email available';
 
     final profileImageUrl = userProvider.userProfile?.profileImageUrl ??
         _userProfileData?['profileImageUrl'];
@@ -450,7 +451,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fit: BoxFit.cover,
                           width: 120,
                           height: 120,
-                          // Force the image to reload by adding a cache-busting parameter
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
                             return Center(
@@ -470,9 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.grey[400],
                             );
                           },
-                          // Add a cache-busting parameter to ensure fresh image
                           cacheWidth: 240, // Set to double the display size for quality
-                          // Add a unique timestamp to force reload
                           key: ValueKey(DateTime.now().toString()),
                         )
                             : Icon(
@@ -546,23 +544,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Divider(height: 1),
 
-                    // Home Address (with location picker in edit mode)
+                    // Home Address (with updated location picker in edit mode)
                     buildAddressItem(
                       title: 'Home Address',
                       address: _homeAddress,
                       icon: Icons.home,
                       isEditable: _isEditing,
-                      onEditTap: () => _openPlacesSearch('home'),
+                      onEditTap: () => _openLocationSearch('home'),
                     ),
                     Divider(height: 1),
 
-                    // Work Address (with location picker in edit mode)
+                    // Work Address (with updated location picker in edit mode)
                     buildAddressItem(
                       title: 'Work Address',
                       address: _workAddress,
                       icon: Icons.work,
                       isEditable: _isEditing,
-                      onEditTap: () => _openPlacesSearch('work'),
+                      onEditTap: () => _openLocationSearch('work'),
                     ),
                     Divider(height: 1),
 
@@ -630,7 +628,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Special widget for address items
+  // Special widget for address items - updated with new Material Design visuals
   Widget buildAddressItem({
     required String title,
     required Address address,
@@ -665,25 +663,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   InkWell(
                     onTap: onEditTap,
                     child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: Colors.blue, width: 1),
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.5),
+                          width: 1,
                         ),
                       ),
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
-                              address.formattedAddress.isEmpty ? 'Select location' : address.formattedAddress,
+                              address.formattedAddress.isEmpty
+                                  ? 'Tap to set location'
+                                  : address.formattedAddress,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: address.formattedAddress.isEmpty ? Colors.grey.shade600 : Colors.black,
+                                color: address.formattedAddress.isEmpty
+                                    ? Colors.grey.shade600
+                                    : Colors.black,
                               ),
                             ),
                           ),
-                          Icon(Icons.location_on, color: Colors.blue, size: 18),
+                          SizedBox(width: 8),
+                          Icon(
+                            Icons.search,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
                         ],
                       ),
                     ),
@@ -763,170 +773,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// Custom search delegate for location search
-class LocationSearchDelegate extends SearchDelegate<String> {
-  @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
-      ),
-    ];
-  }
-
-  @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, '');
-      },
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    if (query.trim().length < 2) {
-      return Center(
-        child: Text('Please enter at least 2 characters to search'),
-      );
-    }
-
-    // Return the query to be processed by the caller
-    return Center(
-      child: ElevatedButton(
-        onPressed: () {
-          close(context, query);
-        },
-        child: Text('Search for "$query"'),
-      ),
-    );
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    if (query.trim().length < 2) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.location_on, size: 48, color: Colors.grey.shade400),
-            SizedBox(height: 16),
-            Text(
-              'Enter an address to search',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Show common locations and search history here
-    return ListView(
-      children: [
-        ListTile(
-          leading: Icon(Icons.history),
-          title: Text('Previous search 1'),
-          onTap: () {
-            query = 'Previous search 1';
-            showResults(context);
-          },
-        ),
-        ListTile(
-          leading: Icon(Icons.history),
-          title: Text('Previous search 2'),
-          onTap: () {
-            query = 'Previous search 2';
-            showResults(context);
-          },
-        ),
-        // Divider
-        Divider(thickness: 1),
-
-        // Recent locations or suggestions would go here
-        ListTile(
-          leading: Icon(Icons.search),
-          title: Text('Search for "$query"'),
-          onTap: () {
-            showResults(context);
-          },
-        ),
-      ],
-    );
-  }
-}
-
-// Dialog to display place suggestions
-class PlaceSuggestionsDialog extends StatelessWidget {
-  final List<api.PlaceSuggestion> suggestions;
-
-  const PlaceSuggestionsDialog({
-    Key? key,
-    required this.suggestions,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      elevation: 8,
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        constraints: BoxConstraints(maxHeight: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                'Select a location',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Divider(),
-            Expanded(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: suggestions.length,
-                itemBuilder: (context, index) {
-                  final suggestion = suggestions[index];
-                  return ListTile(
-                    leading: Icon(Icons.location_on, color: Colors.blue),
-                    title: Text(suggestion.mainText),
-                    subtitle: Text(
-                      suggestion.secondaryText,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      Navigator.of(context).pop(suggestion);
-                    },
-                  );
-                },
-              ),
-            ),
-            Divider(),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('CANCEL'),
-            ),
-          ],
         ),
       ),
     );
