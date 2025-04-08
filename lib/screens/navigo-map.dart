@@ -23,6 +23,7 @@ import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
 
+import '../services/user_provider.dart';
 import 'login_screen.dart';
 
 void main() async {
@@ -4179,57 +4180,76 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   Widget _buildDefaultContent() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Quick access buttons
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Quick access buttons with improved spacing
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildQuickAccessButton(Icons.home, 'Home'),
-              _buildQuickAccessButton(Icons.work, 'Work'),
-              _buildQuickAccessButton(Icons.add, 'New'),
+              // Section title
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0, left: 4.0),
+                child: Text(
+                  'Quick Access',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+
+              // Icon buttons row with bold Poppins labels
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildQuickAccessButton(
+                      'assets/icons/home_icon.png',
+                      'Home',
+                      _handleHomeButtonTap
+                  ),
+                  _buildQuickAccessButton(
+                      'assets/icons/work_icon.png',
+                      'Work',
+                      _handleWorkButtonTap
+                  ),
+                  _buildQuickAccessButton(
+                      'assets/icons/plus_icon.png',
+                      'New',
+                          () {
+                        // New button functionality will be implemented later
+                      }
+                  ),
+                ],
+              ),
             ],
           ),
         ),
 
-        // Recent locations
+        // Visual divider between sections
+        Container(
+          height: 8,
+          color: Colors.grey[100],
+        ),
+
+        // Recent locations section - improved spacing and removed "See All"
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Recent',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 18,
-                        letterSpacing: -0.3,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    // Optional: Add a "See All" button if needed
-                    if (_recentLocations.length > 3)
-                      GestureDetector(
-                        onTap: () {
-                          // Handle "See All" tap - could open a full screen of recents
-                          // For now, just refresh the list
-                          _fetchRecentLocations();
-                        },
-                        child: Text(
-                          'See All',
-                          style: GoogleFonts.poppins(
-                            color: Colors.blue,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  'Recent Places',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    letterSpacing: -0.3,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
 
@@ -4481,32 +4501,178 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  Widget _buildQuickAccessButton(IconData icon, String label) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
+  Widget _buildQuickAccessButton(String iconPath, String label, VoidCallback onTap) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.blue.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.blue),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.blue[700],
+        child: Container(
+          height: 80,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                spreadRadius: 1,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.grey[200]!,
+              width: 1,
             ),
           ),
-        ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Direct icon with original colors - no background container or tinting
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.asset(
+                  iconPath,
+                  width: 40,
+                  height: 40,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Bold Poppins font for the label
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  void _handleHomeButtonTap() {
+    _navigateToUserAddress('home');
+  }
+
+  void _handleWorkButtonTap() {
+    _navigateToUserAddress('work');
+  }
+
+  Future<void> _navigateToUserAddress(String type) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Determine which address to use
+    final Address address = type == 'home'
+        ? userProvider.userProfile?.homeAddress ?? Address.empty()
+        : userProvider.userProfile?.workAddress ?? Address.empty();
+
+    // Check if address is set
+    if (userProvider.userProfile == null ||
+        address.formattedAddress.isEmpty) {
+      // Address not set
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No ${type == 'home' ? 'Home' : 'Work'} location set. Please update your profile to add this location.'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Only proceed if we have valid coordinates
+    if (address.lat == 0 && address.lng == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid ${type == 'home' ? 'Home' : 'Work'} location coordinates. Please update your profile.'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Close keyboard
+      FocusScope.of(context).unfocus();
+
+      // Close the sliding panel
+      _panelController.close();
+
+      setState(() {
+        _isSearching = true;
+      });
+
+      // Create a Place object from the address
+      final String name = type == 'home' ? 'Home' : 'Work';
+      api.Place place = api.Place(
+        id: address.placeId.isNotEmpty ? address.placeId : '${type}_${address.lat}_${address.lng}',
+        name: name,
+        address: address.formattedAddress,
+        latLng: LatLng(address.lat, address.lng),
+        types: [type],
+      );
+
+      // If we have a valid placeId, try to get additional details
+      if (address.placeId.isNotEmpty) {
+        try {
+          final detailedPlace = await api.GoogleApiServices.getPlaceDetails(address.placeId);
+          if (detailedPlace != null) {
+            // Create a new place with the original name but detailed data
+            place = api.Place(
+              id: detailedPlace.id,
+              name: name, // Keep the original name (Home/Work)
+              address: detailedPlace.address,
+              latLng: detailedPlace.latLng,
+              types: detailedPlace.types,
+            );
+
+            // Load photos
+            final photos = await api.GoogleApiServices.getPlacePhotos(place.id);
+            place.photoUrls = photos;
+          }
+        } catch (e) {
+          print('Error getting additional place details: $e');
+          // Continue with basic place info since we already have essentials
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _destinationPlace = place;
+          _navigationState = NavigationState.placeSelected;
+          _searchController.text = place.name;
+          _placeSuggestions = [];
+          _isSearching = false;
+        });
+
+        _addDestinationMarker(place);
+        _loadPlacePhotos();
+
+        // Center camera on the location
+        _centerCameraOnLocation(
+          location: place.latLng,
+          zoom: 16,
+          tilt: 30,
+        );
+
+        // Immediately start navigation
+        await Future.delayed(const Duration(milliseconds: 300)); // Give UI time to update
+        if (mounted) {
+          _startNavigation();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+        _showErrorSnackBar('Error navigating to ${type == 'home' ? 'Home' : 'Work'} address: $e');
+      }
+    }
   }
 
   Widget _buildRecentLocationItem(
@@ -4516,11 +4682,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       [IconData icon = Icons.location_on_outlined]
       ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4.0),
+      margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: Colors.white,
-        // Subtle hover effect with very light shadow
+        // Subtler shadow for better depth perception
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -4565,14 +4731,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             letterSpacing: -0.1,
           ),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        onTap: () {
-          // Handle tap to select this location
-          onTap();
-        },
+        onTap: onTap,
         // Long press to show options like delete
         onLongPress: () {
           // Only show if item is a RecentLocation, not a quick access button
@@ -4580,7 +4743,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             _showRecentLocationOptions(title, subtitle, onTap);
           }
         },
-        // Adding trailing chevron for better indication that item is tappable
+        // Clearer visual indication that item is tappable
         trailing: Icon(
           Icons.chevron_right,
           color: Colors.grey[400],

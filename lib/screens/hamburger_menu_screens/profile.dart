@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -302,16 +303,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     FocusScope.of(context).unfocus();
 
     try {
-      // Navigate to our new location search screen
+      // Get current location for distance calculations only
+      LatLng? currentLocation;
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        currentLocation = LatLng(position.latitude, position.longitude);
+      } catch (e) {
+        print('Error getting current location: $e');
+        // Continue without current location, distances won't be shown
+      }
+
+      // Navigate to our enhanced location search screen
+      // Note: initialQuery is now an empty string, and showSuggestionButtons is false
       final api.Place? selectedPlace = await Navigator.push<api.Place>(
         context,
         MaterialPageRoute(
           builder: (context) => LocationSearchScreen(
             title: type == 'home' ? 'Set Home Address' : 'Set Work Address',
             searchHint: 'Search for your ${type == 'home' ? 'home' : 'work'} address',
-            initialQuery: type == 'home'
-                ? _homeAddress.formattedAddress
-                : _workAddress.formattedAddress,
+            initialQuery: '', // Always start with an empty search bar
+            currentLocation: currentLocation, // For distance calculations only
+            showSuggestionButtons: false, // Don't show 'Current Location' and 'Nearby Places' buttons
           ),
         ),
       );
@@ -334,15 +349,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         });
 
-        // Show a confirmation toast
+        // Show confirmation with enhanced animation and details
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                type == 'home'
-                    ? 'Home address updated'
-                    : 'Work address updated'
+            content: Row(
+              children: [
+                Icon(type == 'home' ? Icons.home : Icons.work, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        type == 'home' ? 'Home address updated' : 'Work address updated',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        selectedPlace.address,
+                        style: TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green[700],
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }

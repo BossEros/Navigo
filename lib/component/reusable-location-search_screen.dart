@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/google-api-services.dart' as api;
+import 'package:geolocator/geolocator.dart';
 
 /// A reusable location search screen that matches the main app's search experience.
 /// Returns the selected [api.Place] when a location is chosen.
@@ -9,12 +11,16 @@ class LocationSearchScreen extends StatefulWidget {
   final String title;
   final String initialQuery;
   final String searchHint;
+  final LatLng? currentLocation;
+  final bool showSuggestionButtons; // New parameter to control suggestion buttons
 
   const LocationSearchScreen({
     Key? key,
     required this.title,
     this.initialQuery = '',
     this.searchHint = 'Search for a location',
+    this.currentLocation,
+    this.showSuggestionButtons = true, // Default to showing suggestion buttons
   }) : super(key: key);
 
   @override
@@ -29,11 +35,20 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
   bool _isSearching = false;
   Timer? _debounce;
   Map<String, String> _suggestionDistances = {};
+  LatLng? _currentLocation;
+  bool _isLoadingLocation = false;
 
   @override
   void initState() {
     super.initState();
     _searchController.text = widget.initialQuery;
+
+    // Initialize current location if provided
+    if (widget.currentLocation != null) {
+      _currentLocation = widget.currentLocation;
+    } else {
+      _getCurrentLocation();
+    }
 
     // Auto-focus the search field when the screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -47,6 +62,52 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
     _searchFocusNode.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  // Get current device location
+  Future<void> _getCurrentLocation() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingLocation = true;
+      });
+    }
+
+    try {
+      // Check location permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Location permissions are denied, can't get current location
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Location permissions are permanently denied
+        return;
+      }
+
+      // Get current location
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 5),
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentLocation = LatLng(position.latitude, position.longitude);
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+        });
+      }
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -71,6 +132,11 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
               _placeSuggestions = suggestions;
               _isSearching = false;
             });
+
+            // Calculate distances for all suggestions
+            if (_currentLocation != null) {
+              _updateAllSuggestionDistances();
+            }
           }
         } catch (e) {
           if (mounted) {
@@ -89,6 +155,83 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         });
       }
     });
+  }
+
+  // Calculate distances for all displayed suggestions
+  void _updateAllSuggestionDistances() {
+    for (var suggestion in _placeSuggestions) {
+      if (!_suggestionDistances.containsKey(suggestion.placeId)) {
+        _calculateDistanceAsync(suggestion);
+      }
+    }
+  }
+
+  // Calculate distance for a single suggestion
+  String _calculateDistance(api.PlaceSuggestion suggestion) {
+    // Return cached distance if available
+    if (_suggestionDistances.containsKey(suggestion.placeId)) {
+      return _suggestionDistances[suggestion.placeId]!;
+    }
+
+    // Start a background calculation if we have location
+    if (_currentLocation != null) {
+      _calculateDistanceAsync(suggestion);
+    }
+
+    // Return a placeholder while calculating
+    return "-";
+  }
+
+  // Asynchronously calculate the distance for a suggestion
+  Future<void> _calculateDistanceAsync(api.PlaceSuggestion suggestion) async {
+    try {
+      // Get place details to access its coordinates
+      final place = await api.GoogleApiServices.getPlaceDetails(suggestion.placeId);
+
+      if (place != null && _currentLocation != null && mounted) {
+        // Calculate distance using the Haversine formula
+        final distanceInMeters = _calculateDistance2(
+            _currentLocation!,
+            place.latLng
+        );
+
+        // Format the distance appropriately
+        String formattedDistance;
+        if (distanceInMeters < 1000) {
+          formattedDistance = "${distanceInMeters.toInt()} m";
+        } else {
+          formattedDistance = "${(distanceInMeters / 1000).toStringAsFixed(1)}";
+        }
+
+        // Update the cache and trigger a UI refresh
+        if (mounted) {
+          setState(() {
+            _suggestionDistances[suggestion.placeId] = formattedDistance;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error calculating distance for ${suggestion.placeId}: $e');
+    }
+  }
+
+  // Haversine formula for calculating distance between two coordinates
+  double _calculateDistance2(LatLng point1, LatLng point2) {
+    const double earthRadius = 6371000; // meters
+    final double lat1 = point1.latitude * pi / 180;
+    final double lat2 = point2.latitude * pi / 180;
+    final double lon1 = point1.longitude * pi / 180;
+    final double lon2 = point2.longitude * pi / 180;
+
+    final double dLat = lat2 - lat1;
+    final double dLon = lon2 - lon1;
+
+    final double a = sin(dLat/2) * sin(dLat/2) +
+        cos(lat1) * cos(lat2) *
+            sin(dLon/2) * sin(dLon/2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1-a));
+
+    return earthRadius * c;
   }
 
   Future<void> _selectPlace(api.PlaceSuggestion suggestion) async {
@@ -126,16 +269,6 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         );
       }
     }
-  }
-
-  String _calculateDistance(api.PlaceSuggestion suggestion) {
-    // Return cached distance if available
-    if (_suggestionDistances.containsKey(suggestion.placeId)) {
-      return _suggestionDistances[suggestion.placeId]!;
-    }
-
-    // Return a placeholder while calculating
-    return "-";
   }
 
   @override
@@ -211,6 +344,26 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
               ),
             ),
           ),
+
+          // Location status indicator (when getting current location)
+          if (_isLoadingLocation)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Getting your location for distance calculation...',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
 
           // Search results
           Expanded(
@@ -290,6 +443,38 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
   }
 
   Widget _buildSearchSuggestions() {
+    // If we shouldn't show suggestion buttons, just show a placeholder message
+    if (!widget.showSuggestionButtons) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search, size: 64, color: Colors.grey[300]),
+              SizedBox(height: 16),
+              Text(
+                'Start typing to search for a location',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'You can search by address, neighborhood, or landmark',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Otherwise, show the standard suggestion buttons
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
