@@ -386,7 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             // Shortened blue header with username and profile pic
             Container(
-              height: 200, // Reduced height for shorter gradient
+              height: 160, // Reduced height for shorter gradient
               width: double.infinity, // Ensure full width
               child: Stack(
                 children: [
@@ -422,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Profile picture - improved positioning
             Transform.translate(
-              offset: Offset(0, -50),
+              offset: Offset(0, -70),
               child: GestureDetector(
                 onTap: _pickProfileImage,
                 child: Stack(
@@ -517,67 +517,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             // Space to account for the overlapping profile picture (reduced since we use Transform)
-            SizedBox(height: 20),
+            SizedBox(height: 0),
 
             // Profile details list
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: ListView(
-                  physics: BouncingScrollPhysics(),
-                  children: [
-                    // Username (always read-only)
-                    buildProfileItem(
-                      title: 'Username',
-                      value: username,
-                      icon: Icons.badge,
-                      isEditable: false,
-                    ),
-                    Divider(height: 1),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Column(  // Changed from ListView to Column
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User detail items remain the same
+                  buildProfileItem(
+                    title: 'Username',
+                    value: username,
+                    icon: Icons.badge,
+                    isEditable: false,
+                  ),
+                  Divider(height: 1),
 
-                    // Email (always read-only)
-                    buildProfileItem(
-                      title: 'Email',
-                      value: email,
-                      icon: Icons.email,
-                      isEditable: false,
-                    ),
-                    Divider(height: 1),
+                  buildProfileItem(
+                    title: 'Email',
+                    value: email,
+                    icon: Icons.email,
+                    isEditable: false,
+                  ),
+                  Divider(height: 1),
 
-                    // Home Address (with updated location picker in edit mode)
-                    buildAddressItem(
-                      title: 'Home Address',
-                      address: _homeAddress,
-                      icon: Icons.home,
-                      isEditable: _isEditing,
-                      onEditTap: () => _openLocationSearch('home'),
-                    ),
-                    Divider(height: 1),
+                  buildAddressItem(
+                    title: 'Home Address',
+                    address: _homeAddress,
+                    icon: Icons.home,
+                    isEditable: _isEditing,
+                    onEditTap: () => _openLocationSearch('home'),
+                  ),
+                  Divider(height: 1),
 
-                    // Work Address (with updated location picker in edit mode)
-                    buildAddressItem(
-                      title: 'Work Address',
-                      address: _workAddress,
-                      icon: Icons.work,
-                      isEditable: _isEditing,
-                      onEditTap: () => _openLocationSearch('work'),
-                    ),
-                    Divider(height: 1),
-
-                    // Connected Accounts (non-editable)
-                    buildProfileItem(
-                      title: 'Connected Accounts',
-                      value: '',
-                      icon: Icons.people,
-                      isEditable: false,
-                    ),
-                  ],
-                ),
+                  buildAddressItem(
+                    title: 'Work Address',
+                    address: _workAddress,
+                    icon: Icons.work,
+                    isEditable: _isEditing,
+                    onEditTap: () => _openLocationSearch('work'),
+                  ),
+                  Divider(height: 1),
+                ],
               ),
             ),
 
+            // Add spacer to push button to bottom while maintaining layout
+            Spacer(),
+
             // Edit/Save button
-            buildEditButton(),
+            SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                child: buildEditButton(),
+              ),
+            ),
           ],
         ),
       ),
@@ -717,50 +712,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // Improved edit button with animation and state changes
   Widget buildEditButton() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-      child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton(
-          onPressed: _isLoading || _isSaving
-              ? null
-              : () {
-            if (_isEditing) {
-              _saveChanges();
-            } else {
-              setState(() => _isEditing = true);
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _isEditing ? Colors.green : Colors.blue,
-            foregroundColor: Colors.white,
-            elevation: 3,
-            shadowColor: Colors.black.withOpacity(0.3),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+    return Container(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        onPressed: _isLoading || _isSaving ? null : () {
+          if (_isEditing) {
+            _saveChanges();
+          } else {
+            setState(() => _isEditing = true);
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _isEditing ? Colors.green : Colors.blue,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shadowColor: Colors.black.withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: _isSaving
-              ? Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
+          // Add padding to ensure text stays centered
+          padding: EdgeInsets.zero,
+        ),
+        child: _isSaving
+            ? Row(
+          mainAxisAlignment: MainAxisAlignment.center, // Center the loading indicator
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
               ),
-              SizedBox(width: 12),
-              Text('Saving...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          )
-              : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            ),
+            SizedBox(width: 12),
+            Text('Saving...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        )
+            : Center( // Explicitly center the text
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // Center row contents
+            mainAxisSize: MainAxisSize.min, // Use minimum size for row
             children: [
               Icon(_isEditing ? Icons.save : Icons.edit),
               SizedBox(width: 8),

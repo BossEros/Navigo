@@ -59,28 +59,6 @@ class _IntroScreenState extends State<IntroScreen> {
       "buttonText": "Next",
     },
     {
-      "title": "A quick guide on how to use the application",
-      "image": "assets/search_lp.png",
-      "subtitle": "Step 1: Search for your destination",
-      "buttonText": "Next",
-    },
-    {
-      "image": "assets/destination_lp.png",
-      "subtitle":
-      "Step 2: Click the check ✓ button to confirm your destination",
-      "buttonText": "Next",
-    },
-    {
-      "image": "assets/transpo_lp.png",
-      "subtitle": "Step 3: Choose your mode of transportation",
-      "buttonText": "Next",
-    },
-    {
-      "image": "assets/go_lp.png",
-      "subtitle": "Step 4: Click the 'Start Session' & your route is ready!",
-      "buttonText": "Next",
-    },
-    {
       "title": "Location Access",
       "image": "assets/location.gif",
       "subtitle": "To guide you effectively, allow us to access your location",
@@ -452,7 +430,7 @@ class _IntroScreenState extends State<IntroScreen> {
             ),
           if (_currentPage != 0 && _currentPage != introData.length - 1 && introData[_currentPage]['isLocationAccessPage'] != "true") //hide page control
             Positioned(
-              bottom: 40,
+              bottom: 80 + MediaQuery.of(context).viewInsets.bottom,
               left: 0,
               right: 0,
               child: Center(

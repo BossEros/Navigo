@@ -1188,6 +1188,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           _checkIfLocationIsSaved();
         }
 
+        // Add to recent locations
+        try {
+          await _recentLocationsService.addRecentLocation(
+            placeId: place.id,
+            name: place.name,
+            address: place.address,
+            lat: place.latLng.latitude,
+            lng: place.latLng.longitude,
+            iconType: place.types.isNotEmpty ? place.types.first : null,
+          );
+
+          // Refresh recent locations list
+          _fetchRecentLocations();
+        } catch (e) {
+          print('Error adding to recent locations: $e');
+          // Continue even if this fails
+        }
+
         print('Successfully set destination: ${place.name}');
       } else {
         if (mounted) {
@@ -1255,15 +1273,12 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         _addDestinationMarker(place);
         _loadPlacePhotos();
 
-        // Single smooth camera animation to the location
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: place.latLng,
-              zoom: 16,
-              tilt: 30,
-            ),
-          ),
+        // Use the centralized camera positioning method instead of direct animation
+        // This ensures the marker isn't covered by the details panel
+        _centerCameraOnLocation(
+          location: place.latLng,
+          zoom: 16,
+          tilt: 30,
         );
 
         // Update the timestamp in recent locations

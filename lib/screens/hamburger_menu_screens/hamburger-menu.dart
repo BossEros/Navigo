@@ -301,13 +301,6 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 ),
                 const Divider(height: 1),
                 buildListTile(
-                  Icons.star_border,
-                  'Saved Maps',
-                  context,
-                  const EmptyPage(),
-                ),
-                const Divider(height: 1),
-                buildListTile(
                   Icons.map_outlined,
                   'Your Route Data',
                   context,

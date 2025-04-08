@@ -10,7 +10,7 @@ class RecentLocationsService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Get recent locations for the current user
-  Future<List<RecentLocation>> getRecentLocations({int limit = 5}) async {
+  Future<List<RecentLocation>> getRecentLocations({int limit = 7}) async {
     return _firebaseUtils.safeOperation(() async {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
