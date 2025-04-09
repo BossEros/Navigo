@@ -1,5 +1,9 @@
 import 'dart:math';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
@@ -7,10 +11,16 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:project_navigo/models/recent_location.dart';
+import 'package:project_navigo/services/recent_locations_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 import '../config/config.dart';
+import '../models/route_history.dart';
+import '../models/user_profile.dart';
 import '../services/google-api-services.dart' as api hide Duration;
 import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
+import '../services/route_history_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -203,6 +213,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Timer? _debounce;
   Map<String, String> _suggestionDistances = {};
 
+  // Add this for recent locations
+  final RecentLocationsService _recentLocationsService = RecentLocationsService();
+  List<RecentLocation> _recentLocations = [];
+  bool _isLoadingRecentLocations = false;
 
   // Panel state
   double _panelPosition = 0.0;
@@ -213,6 +227,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   bool _isNavigating = false;
   api.RouteDetails? _routeDetails;
   bool _isNavigationInProgress = false;
+  DateTime _navigationStartTime = DateTime.now();
 
   bool _showingRouteAlternatives = false;
   int _selectedRouteIndex = 0;
@@ -248,6 +263,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
+
+    // Add this line to fetch recent locations
+    _fetchRecentLocations();
   }
 
   @override
@@ -591,6 +609,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+
   Widget _buildPhotoItem(String imageUrl) {
     return Container(
       width: 120,
@@ -681,6 +700,32 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ],
       ),
     );
+  }
+
+  Future<void> _fetchRecentLocations() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingRecentLocations = true;
+    });
+
+    try {
+      final locations = await _recentLocationsService.getRecentLocations();
+
+      if (mounted) {
+        setState(() {
+          _recentLocations = locations;
+          _isLoadingRecentLocations = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching recent locations: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingRecentLocations = false;
+        });
+      }
+    }
   }
 
   void _handleCloseButtonPressed() {
@@ -798,6 +843,39 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         }
       });
     }
+  }
+
+  Widget _buildRouteSelectionTopButtons() {
+    if (_navigationState != NavigationState.routePreview)
+      return const SizedBox.shrink();
+
+    return Positioned(
+      top: 16,
+      left: 16,
+      right: 16,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Back button to go to location details
+          _buildCircularButton(
+            icon: Icons.arrow_back,
+            onPressed: () {
+              // Go back to location details screen
+              setState(() {
+                _navigationState = NavigationState.placeSelected;
+                _showingRouteAlternatives = false;
+              });
+            },
+          ),
+
+          // Close button (optional)
+          _buildCircularButton(
+            icon: Icons.close,
+            onPressed: _handleCloseButtonPressed,
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDestinationIndicator() {
@@ -998,6 +1076,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           ),
         );
 
+        // Add to recent locations
+        try {
+          await _recentLocationsService.addRecentLocation(
+            placeId: place.id,
+            name: place.name,
+            address: place.address,
+            lat: place.latLng.latitude,
+            lng: place.latLng.longitude,
+            iconType: place.types.isNotEmpty ? place.types.first : null,
+          );
+
+          // Refresh recent locations
+          _fetchRecentLocations();
+        } catch (e) {
+          print('Error saving to recent locations: $e');
+          // Continue even if saving to recents fails
+        }
+
         print('Successfully set destination: ${place.name}');
       } else {
         if (mounted) {
@@ -1016,6 +1112,94 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       }
     }
   }
+
+  Future<void> _selectRecentLocation(RecentLocation location) async {
+    try {
+      // Close keyboard
+      FocusScope.of(context).unfocus();
+
+      // Close the sliding panel
+      _panelController.close();
+
+      setState(() {
+        _isSearching = true;
+      });
+
+      // Create a Place object from RecentLocation
+      api.Place place = api.Place(
+        id: location.placeId,
+        name: location.name,
+        address: location.address,
+        latLng: LatLng(location.lat, location.lng),
+        types: location.iconType != null ? [location.iconType!] : [],
+      );
+
+      // Try to get additional details and photos if needed
+      try {
+        final detailedPlace = await api.GoogleApiServices.getPlaceDetails(location.placeId);
+        if (detailedPlace != null) {
+          place = detailedPlace;
+
+          // Load photos
+          final photos = await api.GoogleApiServices.getPlacePhotos(place.id);
+          place.photoUrls = photos;
+        }
+      } catch (e) {
+        print('Error getting additional place details: $e');
+        // Continue with basic place info since we already have essentials
+      }
+
+      if (mounted) {
+        setState(() {
+          _destinationPlace = place;
+          _navigationState = NavigationState.placeSelected;
+          _searchController.text = place.name;
+          _placeSuggestions = [];
+          _isSearching = false;
+        });
+
+        _addDestinationMarker(place);
+        _loadPlacePhotos();
+
+        // Single smooth camera animation to the location
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: place.latLng,
+              zoom: 16,
+              tilt: 30,
+            ),
+          ),
+        );
+
+        // Update the timestamp in recent locations
+        try {
+          await _recentLocationsService.addRecentLocation(
+            placeId: place.id,
+            name: place.name,
+            address: place.address,
+            lat: place.latLng.latitude,
+            lng: place.latLng.longitude,
+            iconType: place.types.isNotEmpty ? place.types.first : null,
+          );
+
+          // Refresh the list
+          _fetchRecentLocations();
+        } catch (e) {
+          print('Error updating recent location timestamp: $e');
+          // Continue even if updating timestamp fails
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+        _showErrorSnackBar('Error selecting recent location: $e');
+      }
+    }
+  }
+
 
   void _addDestinationMarker(api.Place place) {
     final markerId = const MarkerId('destination');
@@ -1185,25 +1369,201 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _selectedRouteIndex = routeIndex;
       _polylinesMap.clear();
 
+      // Clear any existing route info markers first
+      _clearRouteInfoMarkers();
+
       // Add all routes with different styles
       for (int i = 0; i < _routeAlternatives[0].routes.length; i++) {
         final route = _routeAlternatives[0].routes[i];
         final polylineId = PolylineId('route_$i');
-
-        // Selected route gets primary color and higher width
         final isSelected = i == _selectedRouteIndex;
 
+        // Selected route gets primary color and higher width
         final polyline = Polyline(
           polylineId: polylineId,
           points: route.polylinePoints,
           color: isSelected ? Colors.blue : Colors.grey,
           width: isSelected ? 7 : 4,
           zIndex: isSelected ? 2 : 1,
+          // Add tap handler to each polyline (simplified)
+          onTap: () {
+            // Only update if not already selected
+            if (!isSelected) {
+              _updateDisplayedRoute(i);
+            }
+          },
+          consumeTapEvents: true, // Prevent map from receiving the tap
         );
 
         _polylinesMap[polylineId] = polyline;
+
+        // Add duration markers for each route
+        _addRouteDurationMarker(route, i, isSelected);
       }
     });
+  }
+
+  // Create a custom bitmap for route duration bubbles
+  Future<BitmapDescriptor> _createRouteDurationBitmap(String duration, bool isSelected) async {
+    // Use a simple Flutter widget to generate a bitmap
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final size = Size(80, 40);
+
+    // Draw a rounded rectangle background
+    final paint = Paint()
+      ..color = isSelected
+          ? const Color(0xFF66B2FF) // Light blue for selected route
+          : const Color(0xFF888888); // Gray for alternate routes
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(20));
+    canvas.drawRRect(rrect, paint);
+
+    // Add text
+    final textSpan = TextSpan(
+      text: isSelected ? "$duration\nBest" : duration,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: isSelected ? 16 : 14,
+        fontWeight: FontWeight.bold,
+        height: 1.0,
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    textPainter.layout(minWidth: size.width, maxWidth: size.width);
+    textPainter.paint(
+      canvas,
+      Offset((size.width - textPainter.width) / 2, (size.height - textPainter.height) / 2),
+    );
+
+    // Convert to image
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.width.toInt(), size.height.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) {
+      // Fallback to standard marker if conversion fails
+      return BitmapDescriptor.defaultMarkerWithHue(
+          isSelected ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueViolet
+      );
+    }
+
+    final Uint8List bytes = byteData.buffer.asUint8List();
+    return BitmapDescriptor.fromBytes(bytes);
+  }
+
+  // Helper method to add route duration markers
+  void _addRouteDurationMarker(api.Route route, int routeIndex, bool isSelected) {
+    // Skip if no legs
+    if (route.legs.isEmpty) return;
+
+    final leg = route.legs[0];
+    final points = route.polylinePoints;
+
+    // Find a good position for the marker (around 40% along the route)
+    // This helps ensure the marker is visible but not too close to either end
+    final markerPosition = _findPositionAlongRoute(points, 0.4);
+
+    // Create marker ID
+    final markerId = MarkerId('route_duration_$routeIndex');
+
+    // Get duration text
+    final durationText = leg.duration.text;
+
+    // Create a route duration bubble using a custom bitmap
+    _createRouteDurationBitmap(durationText, isSelected).then((BitmapDescriptor customIcon) {
+      if (!mounted) return;
+
+      setState(() {
+        _markersMap[markerId] = Marker(
+          markerId: markerId,
+          position: markerPosition,
+          // Use our custom bitmap for the route duration
+          icon: customIcon,
+          // No info window needed as we have a custom bubble
+          infoWindow: InfoWindow.noText,
+          // Higher z-index to ensure visibility over the route lines
+          zIndex: isSelected ? 3 : 2,
+          // Make the icon clickable
+          consumeTapEvents: true,
+          visible: true,
+          // When tapped, select this route
+          onTap: () {
+            if (!isSelected) {
+              _updateDisplayedRoute(routeIndex);
+            }
+          },
+        );
+      });
+    });
+  }
+
+  // Helper to find a position along the route at a certain percentage
+  LatLng _findPositionAlongRoute(List<LatLng> points, double percentage) {
+    if (points.isEmpty) return const LatLng(0, 0);
+    if (points.length == 1) return points[0];
+
+    // For a simple implementation, just pick a point at roughly the desired percentage
+    int index = (points.length * percentage).toInt();
+    // Ensure index is within bounds
+    index = index.clamp(0, points.length - 1);
+
+    return points[index];
+  }
+
+  // Clear all route info markers before creating new ones
+  void _clearRouteInfoMarkers() {
+    // Remove any markers with IDs starting with 'route_duration_'
+    _markersMap.removeWhere((markerId, marker) =>
+        markerId.value.startsWith('route_duration_'));
+  }
+
+  // Create a custom map style that enhances route visibility
+  void _applyOptimizedMapStyle() {
+    if (_mapController == null) return;
+
+    // Apply a map style that reduces visual noise and enhances route visibility
+    // This is optional but can improve the user experience
+    final String optimizedMapStyle = '''
+  [
+    {
+      "featureType": "poi",
+      "elementType": "labels",
+      "stylers": [
+        {
+          "visibility": "off"
+        }
+      ]
+    },
+    {
+      "featureType": "transit",
+      "elementType": "labels",
+      "stylers": [
+        {
+          "visibility": "off"
+        }
+      ]
+    },
+    {
+      "featureType": "road",
+      "elementType": "geometry.fill",
+      "stylers": [
+        {
+          "weight": 2
+        }
+      ]
+    }
+  ]
+  ''';
+
+    _mapController!.setMapStyle(optimizedMapStyle);
   }
 
   void _stopNavigation() {
@@ -1887,6 +2247,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return;
     }
 
+    _navigationStartTime = DateTime.now();
+
     // Use the helper method to ensure consistent state
     _updateNavigationState(NavigationState.activeNavigation);
 
@@ -2230,6 +2592,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       distanceFilter: 10, // 10 meters
     );
 
+    // Save the completed route to history
+    _saveCompletedRoute();
+
     // Show arrival dialog
     showDialog(
       context: context,
@@ -2249,6 +2614,103 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+  Future<void> _saveCompletedRoute() async {
+    // Skip if any required data is missing
+    if (_routeDetails == null ||
+        _destinationPlace == null ||
+        _currentLocation == null ||
+        _routeDetails!.routes.isEmpty) {
+      print('Missing data for saving route history');
+      return;
+    }
+
+    try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('No authenticated user found');
+        return;
+      }
+
+      // Get the selected route and its first leg
+      final route = _routeDetails!.routes[_selectedRouteIndex];
+      final leg = route.legs[0];
+
+      // Create origin Address object
+      final startLocation = Address(
+        formattedAddress: leg.startAddress.isNotEmpty
+            ? leg.startAddress
+            : 'Your location',
+        lat: leg.startLocation.latitude,
+        lng: leg.startLocation.longitude,
+        placeId: '', // We might not have this
+      );
+
+      // Create destination Address object
+      final endLocation = Address(
+        formattedAddress: _destinationPlace!.address,
+        lat: _destinationPlace!.latLng.latitude,
+        lng: _destinationPlace!.latLng.longitude,
+        placeId: _destinationPlace!.id,
+      );
+
+      // Convert polyline points to encoded string if needed
+      String encodedPolyline = '';
+      if (route.polylinePoints.isNotEmpty) {
+        // This might need a custom encoder depending on how you're storing polylines
+        // For simplicity, we're just using a string representation
+        encodedPolyline = route.polylinePoints.toString();
+      }
+
+      // Determine traffic conditions (simplified)
+      String trafficCondition = 'normal';
+      final actualDuration = DateTime.now().difference(_navigationStartTime).inSeconds;
+      final estimatedDuration = leg.duration.value;
+
+      if (actualDuration > estimatedDuration * 1.2) {
+        trafficCondition = 'heavy';
+      } else if (actualDuration < estimatedDuration * 0.8) {
+        trafficCondition = 'light';
+      }
+
+      // Create the RouteHistory object
+      final routeHistory = RouteHistory(
+        id: '', // Will be set by Firebase
+        startLocation: startLocation,
+        endLocation: endLocation,
+        waypoints: [], // Add any waypoints if available
+        distance: Distance(
+          text: leg.distance.text,
+          value: leg.distance.value,
+        ),
+        duration: TravelDuration(
+          text: leg.duration.text,
+          value: actualDuration, // Use actual time rather than estimated
+        ),
+        createdAt: DateTime.now(),
+        travelMode: 'DRIVING', // Update based on actual mode
+        polyline: encodedPolyline,
+        routeName: _destinationPlace!.name,
+        trafficConditions: trafficCondition,
+        weatherConditions: null, // Would need weather API integration
+      );
+
+      // Get route history service
+      final routeHistoryService = RouteHistoryService();
+
+      // Save the route
+      final routeId = await routeHistoryService.saveCompletedRoute(
+        userId: user.uid,
+        routeHistory: routeHistory,
+      );
+
+      print('Route history saved successfully with ID: $routeId');
+
+    } catch (e) {
+      print('Error saving route history: $e');
+      // Don't show error to user - silently log it
+    }
+  }
 
   Widget _buildMapView() {
     return Stack(
@@ -2279,6 +2741,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Back and close buttons only in placeSelected state and not during route preview
         if (_navigationState == NavigationState.placeSelected && !_showingRouteAlternatives)
           _buildNavigationTopButtons(),
+
+        // Add the new buttons for route preview state
+        if (_navigationState == NavigationState.routePreview)
+          _buildRouteSelectionTopButtons(),
 
         // Map action buttons (conditional based on navigation state)
         _buildMapActionButtons(),
@@ -3336,27 +3802,161 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
         // Recent locations
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'Recent',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recent',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                        letterSpacing: -0.3,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    // Optional: Add a "See All" button if needed
+                    if (_recentLocations.length > 3)
+                      GestureDetector(
+                        onTap: () {
+                          // Handle "See All" tap - could open a full screen of recents
+                          // For now, just refresh the list
+                          _fetchRecentLocations();
+                        },
+                        child: Text(
+                          'See All',
+                          style: GoogleFonts.poppins(
+                            color: Colors.blue,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              _buildRecentLocationItem('TechShack', '158 St H Abellana, Mandaue City, Central ...'),
-              _buildRecentLocationItem('Cebu IT Park', 'Cebu City, Central Visayas'),
-              _buildRecentLocationItem('Sugbo Mercado - IT Park', 'Inez Villa, Cebu City'),
+
+              // Loading indicator while fetching recents
+              if (_isLoadingRecentLocations)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              // Empty state message if no recents
+              else if (_recentLocations.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.history, size: 32, color: Colors.grey[400]),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No recent locations',
+                          style: GoogleFonts.poppins(
+                            color: Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Places you search for will appear here',
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey[500],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              // List of recent locations
+              else
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _recentLocations.length,
+                    itemBuilder: (context, index) {
+                      final location = _recentLocations[index];
+                      return _buildRecentLocationItem(
+                        location.name,
+                        location.address,
+                            () => _selectRecentLocation(location),
+                        getIconForType(location.iconType),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  // Helper method to determine icon based on location type
+  IconData getIconForType(String? type) {
+    if (type == null) return Icons.location_on_outlined;
+
+    switch (type) {
+      case 'restaurant':
+      case 'food':
+      case 'cafe':
+        return Icons.restaurant;
+      case 'store':
+      case 'shopping_mall':
+      case 'supermarket':
+        return Icons.shopping_bag;
+      case 'school':
+      case 'university':
+        return Icons.school;
+      case 'hospital':
+      case 'doctor':
+      case 'pharmacy':
+        return Icons.local_hospital;
+      case 'airport':
+      case 'bus_station':
+      case 'train_station':
+        return Icons.directions_transit;
+      case 'hotel':
+      case 'lodging':
+        return Icons.hotel;
+      case 'park':
+      case 'tourist_attraction':
+        return Icons.park;
+      case 'gym':
+      case 'fitness_center':
+        return Icons.fitness_center;
+      case 'bar':
+      case 'night_club':
+        return Icons.nightlife;
+      case 'gas_station':
+        return Icons.local_gas_station;
+      case 'bank':
+      case 'atm':
+        return Icons.account_balance;
+      default:
+        return Icons.location_on_outlined;
+    }
   }
 
   Widget _buildSearchResults() {
@@ -3491,33 +4091,260 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildQuickAccessButton(IconData icon, String label) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.blue.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.1),
+          width: 1,
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 20),
+          Icon(icon, size: 18, color: Colors.blue),
           const SizedBox(width: 8),
-          Text(label),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.blue[700],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentLocationItem(String title, String subtitle) {
-    return ListTile(
-      leading: const Icon(Icons.location_on_outlined),
-      title: Text(title),
-      subtitle: Text(
-        subtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+  Widget _buildRecentLocationItem(
+      String title,
+      String subtitle,
+      VoidCallback onTap,
+      [IconData icon = Icons.location_on_outlined]
+      ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        // Subtle hover effect with very light shadow
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
-      contentPadding: EdgeInsets.zero,
-      onTap: () {
-        _panelController.close();
-      },
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.blue,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            letterSpacing: -0.2,
+            color: Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w400,
+            fontSize: 13,
+            color: Colors.grey[600],
+            letterSpacing: -0.1,
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        onTap: () {
+          // Handle tap to select this location
+          onTap();
+        },
+        // Long press to show options like delete
+        onLongPress: () {
+          // Only show if item is a RecentLocation, not a quick access button
+          if (title != 'Home' && title != 'Work' && title != 'New') {
+            _showRecentLocationOptions(title, subtitle, onTap);
+          }
+        },
+        // Adding trailing chevron for better indication that item is tappable
+        trailing: Icon(
+          Icons.chevron_right,
+          color: Colors.grey[400],
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  // Method to show options when long pressing a recent location
+  void _showRecentLocationOptions(String title, String subtitle, VoidCallback onSelect) {
+    // Find the location in our list
+    final location = _recentLocations.firstWhere(
+          (loc) => loc.name == title && loc.address == subtitle,
+      orElse: () => RecentLocation(
+        id: '',
+        placeId: '',
+        name: title,
+        address: subtitle,
+        lat: 0,
+        lng: 0,
+        accessedAt: DateTime.now(),
+      ),
+    );
+
+    // If we couldn't find the location, don't show options
+    if (location.id.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      elevation: 10,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Location name header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              child: Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            // Address
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Navigate option
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(Icons.navigation, color: Colors.blue, size: 20),
+              ),
+              title: Text(
+                'Navigate to this location',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onSelect();
+              },
+            ),
+
+            // Remove option
+            ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
+              ),
+              title: Text(
+                'Remove from recent locations',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                try {
+                  await _recentLocationsService.deleteRecentLocation(location.id);
+                  // Refresh the list
+                  _fetchRecentLocations();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Removed from recent locations',
+                        style: GoogleFonts.poppins(),
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                } catch (e) {
+                  print('Error removing recent location: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Error removing location',
+                        style: GoogleFonts.poppins(),
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 }
