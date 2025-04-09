@@ -220,6 +220,20 @@ final String nightMapStyle = '''
 ]
 ''';
 
+final String trafficOffMapStyle = '''
+[
+  {
+    "featureType": "road",
+    "elementType": "geometry.fill",
+    "stylers": [
+      {
+        "weight": 2.5
+      }
+    ]
+  }
+]
+''';
+
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
   // Controllers
   GoogleMapController? _mapController;
@@ -293,7 +307,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     super.initState();
     _initLocationService();
     _trafficEnabled = true;
-    _currentMapStyle = _trafficEnabled ? null : dayMapStyle;
+    _currentMapStyle = null;
 
     _pulseController = AnimationController(
       vsync: this,
@@ -1401,6 +1415,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         return;
       }
 
+      // Enable traffic layer when starting navigation if it's disabled
+      if (!_trafficEnabled) {
+        _toggleTrafficLayer();
+      }
+
       // Validate the response
       if (routeDetails == null) {
         _logNavigationEvent("Null route details received");
@@ -1488,14 +1507,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         final polylineId = PolylineId('route_$i');
         final isSelected = i == _selectedRouteIndex;
 
-        // Selected route gets primary color and higher width
+        // Enhanced visibility for polylines
         final polyline = Polyline(
           polylineId: polylineId,
           points: route.polylinePoints,
-          color: isSelected ? Colors.blue : Colors.grey,
-          width: isSelected ? 7 : 4,
-          zIndex: isSelected ? 2 : 1,
-          // Add tap handler to each polyline (simplified)
+          // Use brighter colors that stand out better
+          color: isSelected ? Colors.blue.shade600 : Colors.lightBlue.shade200,
+          // Increase width for better visibility
+          width: isSelected ? 8 : 5,
+          // Higher z-index for the selected route
+          zIndex: isSelected ? 3 : 1,
+          // Add a border effect using endCap and jointType for more distinct appearance
+          endCap: Cap.roundCap,
+          startCap: Cap.roundCap,
+          jointType: JointType.round,
+          // Pattern for additional visibility (optional)
+          // patterns: isSelected ? [PatternItem.dash(10), PatternItem.gap(5)] : [],
+          // Enable tap events
           onTap: () {
             // Only update if not already selected
             if (!isSelected) {
@@ -2588,11 +2616,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       // Additional state updates specific to active navigation
       _polylinesMap.clear();
       final polylineId = const PolylineId('active_route');
+
+      // Create an enhanced polyline for active navigation
       final polyline = Polyline(
         polylineId: polylineId,
         points: _routeAlternatives[0].routes[_selectedRouteIndex].polylinePoints,
-        color: Colors.blue,
-        width: 7,
+        color: Colors.blue.shade600,
+        width: 9,  // Thicker line for navigation mode
+        zIndex: 3, // High z-index to ensure visibility
+        endCap: Cap.roundCap,
+        startCap: Cap.roundCap,
+        jointType: JointType.round,
       );
       _polylinesMap[polylineId] = polyline;
 
@@ -2616,6 +2650,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _updateNavigationCamera();
     }
   }
+
 
   void _centerCameraOnLocation({
     required LatLng location,
@@ -3126,6 +3161,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           myLocationButtonEnabled: false,
           zoomControlsEnabled: false,
           compassEnabled: true,
+          trafficEnabled: _trafficEnabled,
         ),
 
         // Top menu buttons only in idle state
@@ -3279,61 +3315,64 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void _toggleTrafficLayer() {
     setState(() {
       _trafficEnabled = !_trafficEnabled;
-      _currentMapStyle = _trafficEnabled ? null : navigationMapStyle;
+
+      // When traffic is disabled, use a style that maintains POI visibility
+      // When traffic is enabled, use default Google style (null)
+      _currentMapStyle = _trafficEnabled ? null : trafficOffMapStyle;
+
+      // Apply the map style if controller exists
+      if (_mapController != null) {
+        _mapController!.setMapStyle(_currentMapStyle);
+      }
 
       print("Traffic Enabled: $_trafficEnabled");
-      print("Current Map Style: " + (_currentMapStyle == null ? "NULL (Default Google)" : "Custom Style"));
+      print("Current Map Style: " + (_currentMapStyle == null ? "NULL (Default Google)" : "Minimal Style"));
     });
   }
 
   Widget _buildMapActionButtons() {
-    // When in route selection mode (_showingRouteAlternatives is true),
-    // we'll display only the recenter button
-    if (_showingRouteAlternatives) {
-      return Positioned(
-        top: 16,
-        right: 16,
-        child: _buildCircularButton(
-          icon: Icons.my_location,
-          onPressed: () {
-            if (_currentLocation != null) {
-              _mapController?.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(
-                    target: LatLng(
-                      _currentLocation!.latitude ?? _defaultLocation.latitude,
-                      _currentLocation!.longitude ?? _defaultLocation.longitude,
-                    ),
-                    zoom: 15,
-                  ),
-                ),
-              );
-            }
-          },
-        ),
-      );
-    }
-
-    // For navigation mode, we show the centered recenter button
+    // For navigation mode, include a more prominent traffic button
     if (_isInNavigationMode) {
       return Positioned(
         right: 16,
-        bottom: MediaQuery.of(context).size.height / 2 - 28, // Center vertically
-        child: FloatingActionButton(
-          heroTag: "recenterButton",
-          backgroundColor: Colors.white,
-          elevation: 4.0,
-          child: const Icon(Icons.my_location, color: Colors.blue, size: 24),
-          onPressed: () {
-            if (_lastKnownLocation != null) {
-              _updateNavigationCamera();
-            }
-          },
+        bottom: MediaQuery.of(context).size.height / 2 - 28,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Enhanced traffic toggle button
+            FloatingActionButton(
+              heroTag: "trafficToggle",
+              mini: true,
+              backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
+              elevation: 4.0,
+              child: Icon(
+                Icons.traffic,
+                color: _trafficEnabled ? Colors.white : Colors.grey[600],
+                size: 20,
+              ),
+              onPressed: () {
+                _toggleTrafficLayer();
+              },
+            ),
+            SizedBox(height: 8),
+
+            FloatingActionButton(
+              heroTag: "recenterButton",
+              backgroundColor: Colors.white,
+              elevation: 4.0,
+              child: const Icon(Icons.my_location, color: Colors.blue, size: 24),
+              onPressed: () {
+                if (_lastKnownLocation != null) {
+                  _updateNavigationCamera();
+                }
+              },
+            ),
+          ],
         ),
       );
     }
 
-    // For other states, show the original buttons
+    // For standard mode, update the existing button
     return Positioned(
       bottom: 200,
       right: 16,
@@ -3343,7 +3382,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             heroTag: "toggleTraffic",
             mini: true,
             backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-            onPressed: _toggleTrafficLayer,
+            onPressed: () {
+              _toggleTrafficLayer();
+            },
             child: Icon(
               Icons.traffic,
               color: _trafficEnabled ? Colors.white : Colors.grey,
