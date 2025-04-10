@@ -6,6 +6,7 @@ import 'package:project_navigo/screens/login_screen.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/services/onboarding_service.dart';
 import 'screens/landing_page.dart';
+import 'package:flutter/services.dart';
 import 'services/firebase_options.dart';
 import 'services/service_provider.dart';
 
@@ -13,6 +14,14 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   void main() async {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Set status bar to black with white icons for all screens
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.black,
+      statusBarIconBrightness: Brightness.light, // White icons for Android
+      statusBarBrightness: Brightness.dark, // Dark mode status bar for iOS (shows white content)
+    ));
+
     await Firebase.initializeApp(
       options: FirebaseOptions(
         apiKey: "AIzaSyBocnJgrDPDhhMcAf6CUoi-lXVLkIILdrc",
@@ -38,7 +47,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
       return MaterialApp(
         title: 'NaviGo',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(primarySwatch: Colors.blue),
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          // Ensure theme doesn't override our status bar setting
+          appBarTheme: const AppBarTheme(
+          ),
+        ),
         home: IntroScreen(),
       );
     }

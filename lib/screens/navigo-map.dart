@@ -13,6 +13,7 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:project_navigo/models/recent_location.dart';
 import 'package:project_navigo/services/recent_locations_service.dart';
 import 'dart:async';
+import '../component/reusable-location-search_screen.dart';
 import '../config/config.dart';
 import '../models/route_history.dart';
 import '../models/user_profile.dart';
@@ -65,6 +66,24 @@ class PulsatingMarkerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class QuickAccessShortcut {
+  final String id;
+  final String iconPath;
+  final String label;
+  final LatLng location;
+  final String address;
+  final String? placeId;
+
+  QuickAccessShortcut({
+    required this.id,
+    required this.iconPath,
+    required this.label,
+    required this.location,
+    required this.address,
+    this.placeId,
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -219,7 +238,6 @@ final String nightMapStyle = '''
   }
 ]
 ''';
-
 final String trafficOffMapStyle = '''
 [
   {
@@ -235,6 +253,7 @@ final String trafficOffMapStyle = '''
 ''';
 
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
+
   // Controllers
   GoogleMapController? _mapController;
   final PanelController _panelController = PanelController();
@@ -296,15 +315,22 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Timer? _locationSimulationTimer; // For testing or demo purposes
   StreamSubscription<LocationData>? _navigationLocationSubscription;
 
-
   NavigationState _navigationState = NavigationState.idle;
-
-
   late AnimationController _pulseController;
+
+  List<QuickAccessShortcut> _quickAccessShortcuts = [];
+  final ScrollController _shortcutsScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+
+    // Set status bar to black with light (white) icons for contrast
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.black, // Black status bar
+      statusBarIconBrightness: Brightness.light, // Light (white) icons for dark background
+    ));
+
     _initLocationService();
     _trafficEnabled = true;
     _currentMapStyle = null;
@@ -316,6 +342,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     // Add this line to fetch recent locations
     _fetchRecentLocations();
+
+    // Initialize quick access shortcuts
+    _initQuickAccessShortcuts();
 
     // Get saved map service
     Future.microtask(() {
@@ -338,7 +367,481 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     _navigationLocationSubscription?.cancel();
     _locationSimulationTimer?.cancel();
     _dummyFocusNode.dispose();
+    _shortcutsScrollController.dispose();
     super.dispose();
+  }
+
+  // Add this method to initialize the quick access shortcuts
+  void _initQuickAccessShortcuts() {
+    // Load shortcuts from shared preferences or other storage in a real app
+    // For now, we'll just initialize with empty list - Home and Work are handled separately
+    _quickAccessShortcuts = [];
+
+    // Optional: Add some example shortcuts for testing
+    // _quickAccessShortcuts.add(
+    //   QuickAccessShortcut(
+    //     id: 'favorite1',
+    //     iconPath: 'assets/icons/star_icon.png',
+    //     label: 'Favorite',
+    //     location: LatLng(10.3157, 123.8854),
+    //     address: 'Cebu IT Park, Cebu City',
+    //   ),
+    // );
+  }
+
+  // Add this method to handle the "New" button tap in the Quick acces button section
+  void _handleNewButtonTap() async {
+    // Show a dialog to create a new shortcut
+    final result = await _showAddShortcutDialog();
+
+    if (result != null) {
+      setState(() {
+        _quickAccessShortcuts.add(result);
+      });
+
+      // Optional: Save shortcuts to persistent storage
+      _saveQuickAccessShortcuts();
+
+      // Scroll to the end to show the new shortcut
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_shortcutsScrollController.hasClients) {
+          _shortcutsScrollController.animateTo(
+            _shortcutsScrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  // Method to show dialog for adding a new shortcut
+  Future<QuickAccessShortcut?> _showAddShortcutDialog() async {
+    final TextEditingController labelController = TextEditingController();
+    final TextEditingController locationController = TextEditingController();
+    String? selectedIcon = 'assets/icons/star_icon.png'; // Default icon
+
+    // Location variables
+    LatLng? selectedLocation;
+    String selectedAddress = '';
+    String? selectedPlaceId;
+
+    return showDialog<QuickAccessShortcut>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Function to handle location selection
+            Future<void> _selectLocation() async {
+              // Use our existing LocationSearchScreen component
+              final result = await Navigator.push<api.Place>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LocationSearchScreen(
+                    title: 'Select Location',
+                    searchHint: 'Search for a location',
+                  ),
+                ),
+              );
+
+              if (result != null) {
+                setState(() {
+                  selectedLocation = result.latLng;
+                  selectedAddress = result.address;
+                  selectedPlaceId = result.id;
+                  locationController.text = result.name;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                'Add Quick Access Shortcut',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label input
+                    TextField(
+                      controller: labelController,
+                      decoration: InputDecoration(
+                        labelText: 'Shortcut Name',
+                        hintText: 'E.g., Office, Gym, School',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      maxLength: 15, // Limit name length to fit in UI
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Location selection field
+                    Text(
+                      'Location',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Location input field with search button
+                    InkWell(
+                      onTap: _selectLocation,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            // Location icon
+                            Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Icon(
+                                Icons.location_on_outlined,
+                                color: Colors.blue,
+                                size: 24,
+                              ),
+                            ),
+
+                            // Display selected location or prompt
+                            Expanded(
+                              child: Text(
+                                selectedLocation != null
+                                    ? selectedAddress
+                                    : 'Tap to select a location',
+                                style: TextStyle(
+                                  color: selectedLocation != null
+                                      ? Colors.black87
+                                      : Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+
+                            // Search icon
+                            Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Icon(
+                                Icons.search,
+                                color: Colors.grey[600],
+                                size: 24,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Show selected location details if available
+                    if (selectedLocation != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.blue,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    locationController.text.isNotEmpty
+                                        ? locationController.text
+                                        : 'Selected Location',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    selectedAddress,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Icon selection - in a real app, you would add a grid of icons to choose from
+                    Text(
+                      'Choose an Icon',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // For demo purposes, we'll use a simple row of preset icons
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildIconOption(setState, 'assets/icons/star_icon.png', selectedIcon),
+                          _buildIconOption(setState, 'assets/icons/home_icon.png', selectedIcon),
+                          _buildIconOption(setState, 'assets/icons/work_icon.png', selectedIcon),
+                          // Add more icon options here
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text('Add Shortcut'),
+                  onPressed: () {
+                    // Validate inputs
+                    if (labelController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Please enter a name for your shortcut')),
+                      );
+                      return;
+                    }
+
+                    if (selectedLocation == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Please select a location')),
+                      );
+                      return;
+                    }
+
+                    // Create new shortcut
+                    final shortcut = QuickAccessShortcut(
+                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                      iconPath: selectedIcon!,
+                      label: labelController.text.trim(),
+                      location: selectedLocation!,
+                      address: selectedAddress,
+                      placeId: selectedPlaceId,
+                    );
+
+                    Navigator.of(context).pop(shortcut);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Add this helper method for icon selection
+  Widget _buildIconOption(StateSetter setState, String iconPath, String? selectedIcon) {
+    final bool isSelected = iconPath == selectedIcon;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedIcon = iconPath;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Image.asset(
+            iconPath,
+            width: 24,
+            height: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Add this method to check if we have the necessary assets for our example
+  bool _assetsExist() {
+    try {
+      // In a real app, you'd check if assets exist
+      // This is a simplified check
+      return true;
+    } catch (e) {
+      print('Assets check error: $e');
+      return false;
+    }
+  }
+
+  // Optional: Add a fallback for missing assets
+  String _getFallbackIconPath(String iconPath) {
+    // This would check if the specified path exists, and if not, return a fallback
+    // For simplicity, we'll just return the input path
+    return iconPath;
+  }
+
+  // If the user doesn't have the expected icons in assets,
+// you can use system icons instead:
+  Widget _buildIconOptionWithSystemIcon(StateSetter setState, IconData icon, String iconKey, String? selectedIcon) {
+    final bool isSelected = iconKey == selectedIcon;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedIcon = iconKey;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? Colors.blue : Colors.grey[700],
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  // Method to save shortcuts to persistent storage (optional)
+  void _saveQuickAccessShortcuts() {
+    // In a real app, save to SharedPreferences or a database
+    // This is just a placeholder for future implementation
+    print('Saved ${_quickAccessShortcuts.length} shortcuts');
+  }
+
+
+  // Method to handle custom shortcut tap
+  void _handleCustomShortcutTap(QuickAccessShortcut shortcut) async {
+    try {
+      // Close keyboard
+      FocusScope.of(context).unfocus();
+
+      // Close the sliding panel
+      _panelController.close();
+
+      setState(() {
+        _isSearching = true;
+      });
+
+      // Create a Place object from the shortcut
+      api.Place place = api.Place(
+        id: shortcut.placeId ?? 'custom_${shortcut.id}',
+        name: shortcut.label,
+        address: shortcut.address,
+        latLng: shortcut.location,
+        types: ['custom_shortcut'],
+      );
+
+      // Try to get additional details if we have a place ID
+      if (shortcut.placeId != null && shortcut.placeId!.isNotEmpty) {
+        try {
+          final detailedPlace = await api.GoogleApiServices.getPlaceDetails(shortcut.placeId!);
+          if (detailedPlace != null) {
+            // Create a new place with the original name but detailed data
+            place = api.Place(
+              id: detailedPlace.id,
+              name: shortcut.label, // Keep the custom label
+              address: detailedPlace.address,
+              latLng: detailedPlace.latLng,
+              types: detailedPlace.types,
+            );
+
+            // Load photos
+            final photos = await api.GoogleApiServices.getPlacePhotos(place.id);
+            place.photoUrls = photos;
+          }
+        } catch (e) {
+          print('Error getting additional place details: $e');
+          // Continue with basic place info since we already have essentials
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _destinationPlace = place;
+          _navigationState = NavigationState.placeSelected;
+          _searchController.text = place.name;
+          _placeSuggestions = [];
+          _isSearching = false;
+        });
+
+        _addDestinationMarker(place);
+        _loadPlacePhotos();
+
+        // Center camera on the location
+        _centerCameraOnLocation(
+          location: place.latLng,
+          zoom: 16,
+          tilt: 30,
+        );
+
+        // Start navigation
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          _startNavigation();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+        _showErrorSnackBar('Error navigating to shortcut: $e');
+      }
+    }
   }
 
   // A method to ensure consistent state
@@ -3248,7 +3751,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   Widget _buildTopMenuButtons() {
     return Positioned(
-      top: 40,
+      top: 15,
       left: 16,
       right: 16,
       child: Row(
@@ -3292,21 +3795,25 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     Color? color,
   }) {
     return Container(
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         color: color ?? Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.15),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: IconButton(
-        icon: Icon(icon),
+        icon: Icon(icon, size: 28),
         color: color != null ? Colors.white : null,
         onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: BoxConstraints(),
       ),
     );
   }
@@ -4243,28 +4750,57 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 ),
               ),
 
-              // Icon buttons row with bold Poppins labels
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildQuickAccessButton(
-                      'assets/icons/home_icon.png',
-                      'Home',
-                      _handleHomeButtonTap
-                  ),
-                  _buildQuickAccessButton(
-                      'assets/icons/work_icon.png',
-                      'Work',
-                      _handleWorkButtonTap
-                  ),
-                  _buildQuickAccessButton(
-                      'assets/icons/plus_icon.png',
-                      'New',
-                          () {
-                        // New button functionality will be implemented later
-                      }
-                  ),
-                ],
+              // Replace the Row with a horizontally scrollable ListView
+              Container(
+                height: 100, // Height for the scrollable container
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _shortcutsScrollController,
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    // Standard Home button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildQuickAccessButton(
+                        'assets/icons/home_icon.png',
+                        'Home',
+                        _handleHomeButtonTap,
+                      ),
+                    ),
+
+                    // Standard Work button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _buildQuickAccessButton(
+                        'assets/icons/work_icon.png',
+                        'Work',
+                        _handleWorkButtonTap,
+                      ),
+                    ),
+
+                    // Custom shortcuts
+                    ..._quickAccessShortcuts.map((shortcut) =>
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: _buildQuickAccessButton(
+                            shortcut.iconPath,
+                            shortcut.label,
+                                () => _handleCustomShortcutTap(shortcut),
+                          ),
+                        ),
+                    ).toList(),
+
+                    // New button always at the end
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _buildQuickAccessButton(
+                        'assets/icons/plus_icon.png',
+                        'New',
+                        _handleNewButtonTap,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -4543,54 +5079,55 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildQuickAccessButton(String iconPath, String label, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 80,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                spreadRadius: 1,
-                offset: const Offset(0, 2),
-              ),
-            ],
-            border: Border.all(
-              color: Colors.grey[200]!,
-              width: 1,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 80,
+        width: 80, // Fixed width for consistent sizing in horizontal scroll
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              spreadRadius: 1,
+              offset: const Offset(0, 2),
             ),
+          ],
+          border: Border.all(
+            color: Colors.grey[200]!,
+            width: 1,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Direct icon with original colors - no background container or tinting
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Image.asset(
-                  iconPath,
-                  width: 40,
-                  height: 40,
-                ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.asset(
+                iconPath,
+                width: 32,
+                height: 32,
               ),
-              const SizedBox(height: 4),
-              // Bold Poppins font for the label
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                  letterSpacing: -0.2,
-                ),
+            ),
+            const SizedBox(height: 4),
+            // Label
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+                letterSpacing: -0.2,
               ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
