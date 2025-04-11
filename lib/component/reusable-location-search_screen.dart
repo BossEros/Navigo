@@ -443,7 +443,6 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
   }
 
 
-
   Widget _buildSearchSuggestions() {
       return Center(
         child: Padding(

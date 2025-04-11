@@ -1,5 +1,6 @@
 import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
+import 'package:project_navigo/themes/app_typography.dart';  // Import typography system
 
 import '../../widgets/profile_image.dart';
 import 'profile.dart';
@@ -139,9 +140,9 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 // Icon and title
                 const Icon(Icons.logout, size: 32),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Confirm Log out?',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: AppTypography.textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 30),
 
@@ -163,14 +164,11 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                         onPressed: () {
                           Navigator.of(context).pop(); // Close dialog
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Cancel',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTypography.textTheme.labelLarge,
                           ),
                         ),
                       ),
@@ -191,13 +189,12 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                           Navigator.of(context).pop(); // Close dialog
                           performLogout(context);
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Log out',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                            style: AppTypography.textTheme.labelLarge?.copyWith(
+                              color: Colors.white,
                             ),
                           ),
                         ),
@@ -274,17 +271,15 @@ class _HamburgmenuState extends State<Hamburgmenu> {
 
           // Username and email with dynamic values
           Text(
-            username, // Dynamic username from Firestore
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
+            username,
+            style: AppTypography.textTheme.displaySmall,
           ),
           const SizedBox(height: 5),
           Text(
-            email, // Dynamic email from Firestore
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+            email,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 30),
 
@@ -329,9 +324,9 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                     horizontal: 16,
                   ),
                   leading: const Icon(Icons.logout, size: 24, color: Colors.black),
-                  title: const Text(
+                  title: Text(
                     'Log out',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    style: AppTypography.textTheme.titleMedium,
                   ),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                   onTap: () {
@@ -358,7 +353,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
       leading: Icon(icon, size: 24, color: Colors.black),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: AppTypography.textTheme.titleMedium,
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: () {
@@ -395,8 +390,19 @@ class EmptyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Page'), backgroundColor: Colors.blue),
-      body: const Center(child: Text('This is an empty page')),
+      appBar: AppBar(
+          title: Text(
+            'New Page',
+            style: AppTypography.textTheme.titleLarge,
+          ),
+          backgroundColor: Colors.blue
+      ),
+      body: Center(
+        child: Text(
+          'This is an empty page',
+          style: AppTypography.textTheme.bodyLarge,
+        ),
+      ),
     );
   }
 }

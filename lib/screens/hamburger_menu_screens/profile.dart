@@ -11,8 +11,7 @@ import 'package:project_navigo/services/google-api-services.dart' as api;
 import 'package:project_navigo/services/storage_service.dart';
 import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
-
-
+import 'package:project_navigo/themes/app_typography.dart'; // Import typography system
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -180,7 +179,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await userProvider.refreshUserData();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile updated successfully')),
+        SnackBar(
+          content: Text(
+            'Profile updated successfully',
+            style: AppTypography.textTheme.bodyMedium,
+          ),
+        ),
       );
     } catch (e) {
       print('Error updating profile: $e');
@@ -189,12 +193,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile: $e')),
+        SnackBar(
+          content: Text(
+            'Failed to update profile: $e',
+            style: AppTypography.textTheme.bodyMedium,
+          ),
+        ),
       );
     }
   }
 
-  // In profile.dart - _pickProfileImage method
   Future<void> _pickProfileImage() async {
     if (!_isEditing) return;
 
@@ -278,12 +286,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture updated successfully')),
+          SnackBar(
+            content: Text(
+              'Profile picture updated successfully',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
+          ),
         );
       } catch (e) {
         print('Error updating profile picture: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile picture: $e')),
+          SnackBar(
+            content: Text(
+              'Error updating profile picture: $e',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
+          ),
         );
       } finally {
         if (mounted) {
@@ -361,11 +379,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         type == 'home' ? 'Home address updated' : 'Work address updated',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: AppTypography.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                       Text(
                         selectedPlace.address,
-                        style: TextStyle(fontSize: 12),
+                        style: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -386,7 +409,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print('Error with place search: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error searching for location: $e')),
+        SnackBar(
+          content: Text(
+            'Error searching for location: $e',
+            style: AppTypography.textTheme.bodyMedium,
+          ),
+        ),
       );
     }
   }
@@ -642,14 +670,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                Text(
+                  title,
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
+                ),
                 SizedBox(height: 4),
                 Text(
                   value.isEmpty ? ' ' : value,
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.black,
                   ),
                 ),
               ],
@@ -687,7 +718,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                Text(
+                  title,
+                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
+                ),
                 SizedBox(height: 4),
 
                 // In edit mode, make this a button to open address picker
@@ -711,8 +747,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               address.formattedAddress.isEmpty
                                   ? 'Tap to set location'
                                   : address.formattedAddress,
-                              style: TextStyle(
-                                fontSize: 16,
+                              style: AppTypography.textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 color: address.formattedAddress.isEmpty
                                     ? Colors.grey.shade600
@@ -733,10 +768,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 else
                   Text(
                     address.formattedAddress.isEmpty ? 'Not set' : address.formattedAddress,
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: AppTypography.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: Colors.black,
                     ),
                   ),
               ],
@@ -784,7 +817,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             SizedBox(width: 12),
-            Text('Saving...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Saving...',
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         )
             : Center( // Explicitly center the text
@@ -796,8 +835,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SizedBox(width: 8),
               Text(
                 _isEditing ? 'Save Changes' : 'Edit Profile',
-                style: TextStyle(
-                  fontSize: 18,
+                style: AppTypography.textTheme.labelLarge?.copyWith(
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
