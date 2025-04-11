@@ -1,4 +1,6 @@
 // lib/services/service_provider.dart
+import 'package:project_navigo/services/saved-map_services.dart';
+import 'package:project_navigo/services/storage_service.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +45,17 @@ class ServiceProvider extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => UserProvider(),
         ),
+
+        // Storage Service (no dependencies)
+        Provider<StorageService>(
+          create: (_) => StorageService(),
+        ),
+
+        // Saved Map Service (no dependencies)
+        Provider<SavedMapService>(
+          create: (_) => SavedMapService(),
+        ),
+
       ],
       child: child,
     );

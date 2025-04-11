@@ -13,6 +13,48 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "route_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "route_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "endLocation.placeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "route_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dayOfWeek",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timeOfDay",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

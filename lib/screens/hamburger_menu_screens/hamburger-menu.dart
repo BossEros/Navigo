@@ -1,12 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
+import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
+import 'package:project_navigo/themes/app_typography.dart';
+
+import '../../widgets/profile_image.dart';
 import 'profile.dart';
 import 'settings.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/services/auth_service.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/services/saved-map_services.dart';
+
+// Utility class for creating consistent menu icons
+class MenuIcon {
+  // Define standard size and color for all menu icons
+  static const double iconSize = 22.0;
+  static const Color iconColor = Colors.black87;
+
+  static Widget profile() => FaIcon(FontAwesomeIcons.userCircle, size: iconSize, color: iconColor);
+  static Widget route() => FaIcon(FontAwesomeIcons.route, size: iconSize, color: iconColor);
+  static Widget saved() => FaIcon(FontAwesomeIcons.solidHeart, size: iconSize, color: iconColor);
+  static Widget settings() => FaIcon(FontAwesomeIcons.gear, size: iconSize, color: iconColor);
+  static Widget logout() => FaIcon(FontAwesomeIcons.rightFromBracket, size: iconSize, color: iconColor);
+}
 
 class Hamburgmenu extends StatefulWidget {
   const Hamburgmenu({super.key});
@@ -131,12 +151,14 @@ class _HamburgmenuState extends State<Hamburgmenu> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icon and title
-                const Icon(Icons.logout, size: 32),
+                // Updated icon for dialog
+                FaIcon(FontAwesomeIcons.rightFromBracket, size: 32, color: Colors.red),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Confirm Log out?',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: AppTypography.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 30),
 
@@ -158,12 +180,12 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                         onPressed: () {
                           Navigator.of(context).pop(); // Close dialog
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Cancel',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: AppTypography.textTheme.labelLarge?.copyWith(
+                              color: Colors.black87,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -186,12 +208,12 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                           Navigator.of(context).pop(); // Close dialog
                           performLogout(context);
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Text(
                             'Log out',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: AppTypography.textTheme.labelLarge?.copyWith(
+                              color: Colors.white,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -216,6 +238,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
     // Username and email with fallback values
     final username = userProvider.userProfile?.username ?? 'Guest User';
     final email = userProvider.userProfile?.email ?? 'No email available';
+    final profileImageUrl = userProvider.userProfile?.profileImageUrl;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -257,25 +280,19 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 // Profile picture with image picker
                 Align(
                   alignment: Alignment.center,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: Colors.grey[400],
-                    ),
+                  child: ProfileImageWidget(
+                    imageUrl: profileImageUrl,
+                    size: 100,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Username and email with dynamic values
+          // Username and email with dynamic values and typography
           Text(
             username, // Dynamic username from Firestore
-            style: const TextStyle(
-              fontSize: 24,
+            style: AppTypography.textTheme.displaySmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
@@ -283,7 +300,9 @@ class _HamburgmenuState extends State<Hamburgmenu> {
           const SizedBox(height: 5),
           Text(
             email, // Dynamic email from Firestore
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey,
+            ),
           ),
           const SizedBox(height: 30),
 
@@ -293,32 +312,33 @@ class _HamburgmenuState extends State<Hamburgmenu> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 buildListTile(
-                  Icons.person,
+                  MenuIcon.profile(),
                   'View Profile',
                   context,
                   ProfileScreen(),
                 ),
                 const Divider(height: 1),
                 buildListTile(
-                  Icons.star_border,
-                  'Saved Maps',
-                  context,
-                  const EmptyPage(),
-                ),
-                const Divider(height: 1),
-                buildListTile(
-                  Icons.map_outlined,
+                  MenuIcon.route(),
                   'Your Route Data',
                   context,
-                  const EmptyPage(),
+                  RouteHistoryScreen(),
                 ),
                 const Divider(height: 1),
                 buildListTile(
-                  Icons.settings,
+                  MenuIcon.saved(),
+                  'Saved Locations',
+                  context,
+                  SavedLocationsScreen(),
+                ),
+                const Divider(height: 1),
+                buildListTile(
+                  MenuIcon.settings(),
                   'Settings',
                   context,
                   SettingsPage(),
                 ),
+
                 const Divider(height: 1),
                 // Log out option with confirmation dialog
                 ListTile(
@@ -326,10 +346,12 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                     vertical: 8,
                     horizontal: 16,
                   ),
-                  leading: const Icon(Icons.logout, size: 24, color: Colors.black),
-                  title: const Text(
+                  leading: MenuIcon.logout(),
+                  title: Text(
                     'Log out',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    style: AppTypography.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                   onTap: () {
@@ -346,17 +368,19 @@ class _HamburgmenuState extends State<Hamburgmenu> {
 
   /// Function to build each menu option as a clickable list tile
   Widget buildListTile(
-      IconData icon,
+      Widget icon,
       String title,
       BuildContext context,
       Widget page,
       ) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      leading: Icon(icon, size: 24, color: Colors.black),
+      leading: icon,
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: AppTypography.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: () {
@@ -385,16 +409,4 @@ class HeaderClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
-
-class EmptyPage extends StatelessWidget {
-  const EmptyPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('New Page'), backgroundColor: Colors.blue),
-      body: const Center(child: Text('This is an empty page')),
-    );
-  }
 }

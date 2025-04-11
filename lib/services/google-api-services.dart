@@ -1,9 +1,12 @@
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:project_navigo/config/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class GoogleApiServices {
   // Replace with your actual API key
@@ -75,43 +78,40 @@ class GoogleApiServices {
     }
   }
 
-  // Place this in the GoogleApiServices class
   static Future<List<String>> getPlacePhotos(String placeId) async {
     try {
+      // First fetch photo references
       final String url = '$_placesBaseUrl/places/$placeId';
-
       final response = await http.get(
         Uri.parse(url),
         headers: {
           'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'id,photos'
+          'X-Goog-FieldMask': 'photos'
         },
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        List<Future<String>> photoFutures = [];
 
-        if (data.containsKey('photos') && data['photos'] is List) {
-          List<String> photoUrls = [];
-
+        if (data.containsKey('photos') && data['photos'] is List && data['photos'].isNotEmpty) {
+          // Create a list of future requests for parallel execution
           for (var photo in data['photos']) {
             if (photo.containsKey('name')) {
-              try {
-                final photoUrl = await getPlacePhoto(placeId, photo['name']);
-                photoUrls.add(photoUrl);
-              } catch (e) {
-                print('Error fetching individual photo: $e');
-              }
+              photoFutures.add(getPlacePhoto(placeId, photo['name']));
             }
           }
 
-          return photoUrls;
+          // Execute requests in parallel with a timeout
+          final results = await Future.wait(
+            photoFutures,
+          );
+
+          // Filter out empty results and return
+          return results.where((url) => url.isNotEmpty).toList();
         }
-        return [];
-      } else {
-        print('Error fetching place photos: ${response.statusCode}');
-        return [];
       }
+      return [];
     } catch (e) {
       print('Exception fetching place photos: $e');
       return [];
@@ -223,7 +223,25 @@ class GoogleApiServices {
   }
 
   static Future<String> getPlacePhoto(String placeId, String photoId) async {
-    final String url = '$_placesBaseUrl/places/$placeId/photos/$photoId/media';
+    // Determine the correct URL based on the format of photoId
+    String baseUrl;
+
+    // If photoId starts with 'places/', it's a full resource path
+    if (photoId.startsWith('places/')) {
+      baseUrl = '$_placesBaseUrl/$photoId/media';
+    } else {
+      // Assume it's just a photo ID and construct the full path
+      baseUrl = '$_placesBaseUrl/places/$placeId/photos/$photoId/media';
+    }
+
+    // Create URI with query parameters for dimensions
+    final Uri uri = Uri.parse(baseUrl).replace(queryParameters: {
+      'max_width_px': '800',  // Reasonable width for mobile UI
+      'max_height_px': '600'  // Reasonable height for mobile UI
+    });
+
+    final String url = uri.toString();
+    print('Fetching photo media: $url');
 
     try {
       final response = await http.get(
@@ -233,17 +251,38 @@ class GoogleApiServices {
         },
       );
 
+      print('Photo media API response status: ${response.statusCode}');
+
+      // Check if we got a successful response
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['photoUri']; // URL to the photo
+        // The response is the actual image binary data, not JSON
+        // Simply return the URL which can be used directly in Image.network
+        return url;
+      } else if (response.statusCode == 302 || response.statusCode == 301) {
+        // Handle redirect
+        final location = response.headers['location'];
+        if (location != null && location.isNotEmpty) {
+          print('Redirect to photo: $location');
+          return location;
+        }
+        return '';
       } else {
-        final errorData = json.decode(response.body);
-        final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
-        throw Exception(
-            'Place Photos API error: ${response.statusCode} - $errorMessage');
+        print('Error status: ${response.statusCode}');
+        if (response.body.isNotEmpty) {
+          try {
+            final errorData = json.decode(response.body);
+            final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
+            print('Error message: $errorMessage');
+          } catch (e) {
+            print('Could not parse error response: ${response.body}');
+          }
+        }
+        return '';
       }
     } catch (e) {
-      throw Exception('Failed to get place photo: $e');
+      print('Exception in getPlacePhoto: $e');
+      print('Stack trace: ${StackTrace.current}');
+      return '';
     }
   }
 
@@ -377,7 +416,7 @@ class GoogleApiServices {
                         text: _formatDistance(distanceMeters),
                         value: distanceMeters,
                       ),
-                      duration: Duration(
+                      duration: TravelDuration(
                         text: _formatDuration(durationStr),
                         value: _parseDuration(durationStr),
                       ),
@@ -400,7 +439,7 @@ class GoogleApiServices {
                       text: _formatDistance(legDistance),
                       value: legDistance,
                     ),
-                    duration: Duration(
+                    duration: TravelDuration(
                       text: _formatDuration(legDuration),
                       value: _parseDuration(legDuration),
                     ),
@@ -609,119 +648,133 @@ class GoogleApiServices {
   }
 }
 
-  // Model classes
-  class PlaceSuggestion {
-    final String placeId;
-    final String description;
-    final String mainText;
-    final String secondaryText;
+// Model classes
+class PlaceSuggestion {
+  final String placeId;
+  final String description;
+  final String mainText;
+  final String secondaryText;
 
-    PlaceSuggestion({
-      required this.placeId,
-      required this.description,
-      required this.mainText,
-      required this.secondaryText,
-    });
+  PlaceSuggestion({
+    required this.placeId,
+    required this.description,
+    required this.mainText,
+    required this.secondaryText,
+  });
+}
+
+class Place {
+  final String id;
+  final String name;
+  final String address;
+  final LatLng latLng;
+  final List<String> types;
+  List<String> photoUrls = [];  // Add this field
+
+  Place({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.latLng,
+    required this.types,
+  });
+}
+
+// Model classes for Directions API
+class RouteDetails {
+  final List<Route> routes;
+
+  RouteDetails({
+    required this.routes,
+  });
+}
+
+class Route{
+  final List<Leg> legs;
+  final List<LatLng> polylinePoints;
+  final LatLngBounds bounds;
+  final String summary;
+  final List<String> warnings;
+
+  Route({
+    required this.legs,
+    required this.polylinePoints,
+    required this.bounds,
+    required this.summary,
+    required this.warnings,
+  });
+}
+
+class Leg {
+  final List<Step> steps;
+  final Distance distance;
+  final TravelDuration duration;
+  final String startAddress;
+  final String endAddress;
+  final LatLng startLocation;
+  final LatLng endLocation;
+
+  Leg({
+    required this.steps,
+    required this.distance,
+    required this.duration,
+    required this.startAddress,
+    required this.endAddress,
+    required this.startLocation,
+    required this.endLocation,
+  });
+}
+
+class Step {
+  final String instruction;
+  final Distance distance;
+  final TravelDuration duration;
+  final LatLng startLocation;
+  final LatLng endLocation;
+  final String polyline;
+  final String travelMode;
+
+  Step({
+    required this.instruction,
+    required this.distance,
+    required this.duration,
+    required this.startLocation,
+    required this.endLocation,
+    required this.polyline,
+    required this.travelMode,
+  });
+}
+
+class Distance {
+  final String text;
+  final int value;
+
+  Distance({
+    required this.text,
+    required this.value,
+  });
+}
+
+class TravelDuration {
+  final String text;
+  final int value;
+
+  TravelDuration({
+    required this.text,
+    required this.value,
+  });
+
+  factory TravelDuration.fromMap(Map<String, dynamic> map) {
+    return TravelDuration(
+      text: map['text'] ?? '0 min',
+      value: map['value'] ?? 0,
+    );
   }
 
-  class Place {
-    final String id;
-    final String name;
-    final String address;
-    final LatLng latLng;
-    final List<String> types;
-    List<String> photoUrls = [];  // Add this field
-
-    Place({
-      required this.id,
-      required this.name,
-      required this.address,
-      required this.latLng,
-      required this.types,
-    });
+  Map<String, dynamic> toMap() {
+    return {
+      'text': text,
+      'value': value,
+    };
   }
-
-  // Model classes for Directions API
-  class RouteDetails {
-    final List<Route> routes;
-
-    RouteDetails({
-      required this.routes,
-    });
-  }
-
-  class Route{
-    final List<Leg> legs;
-    final List<LatLng> polylinePoints;
-    final LatLngBounds bounds;
-    final String summary;
-    final List<String> warnings;
-
-    Route({
-      required this.legs,
-      required this.polylinePoints,
-      required this.bounds,
-      required this.summary,
-      required this.warnings,
-    });
-  }
-
-  class Leg {
-    final List<Step> steps;
-    final Distance distance;
-    final Duration duration;
-    final String startAddress;
-    final String endAddress;
-    final LatLng startLocation;
-    final LatLng endLocation;
-
-    Leg({
-      required this.steps,
-      required this.distance,
-      required this.duration,
-      required this.startAddress,
-      required this.endAddress,
-      required this.startLocation,
-      required this.endLocation,
-    });
-  }
-
-  class Step {
-    final String instruction;
-    final Distance distance;
-    final Duration duration;
-    final LatLng startLocation;
-    final LatLng endLocation;
-    final String polyline;
-    final String travelMode;
-
-    Step({
-      required this.instruction,
-      required this.distance,
-      required this.duration,
-      required this.startLocation,
-      required this.endLocation,
-      required this.polyline,
-      required this.travelMode,
-    });
-  }
-
-  class Distance {
-    final String text;
-    final int value;
-
-    Distance({
-      required this.text,
-      required this.value,
-    });
-  }
-
-  class Duration {
-    final String text;
-    final int value;
-
-    Duration({
-      required this.text,
-      required this.value,
-    });
-  }
+}

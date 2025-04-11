@@ -49,4 +49,35 @@ class UserProvider extends ChangeNotifier {
     return loadUserData();
   }
 
+  // Add a method to update profile image
+  Future<void> updateProfileImage(String imageUrl, String imagePath) async {
+    if (_userProfile == null) return;
+
+    try {
+      // Update the in-memory profile
+      _userProfile = UserProfile(
+        id: _userProfile!.id,
+        username: _userProfile!.username,
+        email: _userProfile!.email,
+        homeAddress: _userProfile!.homeAddress,
+        workAddress: _userProfile!.workAddress,
+        age: _userProfile!.age,
+        dateOfBirth: _userProfile!.dateOfBirth,
+        createdAt: _userProfile!.createdAt,
+        updatedAt: DateTime.now(),
+        isActive: _userProfile!.isActive,
+        schemaVersion: _userProfile!.schemaVersion,
+        onboardingStatus: _userProfile!.onboardingStatus,
+        profileImageUrl: imageUrl,
+        profileImagePath: imagePath,
+        profileImageUpdatedAt: DateTime.now(),
+      );
+
+      // Notify listeners to update UI
+      notifyListeners();
+    } catch (e) {
+      print('Error updating profile image in provider: $e');
+    }
+  }
+
 }

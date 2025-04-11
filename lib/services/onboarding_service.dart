@@ -1,4 +1,3 @@
-// lib/services/onboarding_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:project_navigo/services/utils/firebase_utils.dart';
 import 'package:project_navigo/screens/forgotPasswordScreen.dart';
