@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:io';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/models/user_profile.dart';
@@ -11,7 +12,24 @@ import 'package:project_navigo/services/google-api-services.dart' as api;
 import 'package:project_navigo/services/storage_service.dart';
 import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography system
+import 'package:project_navigo/themes/app_typography.dart';
+
+/// A utility class for profile screen icons to maintain consistency
+class ProfileIcons {
+  // Standard constants
+  static const double size = 20.0;
+  static const Color color = Colors.black87;
+
+  // Icon methods
+  static Widget username() => FaIcon(FontAwesomeIcons.idBadge, size: size, color: color);
+  static Widget email() => FaIcon(FontAwesomeIcons.envelope, size: size, color: color);
+  static Widget home() => FaIcon(FontAwesomeIcons.house, size: size, color: color);
+  static Widget work() => FaIcon(FontAwesomeIcons.briefcase, size: size, color: color);
+  static Widget edit() => FaIcon(FontAwesomeIcons.penToSquare, size: size, color: Colors.white);
+  static Widget save() => FaIcon(FontAwesomeIcons.floppyDisk, size: size, color: Colors.white);
+  static Widget search() => FaIcon(FontAwesomeIcons.magnifyingGlass, size: size, color: Colors.blue);
+  static Widget camera() => FaIcon(FontAwesomeIcons.camera, size: 16, color: Colors.white);
+}
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -341,8 +359,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: type == 'home' ? 'Set Home Address' : 'Set Work Address',
             searchHint: 'Search for your ${type == 'home' ? 'home' : 'work'} address',
             initialQuery: '', // Always start with an empty search bar
-            currentLocation: currentLocation, // For distance calculations only
-            showSuggestionButtons: false, // Don't show 'Current Location' and 'Nearby Places' buttons
           ),
         ),
       );
@@ -370,7 +386,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(
             content: Row(
               children: [
-                Icon(type == 'home' ? Icons.home : Icons.work, color: Colors.white),
+                type == 'home'
+                    ? ProfileIcons.home()
+                    : ProfileIcons.work(),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -445,6 +463,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(
+          'Profile',
+          style: AppTypography.textTheme.headlineSmall?.copyWith(
+            color: Colors.black,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: Column(
@@ -468,17 +500,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  // Back button (left arrow)
-                  Positioned(
-                    top: 40,
-                    left: 20,
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back, color: Colors.black, size: 28),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
                     ),
                   ),
                 ],
@@ -529,8 +550,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           },
                           errorBuilder: (context, error, stackTrace) {
                             print('Error loading profile image: $error');
-                            return Icon(
-                              Icons.person,
+                            return FaIcon(
+                              FontAwesomeIcons.userLarge,
                               size: 60,
                               color: Colors.grey[400],
                             );
@@ -538,8 +559,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           cacheWidth: 240, // Set to double the display size for quality
                           key: ValueKey(DateTime.now().toString()),
                         )
-                            : Icon(
-                          Icons.person,
+                            : FaIcon(
+                          FontAwesomeIcons.userLarge,
                           size: 60,
                           color: Colors.grey[400],
                         ),
@@ -555,11 +576,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 16,
-                        ),
+                        child: ProfileIcons.camera(),
                       ),
 
                     // Loading indicator overlay
@@ -594,7 +611,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buildProfileItem(
                     title: 'Username',
                     value: username,
-                    icon: Icons.badge,
+                    icon: ProfileIcons.username(),
                     isEditable: false,
                   ),
                   Divider(height: 1),
@@ -602,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buildProfileItem(
                     title: 'Email',
                     value: email,
-                    icon: Icons.email,
+                    icon: ProfileIcons.email(),
                     isEditable: false,
                   ),
                   Divider(height: 1),
@@ -610,7 +627,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buildAddressItem(
                     title: 'Home Address',
                     address: _homeAddress,
-                    icon: Icons.home,
+                    icon: ProfileIcons.home(),
                     isEditable: _isEditing,
                     onEditTap: () => _openLocationSearch('home'),
                   ),
@@ -619,7 +636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buildAddressItem(
                     title: 'Work Address',
                     address: _workAddress,
-                    icon: Icons.work,
+                    icon: ProfileIcons.work(),
                     isEditable: _isEditing,
                     onEditTap: () => _openLocationSearch('work'),
                   ),
@@ -648,7 +665,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget buildProfileItem({
     required String title,
     required String value,
-    required IconData icon,
+    required Widget icon,
     required bool isEditable,
   }) {
     return Padding(
@@ -661,7 +678,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 40,
             height: 40,
             alignment: Alignment.center,
-            child: Icon(icon, size: 24, color: Colors.black),
+            child: icon,
           ),
           SizedBox(width: 20),
 
@@ -695,7 +712,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget buildAddressItem({
     required String title,
     required Address address,
-    required IconData icon,
+    required Widget icon,
     required bool isEditable,
     required VoidCallback onEditTap,
   }) {
@@ -709,7 +726,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 40,
             height: 40,
             alignment: Alignment.center,
-            child: Icon(icon, size: 24, color: Colors.black),
+            child: icon,
           ),
           SizedBox(width: 20),
 
@@ -756,11 +773,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           SizedBox(width: 8),
-                          Icon(
-                            Icons.search,
-                            color: Colors.blue,
-                            size: 20,
-                          ),
+                          ProfileIcons.search(),
                         ],
                       ),
                     ),
@@ -831,7 +844,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.center, // Center row contents
             mainAxisSize: MainAxisSize.min, // Use minimum size for row
             children: [
-              Icon(_isEditing ? Icons.save : Icons.edit),
+              _isEditing ? ProfileIcons.save() : ProfileIcons.edit(),
               SizedBox(width: 8),
               Text(
                 _isEditing ? 'Save Changes' : 'Edit Profile',
