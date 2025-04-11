@@ -23,10 +23,14 @@ class _RegisterFormState extends State<RegisterForm> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
+
   bool _isLoading = false;
   bool _obscurePassword = true; // To toggle password visibility
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false; // For terms and conditions checkbox
+
+  // Email validation regex pattern
+  final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
 
   @override
   void dispose() {
@@ -35,9 +39,6 @@ class _RegisterFormState extends State<RegisterForm> {
     confirmPasswordController.dispose();
     super.dispose();
   }
-
-  // Email validation regex pattern
-  final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
 
   // Password strength check
   bool _isPasswordStrong(String password) {

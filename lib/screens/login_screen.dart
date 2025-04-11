@@ -90,49 +90,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Keeping the Facebook login method for future implementation
-  void _loginWithFacebook() async {
-    try {
-      setState(() => _isLoading = true);
-
-      // Configure login behavior to prefer native app
-      final LoginResult result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-        loginBehavior: LoginBehavior.nativeWithFallback,
-      );
-
-      if (result.status == LoginStatus.success) {
-        final AccessToken fbAccessToken = result.accessToken!;
-        final credential = FacebookAuthProvider.credential(fbAccessToken.tokenString);
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-        // Navigate to home screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MyApp()),
-        );
-
-      } else if (result.status == LoginStatus.cancelled) {
-        // User canceled
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login cancelled')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Facebook login failed: ${result.message}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Facebook login error: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
   void _forgotPassword() {
     Navigator.push(
       context,

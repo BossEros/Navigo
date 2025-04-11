@@ -442,9 +442,9 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
     );
   }
 
+
+
   Widget _buildSearchSuggestions() {
-    // If we shouldn't show suggestion buttons, just show a placeholder message
-    if (!widget.showSuggestionButtons) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -473,41 +473,6 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         ),
       );
     }
-
-    // Otherwise, show the standard suggestion buttons
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Text(
-            'Suggestions',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Recent searches or common locations
-          _buildSuggestionItem(
-            'Current Location',
-            Icons.my_location,
-                () {
-              // Handle current location selection
-            },
-          ),
-          _buildSuggestionItem(
-            'Nearby Places',
-            Icons.place,
-                () {
-              // Handle nearby places selection
-            },
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildSuggestionItem(String text, IconData icon, VoidCallback onTap) {
@@ -518,4 +483,3 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
       contentPadding: EdgeInsets.zero,
     );
   }
-}

@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
 
 import '../services/user_provider.dart';
+import '../themes/app_typography.dart';
 import 'login_screen.dart';
 
 void main() async {
@@ -420,6 +421,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     final TextEditingController labelController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
     String? selectedIcon = 'assets/icons/star_icon.png'; // Default icon
+    final formKey = GlobalKey<FormState>();
 
     // Location variables
     LatLng? selectedLocation;
@@ -427,249 +429,433 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     String? selectedPlaceId;
 
     return showDialog<QuickAccessShortcut>(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // Function to handle location selection
-            Future<void> _selectLocation() async {
-              // Use our existing LocationSearchScreen component
-              final result = await Navigator.push<api.Place>(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LocationSearchScreen(
-                    title: 'Select Location',
-                    searchHint: 'Search for a location',
+        context: context,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              // Function to handle location selection
+              Future<void> _selectLocation() async {
+                final result = await Navigator.push<api.Place>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        LocationSearchScreen(
+                          title: 'Select Location',
+                          searchHint: 'Search for a location',
+                        ),
                   ),
-                ),
-              );
+                );
 
-              if (result != null) {
-                setState(() {
-                  selectedLocation = result.latLng;
-                  selectedAddress = result.address;
-                  selectedPlaceId = result.id;
-                  locationController.text = result.name;
-                });
+                if (result != null) {
+                  setState(() {
+                    selectedLocation = result.latLng;
+                    selectedAddress = result.address;
+                    selectedPlaceId = result.id;
+                    locationController.text = result.name;
+                  });
+                }
               }
-            }
 
-            return AlertDialog(
-              title: Text(
-                'Add Quick Access Shortcut',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              return Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
                 ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Label input
-                    TextField(
-                      controller: labelController,
-                      decoration: InputDecoration(
-                        labelText: 'Shortcut Name',
-                        hintText: 'E.g., Office, Gym, School',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      maxLength: 15, // Limit name length to fit in UI
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Location selection field
-                    Text(
-                      'Location',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Location input field with search button
-                    InkWell(
-                      onTap: _selectLocation,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            // Location icon
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Icon(
-                                Icons.location_on_outlined,
-                                color: Colors.blue,
-                                size: 24,
-                              ),
-                            ),
-
-                            // Display selected location or prompt
-                            Expanded(
-                              child: Text(
-                                selectedLocation != null
-                                    ? selectedAddress
-                                    : 'Tap to select a location',
-                                style: TextStyle(
-                                  color: selectedLocation != null
-                                      ? Colors.black87
-                                      : Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-
-                            // Search icon
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Icon(
-                                Icons.search,
-                                color: Colors.grey[600],
-                                size: 24,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Show selected location details if available
-                    if (selectedLocation != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              color: Colors.blue,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    locationController.text.isNotEmpty
-                                        ? locationController.text
-                                        : 'Selected Location',
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  Text(
-                                    selectedAddress,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 16),
-
-                    // Icon selection - in a real app, you would add a grid of icons to choose from
-                    Text(
-                      'Choose an Icon',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // For demo purposes, we'll use a simple row of preset icons
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+                elevation: 8,
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildIconOption(setState, 'assets/icons/star_icon.png', selectedIcon),
-                          _buildIconOption(setState, 'assets/icons/home_icon.png', selectedIcon),
-                          _buildIconOption(setState, 'assets/icons/work_icon.png', selectedIcon),
-                          // Add more icon options here
+                          // Header with title
+                          Center(
+                            child: Text(
+                              'Add Quick Access',
+                              style: AppTypography.textTheme.headlineMedium
+                                  ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Shortcut name input
+                          Text(
+                            'Name',
+                            style: AppTypography.textTheme.titleMedium
+                                ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: labelController,
+                            decoration: InputDecoration(
+                              hintText: 'Enter shortcut name',
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: Colors.grey[300]!),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: Colors.grey[300]!),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: Colors.blue, width: 2),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 16.0,
+                              ),
+                              counterText: '${labelController.text.length}/15',
+                            ),
+                            style: AppTypography.textTheme.bodyLarge,
+                            maxLength: 15,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a name';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Location selection
+                          Text(
+                            'Location',
+                            style: AppTypography.textTheme.titleMedium
+                                ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selectedLocation != null
+                                    ? Colors.blue
+                                    : Colors.grey[300]!,
+                                width: selectedLocation != null ? 2 : 1,
+                              ),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _selectLocation,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        color: selectedLocation != null
+                                            ? Colors.blue
+                                            : Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment
+                                              .start,
+                                          children: [
+                                            Text(
+                                              selectedLocation != null
+                                                  ? locationController.text
+                                                  : 'Select location',
+                                              style: AppTypography.textTheme
+                                                  .bodyLarge?.copyWith(
+                                                color: selectedLocation != null
+                                                    ? Colors.black87
+                                                    : Colors.grey[600],
+                                                fontWeight: selectedLocation !=
+                                                    null
+                                                    ? FontWeight.w500
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            if (selectedLocation != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                selectedAddress,
+                                                style: AppTypography.textTheme
+                                                    .bodySmall?.copyWith(
+                                                  color: Colors.grey[600],
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (selectedLocation != null) ...[
+                            const SizedBox(height: 16),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Static Google Maps image
+                                    Image.network(
+                                      'https://maps.googleapis.com/maps/api/staticmap?center=${selectedLocation!
+                                          .latitude},${selectedLocation!
+                                          .longitude}&zoom=15&size=400x200&markers=color:red%7C${selectedLocation!
+                                          .latitude},${selectedLocation!
+                                          .longitude}&key=${AppConfig.apiKey}',
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      errorBuilder: (context, error,
+                                          stackTrace) {
+                                        // Fallback if map image fails to load
+                                        return Container(
+                                          color: Colors.grey[200],
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.map,
+                                              size: 40,
+                                              color: Colors.grey[400],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    // Location pin overlay
+                                    Center(
+                                      child: Icon(
+                                        Icons.location_pin,
+                                        color: Colors.red,
+                                        size: 36,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+
+                          // Icon selection
+                          Text(
+                            'Choose an Icon',
+                            style: AppTypography.textTheme.titleMedium
+                                ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: GridView.builder(
+                              padding: const EdgeInsets.all(8),
+                              scrollDirection: Axis.horizontal,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 1,
+                                mainAxisSpacing: 8,
+                                crossAxisSpacing: 8,
+                                childAspectRatio: 1,
+                              ),
+                              itemCount: 8,
+                              // More icons
+                              itemBuilder: (context, index) {
+                                // Icons array - in a real app, you'd have more icons
+                                List<String> icons = [
+                                  'assets/icons/star_icon.png',
+                                  'assets/icons/home_icon.png',
+                                  'assets/icons/work_icon.png',
+                                  'assets/icons/restaurant_icon.png',
+                                  'assets/icons/shopping_icon.png',
+                                  'assets/icons/gym_icon.png',
+                                  'assets/icons/school_icon.png',
+                                  'assets/icons/cafe_icon.png',
+                                ];
+                                String iconPath = index < icons.length
+                                    ? icons[index]
+                                    : 'assets/icons/star_icon.png';
+
+                                bool isSelected = iconPath == selectedIcon;
+
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        selectedIcon = iconPath;
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                          milliseconds: 200),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? Colors.blue.withOpacity(0.1)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Colors.blue
+                                              : Colors.transparent,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Image.asset(
+                                          iconPath,
+                                          width: 32,
+                                          height: 32,
+                                          errorBuilder: (context, error,
+                                              stackTrace) {
+                                            // Fallback for missing assets
+                                            return Icon(
+                                              Icons.star,
+                                              color: isSelected
+                                                  ? Colors.blue
+                                                  : Colors.grey[700],
+                                              size: 32,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Action buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Cancel button
+                              Expanded(
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Cancel',
+                                    style: AppTypography.textTheme.labelLarge
+                                        ?.copyWith(
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Add button
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    if (formKey.currentState?.validate() ==
+                                        true) {
+                                      if (selectedLocation == null) {
+                                        ScaffoldMessenger
+                                            .of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Please select a location'),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      // Create new shortcut
+                                      final shortcut = QuickAccessShortcut(
+                                        id: 'custom_${DateTime
+                                            .now()
+                                            .millisecondsSinceEpoch}',
+                                        iconPath: selectedIcon!,
+                                        label: labelController.text.trim(),
+                                        location: selectedLocation!,
+                                        address: selectedAddress,
+                                        placeId: selectedPlaceId,
+                                      );
+
+                                      Navigator.of(context).pop(shortcut);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Add Shortcut',
+                                    style: AppTypography.textTheme.labelLarge
+                                        ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  child: Text('Cancel'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
                   ),
-                  child: Text('Add Shortcut'),
-                  onPressed: () {
-                    // Validate inputs
-                    if (labelController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Please enter a name for your shortcut')),
-                      );
-                      return;
-                    }
-
-                    if (selectedLocation == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Please select a location')),
-                      );
-                      return;
-                    }
-
-                    // Create new shortcut
-                    final shortcut = QuickAccessShortcut(
-                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                      iconPath: selectedIcon!,
-                      label: labelController.text.trim(),
-                      location: selectedLocation!,
-                      address: selectedAddress,
-                      placeId: selectedPlaceId,
-                    );
-
-                    Navigator.of(context).pop(shortcut);
-                  },
                 ),
-              ],
-            );
-          },
-        );
-      },
+              );
+            }
+          );
+        }
     );
   }
+
 
   // Add this helper method for icon selection
   Widget _buildIconOption(StateSetter setState, String iconPath, String? selectedIcon) {
