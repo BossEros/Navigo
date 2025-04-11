@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:project_navigo/themes/app_typography.dart'; // Import typography system
 
 import 'package:project_navigo/models/route_history.dart';
 
@@ -200,7 +201,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
       appBar: AppBar(
         title: Text(
           widget.route.routeName ?? 'Route Details',
-          style: const TextStyle(fontSize: 18),
+          style: AppTypography.textTheme.titleLarge,
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
@@ -212,7 +213,12 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             onPressed: () {
               // TODO: Implement sharing functionality
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sharing coming soon')),
+                SnackBar(
+                  content: Text(
+                    'Sharing coming soon',
+                    style: AppTypography.textTheme.bodyMedium,
+                  ),
+                ),
               );
             },
           ),
@@ -266,7 +272,9 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                               Expanded(
                                 child: Text(
                                   _formatDateTime(widget.route.createdAt),
-                                  style: const TextStyle(color: Colors.grey),
+                                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
                             ],
@@ -305,9 +313,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                   const SizedBox(height: 24),
 
                   // Locations Section
-                  const Text(
+                  Text(
                     'Locations',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: AppTypography.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -349,9 +359,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Conditions',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 12),
 
@@ -393,8 +405,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'Travel Mode: ${widget.route.travelMode.capitalize()}',
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: AppTypography.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -423,12 +434,14 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: AppTypography.textTheme.bodySmall?.copyWith(
+              color: Colors.grey[600],
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: valueColor,
             ),
@@ -470,15 +483,14 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: AppTypography.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   address,
-                  style: TextStyle(
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[700],
                   ),
                 ),
@@ -519,15 +531,13 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: AppTypography.textTheme.bodySmall?.copyWith(
                   color: Colors.grey,
                 ),
               ),
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 16,
+                style: AppTypography.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w500,
                   color: iconColor,
                 ),

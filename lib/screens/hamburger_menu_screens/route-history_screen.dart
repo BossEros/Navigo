@@ -9,7 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/models/route_history.dart';
 import 'package:project_navigo/services/route_history_service.dart';
 import 'package:project_navigo/services/user_provider.dart';
-import 'package:project_navigo/screens/hamburger_menu_screens/route-detail_screen.dart';
+import 'package:project_navigo/themes/app_typography.dart'; // Import typography styles
 
 class RouteHistoryScreen extends StatefulWidget {
   const RouteHistoryScreen({Key? key}) : super(key: key);
@@ -57,7 +57,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
   Future<void> _fetchRouteHistory() async {
     if (!mounted) return;
 
-    print('========== STARTING ROUTE HISTORY FETCH =========='); // ADD THIS LINE HERE
+    print('========== STARTING ROUTE HISTORY FETCH ==========');
 
     setState(() {
       _isLoading = true;
@@ -79,7 +79,6 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
         limit: _pageSize,
       );
 
-      // ADD THESE LINES RIGHT HERE - after getting routes
       print('ROUTES RECEIVED: ${routes.length}');
       if (routes.isNotEmpty) {
         print('FIRST ROUTE: ${routes.first.id}');
@@ -103,7 +102,6 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
         _isLoading = false;
         _hasMore = routes.length == _pageSize;
 
-        // ADD THESE LINES HERE - at the end of setState
         print('========== COMPLETED ROUTE HISTORY FETCH ==========');
         print('ROUTES IN STATE: ${_routes.length}');
       });
@@ -165,7 +163,12 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more routes: $e')),
+          SnackBar(
+            content: Text(
+              'Error loading more routes: $e',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
+          ),
         );
       }
     }
@@ -193,7 +196,10 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Route deleted'),
+            content: Text(
+              'Route deleted',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
             action: SnackBarAction(
               label: 'Undo',
               onPressed: () {
@@ -210,7 +216,12 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting route: $e')),
+          SnackBar(
+            content: Text(
+              'Error deleting route: $e',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
+          ),
         );
       }
     }
@@ -257,7 +268,10 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Your Route History'),
+        title: Text(
+          'Your Route History',
+          style: AppTypography.textTheme.titleLarge,
+        ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -272,7 +286,12 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
             onPressed: () {
               // TODO: Implement filtering options (by date, distance, etc.)
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Filtering coming soon')),
+                SnackBar(
+                  content: Text(
+                    'Filtering coming soon',
+                    style: AppTypography.textTheme.bodyMedium,
+                  ),
+                ),
               );
             },
           ),
@@ -294,11 +313,17 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.grey)),
+            Text(
+              _error!,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchRouteHistory,
-              child: const Text('Try Again'),
+              child: Text(
+                'Try Again',
+                style: AppTypography.authButton,
+              ),
             ),
           ],
         ),
@@ -312,23 +337,25 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
           children: [
             const Icon(Icons.route, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No routes yet',
-              style: TextStyle(
-                fontSize: 18,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your navigation history will appear here',
-              style: TextStyle(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+              label: Text(
+                'Refresh',
+                style: AppTypography.authButton,
+              ),
               onPressed: _refreshRoutes,
             ),
           ],
@@ -372,10 +399,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   date,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                  style: AppTypography.textTheme.headlineSmall,
                 ),
               ),
               ...dateRoutes.map((route) => _buildRouteCard(route)).toList(),
@@ -436,10 +460,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                         // Route name or destination
                         Text(
                           route.routeName ?? route.endLocation.formattedAddress,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          style: AppTypography.textTheme.titleMedium,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -448,9 +469,8 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                         // Time
                         Text(
                           _formatDate(route.createdAt),
-                          style: TextStyle(
+                          style: AppTypography.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[600],
-                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -473,23 +493,31 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'detail',
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, size: 18),
-                            SizedBox(width: 8),
-                            Text('View Details'),
+                            const Icon(Icons.info_outline, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'View Details',
+                              style: AppTypography.textTheme.bodyMedium,
+                            ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                            const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Delete',
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                color: Colors.red,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -547,9 +575,8 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                       const SizedBox(width: 4),
                       Text(
                         route.distance.text,
-                        style: TextStyle(
+                        style: AppTypography.distanceText.copyWith(
                           color: Colors.grey[600],
-                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -562,9 +589,8 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                       const SizedBox(width: 4),
                       Text(
                         route.duration.text,
-                        style: TextStyle(
+                        style: AppTypography.distanceText.copyWith(
                           color: Colors.grey[600],
-                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -577,9 +603,8 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                       const SizedBox(width: 4),
                       Text(
                         StringExtension(route.trafficConditions)?.capitalize() ?? 'Unknown',
-                        style: TextStyle(
+                        style: AppTypography.distanceText.copyWith(
                           color: _getTrafficColor(route.trafficConditions),
-                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -597,19 +622,33 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Route?'),
-        content: const Text('This action cannot be undone.'),
+        title: Text(
+          'Delete Route?',
+          style: AppTypography.textTheme.titleLarge,
+        ),
+        content: Text(
+          'This action cannot be undone.',
+          style: AppTypography.textTheme.bodyMedium,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
+            child: Text(
+              'CANCEL',
+              style: AppTypography.textTheme.labelLarge,
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteRoute(route);
             },
-            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'DELETE',
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: Colors.red,
+              ),
+            ),
           ),
         ],
       ),
