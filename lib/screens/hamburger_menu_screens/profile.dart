@@ -4,17 +4,15 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
-import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/models/user_profile.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/google-api-services.dart' as api;
 import 'package:project_navigo/services/storage_service.dart';
-
 import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
-import '../../widgets/profile_image.dart';
-import 'package:project_navigo/component/reusable-location-search_screen.dart'; // Import our new component
+
+
 
 class ProfileScreen extends StatefulWidget {
   @override

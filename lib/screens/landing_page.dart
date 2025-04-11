@@ -3,6 +3,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:project_navigo/screens/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:project_navigo/themes/app_typography.dart';
 
 void main() {
   runApp(NaviGoApp());
@@ -412,8 +413,7 @@ class _IntroScreenState extends State<IntroScreen> {
                   children: [
                     Text(
                       "Skip",
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
@@ -563,7 +563,7 @@ class IntroContent extends StatelessWidget {
                   if (title != null)
                     Text(
                       title!,
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                      style: AppTypography.onboardingTitle,
                       textAlign: TextAlign.center,
                     ),
                 ],
@@ -575,7 +575,7 @@ class IntroContent extends StatelessWidget {
               if (subtitle != null)
                 Text(
                   subtitle!,
-                  style: TextStyle(fontSize: 16),
+                  style: AppTypography.onboardingDescription,
                   textAlign: TextAlign.center,
                 ),
               SizedBox(height: 8),
@@ -697,7 +697,10 @@ class IntroContent extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: Text(buttonText ?? "Next", style: TextStyle(fontSize: 16)),
+              child: Text(
+                  buttonText ?? "Next",
+                  style: AppTypography.onboardingButton
+              ),
             ),
             if (isLocationAccessPage)
               Padding(
@@ -724,7 +727,7 @@ class IntroContent extends StatelessWidget {
         Icon(icon, color: Colors.blue, size: 20),
         SizedBox(width: 12),
         Expanded(
-          child: Text(text),
+          child: Text(text, style: AppTypography.textTheme.bodyMedium),
         ),
       ],
     );
