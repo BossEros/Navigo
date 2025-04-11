@@ -8,6 +8,7 @@ import 'package:project_navigo/models/saved_map.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/app_constants.dart';
+import 'package:project_navigo/themes/app_typography.dart'; // Import typography styles
 
 class SavedLocationsScreen extends StatefulWidget {
   const SavedLocationsScreen({Key? key}) : super(key: key);
@@ -168,7 +169,12 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading more locations: $e')),
+          SnackBar(
+            content: Text(
+              'Error loading more locations: $e',
+              style: AppTypography.textTheme.bodyMedium,
+            ),
+          ),
         );
       }
     }
@@ -190,7 +196,10 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Location deleted'),
+          content: Text(
+            'Location deleted',
+            style: AppTypography.textTheme.bodyMedium,
+          ),
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () {
@@ -201,7 +210,12 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting location: $e')),
+        SnackBar(
+          content: Text(
+            'Error deleting location: $e',
+            style: AppTypography.textTheme.bodyMedium,
+          ),
+        ),
       );
     }
   }
@@ -234,7 +248,10 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saved Locations'),
+        title: Text(
+          'Saved Locations',
+          style: AppTypography.textTheme.titleLarge,
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -266,11 +283,17 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(color: Colors.grey)),
+            Text(
+              _error!,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchSavedLocations,
-              child: const Text('Try Again'),
+              child: Text(
+                'Try Again',
+                style: AppTypography.authButton,
+              ),
             ),
           ],
         ),
@@ -284,10 +307,9 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
           children: [
             const Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No saved locations',
-              style: TextStyle(
-                fontSize: 18,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
               ),
@@ -297,13 +319,16 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
               _selectedCategory != null
                   ? 'No locations saved in this category'
                   : 'Your saved locations will appear here',
-              style: const TextStyle(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
             if (_selectedCategory != null) const SizedBox(height: 16),
             if (_selectedCategory != null)
               ElevatedButton(
                 onPressed: () => _filterByCategory(null),
-                child: const Text('Show All Locations'),
+                child: Text(
+                  'Show All Locations',
+                  style: AppTypography.authButton,
+                ),
               ),
           ],
         ),
@@ -345,10 +370,7 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   _getCategoryDisplayName(category),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                  style: AppTypography.textTheme.headlineSmall,
                 ),
               ),
               ...categoryLocations.map((location) => _buildLocationCard(location)).toList(),
@@ -446,19 +468,15 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                       children: [
                         Text(
                           location.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          style: AppTypography.textTheme.titleMedium,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           location.address,
-                          style: TextStyle(
+                          style: AppTypography.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[600],
-                            fontSize: 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -466,9 +484,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           'Saved ${_formatDate(location.savedAt)}',
-                          style: TextStyle(
+                          style: AppTypography.textTheme.bodySmall?.copyWith(
                             color: Colors.grey[500],
-                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -488,33 +505,44 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'view',
                         child: Row(
                           children: [
-                            Icon(Icons.map, size: 18),
-                            SizedBox(width: 8),
-                            Text('View on Map'),
+                            const Icon(Icons.map, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'View on Map',
+                              style: AppTypography.textTheme.bodyMedium,
+                            ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'navigate',
                         child: Row(
                           children: [
-                            Icon(Icons.navigation, size: 18),
-                            SizedBox(width: 8),
-                            Text('Navigate'),
+                            const Icon(Icons.navigation, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Navigate',
+                              style: AppTypography.textTheme.bodyMedium,
+                            ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                            const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Delete',
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                color: Colors.red,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -541,7 +569,10 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: const Text('All Locations'),
+                title: Text(
+                  'All Locations',
+                  style: AppTypography.textTheme.bodyLarge,
+                ),
                 leading: const Icon(Icons.list),
                 selected: _selectedCategory == null,
                 onTap: () {
@@ -554,7 +585,10 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                 final key = entry.key;
                 final data = entry.value;
                 return ListTile(
-                  title: Text(data['displayName']),
+                  title: Text(
+                    data['displayName'],
+                    style: AppTypography.textTheme.bodyLarge,
+                  ),
                   leading: Icon(data['icon'], color: data['color']),
                   selected: _selectedCategory == key,
                   onTap: () {
@@ -574,19 +608,31 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Saved Location?'),
-        content: Text('Are you sure you want to delete "${location.name}" from your saved locations?'),
+        title: Text(
+          'Delete Saved Location?',
+          style: AppTypography.textTheme.titleLarge,
+        ),
+        content: Text(
+          'Are you sure you want to delete "${location.name}" from your saved locations?',
+          style: AppTypography.textTheme.bodyMedium,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
+            child: Text(
+              'CANCEL',
+              style: AppTypography.textTheme.labelLarge,
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _deleteLocation(location);
             },
-            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+            child: Text(
+              'DELETE',
+              style: AppTypography.textTheme.labelLarge?.copyWith(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -600,6 +646,4 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   void _navigateToLocation(SavedMap location) {
     _handleLocationInteraction(location, startNavigation: true);
   }
-
-
 }
