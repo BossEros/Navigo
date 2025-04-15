@@ -16,11 +16,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: FirebaseOptions(
-      apiKey: "AIzaSyBocnJgrDPDhhMcAf6CUoi-lXVLkIILdrc",
-      appId: "1:708119345203:android:c1705ab50c12e6b1950b46",
-      messagingSenderId: "708119345203",
-      projectId: "project-navigo",
-      // and any other required fields
     ),
   );
 
