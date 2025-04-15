@@ -3,13 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/route-detail_screen.dart';
-import 'package:provider/provider.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-
 import 'package:project_navigo/models/route_history.dart';
 import 'package:project_navigo/services/route_history_service.dart';
-import 'package:project_navigo/services/user_provider.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography styles
+import 'package:project_navigo/themes/app_typography.dart';
 
 class RouteHistoryScreen extends StatefulWidget {
   const RouteHistoryScreen({Key? key}) : super(key: key);

@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:project_navigo/models/route_history.dart';
 import 'package:project_navigo/services/utils/firebase_utils.dart';
 

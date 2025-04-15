@@ -1,11 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
 import '../../services/user_service.dart';
 import '../login_screen.dart';
 import 'faq_screen.dart';
 import 'terms_of_service.dart';
-import 'profile.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/themes/app_typography.dart'; // Import typography
 

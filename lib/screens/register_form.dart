@@ -1,12 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/screens/login_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography
+import 'package:project_navigo/themes/app_typography.dart';
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import 'navigo-map.dart';

@@ -1,4 +1,4 @@
-// lib/services/service_provider.dart
+import 'package:project_navigo/services/quick_access_shortcut_service.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:project_navigo/services/storage_service.dart';
 import 'package:project_navigo/services/user_provider.dart';
@@ -8,7 +8,6 @@ import 'auth_service.dart';
 import 'user_service.dart';
 import 'onboarding_service.dart';
 import 'utils/firebase_utils.dart';
-import 'user_provider.dart';
 
 /// Provides all services to the app using Provider pattern
 class ServiceProvider extends StatelessWidget {
@@ -56,6 +55,10 @@ class ServiceProvider extends StatelessWidget {
           create: (_) => SavedMapService(),
         ),
 
+        // Quick Access Shortcut Service (no dependencies)
+        Provider<QuickAccessShortcutService>(
+          create: (_) => QuickAccessShortcutService(),
+        ),
       ],
       child: child,
     );

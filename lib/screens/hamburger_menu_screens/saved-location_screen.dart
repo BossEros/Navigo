@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/models/saved_map.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/app_constants.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography styles
+import 'package:project_navigo/themes/app_typography.dart';
 
 class SavedLocationsScreen extends StatefulWidget {
   const SavedLocationsScreen({Key? key}) : super(key: key);

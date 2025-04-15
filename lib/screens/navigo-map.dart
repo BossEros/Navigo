@@ -23,10 +23,11 @@ import '../services/route_history_service.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
-
 import '../services/user_provider.dart';
 import '../themes/app_typography.dart';
 import 'login_screen.dart';
+import 'package:project_navigo/services/quick_access_shortcut_service.dart';
+import 'package:project_navigo/models/quick_access_shortcut_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -322,6 +323,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   List<QuickAccessShortcut> _quickAccessShortcuts = [];
   final ScrollController _shortcutsScrollController = ScrollController();
 
+  // For quick access button
+  QuickAccessShortcutService? _shortcutService;
+  bool _isLoadingShortcuts = false;
+
   @override
   void initState() {
     super.initState();
@@ -372,49 +377,229 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     super.dispose();
   }
 
-  // Add this method to initialize the quick access shortcuts
+  // method to initialize the quick access shortcuts
   void _initQuickAccessShortcuts() {
-    // Load shortcuts from shared preferences or other storage in a real app
-    // For now, we'll just initialize with empty list - Home and Work are handled separately
-    _quickAccessShortcuts = [];
+    setState(() {
+      _isLoadingShortcuts = true;
+      // Initialize with empty list
+      _quickAccessShortcuts = [];
+    });
 
-    // Optional: Add some example shortcuts for testing
-    // _quickAccessShortcuts.add(
-    //   QuickAccessShortcut(
-    //     id: 'favorite1',
-    //     iconPath: 'assets/icons/star_icon.png',
-    //     label: 'Favorite',
-    //     location: LatLng(10.3157, 123.8854),
-    //     address: 'Cebu IT Park, Cebu City',
-    //   ),
-    // );
+    // Get the service from the provider on the next frame
+    Future.microtask(() async {
+      try {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+
+        // Check if user is logged in
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          if (mounted) {
+            setState(() {
+              _isLoadingShortcuts = false;
+            });
+          }
+          return; // Early return if no user
+        }
+
+        // Load shortcuts from Firebase
+        final shortcuts = await _shortcutService!.getUserShortcuts();
+
+        // Convert to UI shortcuts
+        if (mounted) {
+          setState(() {
+            _quickAccessShortcuts = shortcuts.map((model) => QuickAccessShortcut(
+              id: model.id,
+              iconPath: model.iconPath,
+              label: model.label,
+              location: model.location,
+              address: model.address,
+              placeId: model.placeId,
+            )).toList();
+            _isLoadingShortcuts = false;
+          });
+        }
+      } catch (e) {
+        print('Error loading quick access shortcuts: $e');
+        if (mounted) {
+          setState(() {
+            _isLoadingShortcuts = false;
+          });
+        }
+      }
+    });
   }
 
   // Add this method to handle the "New" button tap in the Quick acces button section
   void _handleNewButtonTap() async {
-    // Show a dialog to create a new shortcut
+    // Show dialog to create a new shortcut - this remains unchanged
     final result = await _showAddShortcutDialog();
 
     if (result != null) {
-      setState(() {
-        _quickAccessShortcuts.add(result);
-      });
+      try {
+        // Check if user is logged in
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          _showLoginPrompt();
+          return;
+        }
 
-      // Optional: Save shortcuts to persistent storage
-      _saveQuickAccessShortcuts();
+        // Get service if needed
+        if (_shortcutService == null) {
+          _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+        }
 
-      // Scroll to the end to show the new shortcut
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_shortcutsScrollController.hasClients) {
-          _shortcutsScrollController.animateTo(
-            _shortcutsScrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
+        // First add to UI for immediate feedback
+        setState(() {
+          _quickAccessShortcuts.add(result);
+        });
+
+        // Scroll to show the new item
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_shortcutsScrollController.hasClients) {
+            _shortcutsScrollController.animateTo(
+              _shortcutsScrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+
+        // Save to Firebase
+        final newId = await _shortcutService!.addShortcut(
+          iconPath: result.iconPath,
+          label: result.label,
+          lat: result.location.latitude,
+          lng: result.location.longitude,
+          address: result.address,
+          placeId: result.placeId,
+        );
+
+        // Update ID in the local list
+        if (mounted) {
+          setState(() {
+            final index = _quickAccessShortcuts.indexWhere((s) => s.id == result.id);
+            if (index >= 0) {
+              final updatedShortcut = QuickAccessShortcut(
+                id: newId,  // Replace temporary ID with Firebase ID
+                iconPath: result.iconPath,
+                label: result.label,
+                location: result.location,
+                address: result.address,
+                placeId: result.placeId,
+              );
+              _quickAccessShortcuts[index] = updatedShortcut;
+            }
+          });
+        }
+      } catch (e) {
+        print('Error adding shortcut: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error adding shortcut: $e')),
           );
         }
-      });
+      }
     }
   }
+
+  //==== ADD THIS METHOD FOR SHORTCUT DELETION ====
+  void _deleteShortcut(String shortcutId) async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginPrompt();
+        return;
+      }
+
+      // Get service if needed
+      if (_shortcutService == null) {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+      }
+
+      // First update UI
+      setState(() {
+        _quickAccessShortcuts.removeWhere((shortcut) => shortcut.id == shortcutId);
+      });
+
+      // Then delete from Firebase
+      await _shortcutService!.deleteShortcut(shortcutId);
+    } catch (e) {
+      print('Error deleting shortcut: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting shortcut: $e')),
+        );
+      }
+    }
+  }
+
+  //==== METHODS FOR LONG-PRESS ACTIONS ====
+  void _showShortcutOptions(QuickAccessShortcut shortcut) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              shortcut.label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.navigation, color: Colors.blue),
+              title: Text('Navigate Now'),
+              onTap: () {
+                Navigator.pop(context);
+                _handleCustomShortcutTap(shortcut);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: Colors.red),
+              title: Text('Delete Shortcut', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirmation(shortcut);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  void _showDeleteConfirmation(QuickAccessShortcut shortcut) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Shortcut?'),
+        content: Text('Are you sure you want to delete "${shortcut.label}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteShortcut(shortcut.id);
+            },
+            child: Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   // Method to show dialog for adding a new shortcut
   Future<QuickAccessShortcut?> _showAddShortcutDialog() async {
@@ -942,10 +1127,38 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   // Method to save shortcuts to persistent storage (optional)
-  void _saveQuickAccessShortcuts() {
-    // In a real app, save to SharedPreferences or a database
-    // This is just a placeholder for future implementation
-    print('Saved ${_quickAccessShortcuts.length} shortcuts');
+  void _saveQuickAccessShortcuts() async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginPrompt();
+        return;
+      }
+
+      // Get the shortcut service if not already available
+      if (_shortcutService == null) {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+      }
+
+      // Save to Firebase (directly using the UI shortcuts)
+      await _shortcutService!.saveShortcuts(_quickAccessShortcuts);
+
+      // Optional: Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Your shortcuts have been saved')),
+        );
+      }
+    } catch (e) {
+      print('Error saving shortcuts: $e');
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving shortcuts: $e')),
+        );
+      }
+    }
   }
 
 
@@ -4974,7 +5187,29 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                 () => _handleCustomShortcutTap(shortcut),
                           ),
                         ),
-                    ).toList(),
+                    ),
+
+                    // Loading indicator (when shortcuts are loading)
+                    if (_isLoadingShortcuts)
+                      Container(
+                        width: 80,
+                        height: 80,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        ),
+                      ),
 
                     // New button always at the end
                     Padding(
@@ -5264,9 +5499,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  // This method stays exactly as it is in your original code
   Widget _buildQuickAccessButton(String iconPath, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      // We'll add long-press detection using the label to find the corresponding shortcut
+      onLongPress: () {
+        // Only handle long-press for custom shortcuts (not Home, Work, or New)
+        if (label != 'Home' && label != 'Work' && label != 'New') {
+          // Find the shortcut in the list
+          for (var shortcut in _quickAccessShortcuts) {
+            if (shortcut.label == label) {
+              // Show the options menu for this shortcut
+              _showShortcutOptions(shortcut);
+              break;
+            }
+          }
+        }
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 80,
@@ -5298,6 +5548,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 iconPath,
                 width: 32,
                 height: 32,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback for missing assets
+                  return Icon(
+                    Icons.star,
+                    color: Colors.grey[700],
+                    size: 32,
+                  );
+                },
               ),
             ),
             const SizedBox(height: 4),

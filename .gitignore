@@ -47,3 +47,8 @@ app.*.map.json
 # API Keys and environment configuration
 /lib/config/config.dart
 .env
+
+# Firebase configuration files (add these lines)
+lib/firebase_options.dart
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
