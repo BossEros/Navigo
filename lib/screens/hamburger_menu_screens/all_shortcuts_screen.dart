@@ -6,6 +6,7 @@ import 'package:project_navigo/services/quick_access_shortcut_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' show lerpDouble;
+import 'dart:ui' as ui; // For BackdropFilter
 
 class AllShortcutsScreen extends StatefulWidget {
   // Pass the current shortcuts, callback handlers
@@ -649,85 +650,183 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Drag handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Header with shortcut name
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                shortcut.label,
-                style: AppTypography.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+      backgroundColor: Colors.transparent, // Make transparent to apply custom styling
+      barrierColor: Colors.black.withOpacity(0.5), // Semi-transparent backdrop
+      builder: (context) => BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3), // Subtle background blur
+        child: SafeArea( // Ensure content respects device's safe areas
+          child: Container(
+            padding: const EdgeInsets.only(top: 12, bottom: 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  spreadRadius: 0,
+                  offset: Offset(0, -2),
                 ),
-                textAlign: TextAlign.center,
-              ),
+              ],
             ),
-
-            // Options
-            _buildOptionTile(
-              icon: Icons.drive_file_rename_outline,
-              title: 'Rename Shortcut',
-              onTap: () {
-                Navigator.pop(context);
-                _showRenameDialog(shortcut);
-              },
-            ),
-
-            _buildOptionTile(
-              icon: Icons.delete_outline,
-              title: 'Delete Shortcut',
-              textColor: Colors.red,
-              iconColor: Colors.red,
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteConfirmation(shortcut);
-              },
-            ),
-
-            const SizedBox(height: 8),
-
-            // Cancel button
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Modern drag handle for bottom sheet
+                Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                child: Text(
-                  'Cancel',
-                  style: AppTypography.textTheme.labelLarge?.copyWith(
-                    color: Colors.black87,
+
+                // Shortcut title with icon
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        shortcut.iconPath,
+                        width: 24,
+                        height: 24,
+                        errorBuilder: (_, __, ___) => Icon(Icons.star, color: Colors.blue),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          shortcut.label,
+                          style: AppTypography.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+
+                SizedBox(height: 24),
+
+                // Edit option - Enhanced with Inkwell for touch feedback
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        // Add haptic feedback for better UX
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                        _editShortcut(shortcut);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.edit, color: Colors.blue, size: 24),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Edit Shortcut',
+                                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right, color: Colors.grey[400]),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 12),
+
+                // Delete option - Enhanced with Inkwell for touch feedback
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        // Add haptic feedback for better UX
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(context);
+                        _showDeleteConfirmation(shortcut);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Ink(
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.delete_outline, color: Colors.red, size: 24),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  'Delete Shortcut',
+                                  style: AppTypography.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right, color: Colors.red[200]),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 16),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _editShortcut(dynamic shortcut) async {
+    // Return to parent with edit request
+    Navigator.of(context).pop({
+      'action': 'edit',
+      'shortcut': shortcut
+    });
   }
 
   Widget _buildOptionTile({

@@ -330,6 +330,14 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 ),
                 const Divider(height: 1),
                 buildListTile(
+                  MenuIcon.profile(),
+                  'Saved Shortcuts',
+                  context,
+                  ProfileScreen(),
+                ),
+
+                const Divider(height: 1),
+                buildListTile(
                   MenuIcon.settings(),
                   'Settings',
                   context,
