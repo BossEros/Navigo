@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'user_service.dart';
 import 'onboarding_service.dart';
-import 'utils/firebase_utils.dart';
+import '../utils/firebase_utils.dart';
 
 /// Provides all services to the app using Provider pattern
 class ServiceProvider extends StatelessWidget {

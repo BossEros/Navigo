@@ -1,11 +1,8 @@
-import 'dart:math';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,7 +25,17 @@ import '../themes/app_typography.dart';
 import 'hamburger_menu_screens/all_shortcuts_screen.dart';
 import 'login_screen.dart';
 import 'package:project_navigo/services/quick_access_shortcut_service.dart';
-import 'package:project_navigo/models/quick_access_shortcut_model.dart';
+
+import 'package:project_navigo/models/map_models/navigation_state.dart';
+import 'package:project_navigo/models/map_models/map_style.dart';
+import 'package:project_navigo/models/map_models/pulsating_marker_painter.dart';
+import 'package:project_navigo/models/map_models/quick_access_shortcut.dart';
+import 'package:project_navigo/models/map_models/route_info.dart';
+import 'package:project_navigo/utils/map_utilities/location_utils.dart';
+import 'package:project_navigo/utils/map_utilities/camera_utils.dart';
+import 'package:project_navigo/utils/map_utilities/format_utils.dart';
+import 'package:project_navigo/utils/map_utilities/map_utils.dart';
+import 'package:project_navigo/utils/map_utilities/ui_constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,24 +76,6 @@ class PulsatingMarkerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class QuickAccessShortcut {
-  final String id;
-  final String iconPath;
-  final String label;
-  final LatLng location;
-  final String address;
-  final String? placeId;
-
-  QuickAccessShortcut({
-    required this.id,
-    required this.iconPath,
-    required this.label,
-    required this.location,
-    required this.address,
-    this.placeId,
-  });
 }
 
 class MyApp extends StatelessWidget {
@@ -157,99 +146,6 @@ class NavigoMapScreen extends StatefulWidget {
   @override
   State<NavigoMapScreen> createState() => _NavigoMapScreenState();
 }
-
-final String? dayMapStyle = null; // Use null for default Google styling with traffic
-final String navigationMapStyle = '''
-[
-  {
-    "featureType": "poi",
-    "elementType": "labels",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "weight": 3
-      }
-    ]
-  }
-]
-''';
-final String nightMapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#38414e"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#212a37"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#9ca5b3"
-      }
-    ]
-  }
-]
-''';
-final String trafficOffMapStyle = '''
-[
-  {
-    "featureType": "road",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "weight": 2.5
-      }
-    ]
-  }
-]
-''';
 
 // A state variable to control traffic visibility
 bool _trafficEnabled = true;
@@ -1081,56 +977,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // Add this method to check if we have the necessary assets for our example
-  bool _assetsExist() {
-    try {
-      // In a real app, you'd check if assets exist
-      // This is a simplified check
-      return true;
-    } catch (e) {
-      print('Assets check error: $e');
-      return false;
-    }
-  }
-
-  // Optional: Add a fallback for missing assets
-  String _getFallbackIconPath(String iconPath) {
-    // This would check if the specified path exists, and if not, return a fallback
-    // For simplicity, we'll just return the input path
-    return iconPath;
-  }
-
-  // If the user doesn't have the expected icons in assets,
-// you can use system icons instead:
-  Widget _buildIconOptionWithSystemIcon(StateSetter setState, IconData icon, String iconKey, String? selectedIcon) {
-    final bool isSelected = iconKey == selectedIcon;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedIcon = iconKey;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? Colors.blue : Colors.grey[700],
-          size: 24,
-        ),
-      ),
-    );
-  }
 
   // Method to save shortcuts to persistent storage (optional)
   void _saveQuickAccessShortcuts() async {
@@ -1249,7 +1095,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  // A method to ensure consistent state
   void _updateNavigationState(NavigationState newState) {
     // Only update if the state is actually changing
     if (_navigationState == newState) return;
@@ -1258,22 +1103,27 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _navigationState = newState;
 
       // Ensure other flags are synchronized with the navigation state
-      if (newState == NavigationState.placeSelected) {
-        _showingRouteAlternatives = false;
-        _isNavigating = false;
-        _isInNavigationMode = false;
-      } else if (newState == NavigationState.routePreview) {
-        _showingRouteAlternatives = true;
-        _isNavigating = false;
-        _isInNavigationMode = false;
-      } else if (newState == NavigationState.activeNavigation) {
-        _showingRouteAlternatives = false;
-        _isNavigating = true;
-        _isInNavigationMode = true;
-      } else if (newState == NavigationState.idle) {
-        _showingRouteAlternatives = false;
-        _isNavigating = false;
-        _isInNavigationMode = false;
+      switch (newState) {
+        case NavigationState.placeSelected:
+          _showingRouteAlternatives = false;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
+        case NavigationState.routePreview:
+          _showingRouteAlternatives = true;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
+        case NavigationState.activeNavigation:
+          _showingRouteAlternatives = false;
+          _isNavigating = true;
+          _isInNavigationMode = true;
+          break;
+        case NavigationState.idle:
+          _showingRouteAlternatives = false;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
       }
     });
 
@@ -2262,8 +2112,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
         : _defaultLocation;
 
-    // This provides a tighter zoom when places are close
-    _fitBounds([currentLocation, place.latLng], padding: 100);
+    final LatLngBounds bounds = CameraUtils.calculateBoundsFromPoints(
+        [currentLocation, place.latLng]
+    );
+
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, UiConstants.standardPadding * 3),
+    );
   }
 
 
@@ -2515,7 +2370,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     // Find a good position for the marker (around 40% along the route)
     // This helps ensure the marker is visible but not too close to either end
-    final markerPosition = _findPositionAlongRoute(points, 0.4);
+    final markerPosition = LocationUtils.findPositionAlongRoute(points, 0.4);
 
     // Create marker ID
     final markerId = MarkerId('route_duration_$routeIndex');
@@ -2551,18 +2406,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  // Helper to find a position along the route at a certain percentage
-  LatLng _findPositionAlongRoute(List<LatLng> points, double percentage) {
-    if (points.isEmpty) return const LatLng(0, 0);
-    if (points.length == 1) return points[0];
-
-    // For a simple implementation, just pick a point at roughly the desired percentage
-    int index = (points.length * percentage).toInt();
-    // Ensure index is within bounds
-    index = index.clamp(0, points.length - 1);
-
-    return points[index];
-  }
 
   // Clear all route info markers before creating new ones
   void _clearRouteInfoMarkers() {
@@ -2614,29 +2457,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   void _stopNavigation() {
     _completeNavigationReset();
-  }
-
-  void _fitBounds(List<LatLng> points, {double padding = 50}) {
-    if (points.isEmpty || _mapController == null) return;
-
-    double minLat = points.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    double maxLat = points.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    double minLng = points.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    double maxLng = points.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    // Add some buffer for a smoother look
-    final span = maxLat - minLat;
-    final buffer = span * 0.1; // 10% buffer
-
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat - buffer, minLng - buffer),
-          northeast: LatLng(maxLat + buffer, maxLng + buffer),
-        ),
-        padding,
-      ),
-    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -2733,10 +2553,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       // Calculate bearing to next point for realistic simulation
       double bearing = 0;
       if (pointIndex < points.length - 1) {
-        bearing = _calculateBearing(
-          points[pointIndex],
-          points[pointIndex + 1],
-        );
+        bearing = LocationUtils.calculateBearing(points[pointIndex], points[pointIndex + 1]);
       }
 
       // Simulate a LocationData object
@@ -2755,23 +2572,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
       pointIndex++;
     });
-  }
-
-  // Calculate bearing between two points
-  double _calculateBearing(LatLng start, LatLng end) {
-    final double startLat = start.latitude * pi / 180;
-    final double startLng = start.longitude * pi / 180;
-    final double endLat = end.latitude * pi / 180;
-    final double endLng = end.longitude * pi / 180;
-
-    final double dLng = endLng - startLng;
-
-    final double y = sin(dLng) * cos(endLat);
-    final double x = cos(startLat) * sin(endLat) -
-        sin(startLat) * cos(endLat) * cos(dLng);
-
-    final double bearing = atan2(y, x) * 180 / pi;
-    return (bearing + 360) % 360; // Normalize to 0-360
   }
 
   Widget _buildRouteSelectionPanel() {
@@ -3307,174 +3107,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildRoutesPanel() {
-    if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
-
-    final routes = _routeAlternatives[0].routes;
-
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-
-          // Route info header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(
-                  'Your location',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward, size: 16),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    _destinationPlace?.name ?? 'Destination',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Routes list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: routes.length,
-              itemBuilder: (context, index) {
-                final route = routes[index];
-                final leg = route.legs[0];
-
-                // Determine if it's the best route
-                final isBest = index == 0;
-
-                return GestureDetector(
-                  onTap: () {
-                    _updateDisplayedRoute(index);
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _selectedRouteIndex == index
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.white,
-                      border: Border.all(
-                        color: _selectedRouteIndex == index
-                            ? Colors.blue
-                            : Colors.grey[300]!,
-                        width: 1,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Time and distance row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  leg.duration.text,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                                if (isBest) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.green),
-                                    ),
-                                    child: const Text(
-                                      'Best',
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            Text(
-                              leg.distance.text,
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Route details
-                        Text(
-                          'Via ${_getRouteDescription(route)}',
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Traffic info
-                        Text(
-                          'Typical traffic',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _getRouteDescription(api.Route route) {
     // This is a placeholder - in a real app, you'd extract the main roads
     // from the route instructions
@@ -3491,22 +3123,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           longestStep = step;
         }
       }
-      return extractRoadName(longestStep.instruction);
+      return FormatUtils.extractRoadName(longestStep.instruction);
     }
 
     return "Unknown route";
-  }
-
-  String extractRoadName(String instruction) {
-    // Simple algorithm to extract road names from instructions
-    // This is a placeholder that should be improved for a real app
-    if (instruction.contains(" onto ")) {
-      return instruction.split(" onto ")[1].split("<")[0].trim();
-    }
-    if (instruction.contains(" on ")) {
-      return instruction.split(" on ")[1].split("<")[0].trim();
-    }
-    return instruction.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 
   void _startActiveNavigation() {
@@ -3559,67 +3179,32 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-
   void _centerCameraOnLocation({
     required LatLng location,
     double zoom = 16.0,
     double tilt = 30.0,
-    double bearing = 0.0,
-    bool animate = true,
   }) {
     if (_mapController == null) return;
 
-    // Calculate the vertical offset based on screen size
-    // This moves the target point upward so marker isn't covered by details card
+    // Calculate vertical offset for UI elements
     final screenHeight = MediaQuery.of(context).size.height;
     final detailsCardHeight = screenHeight * 0.35; // Approximate height of details card
 
-    // Calculate a vertical offset in screen coordinates (pixels)
-    final verticalOffsetPixels = detailsCardHeight * 0.5; // Half the height of the card
-
-    // Convert pixel offset to LatLng offset
-    // This calculation depends on the current zoom level and latitude
-    final latitudeOffset = _calculateLatitudeOffset(
-        verticalOffsetPixels,
-        location.latitude,
+    final LatLng offsetTarget = CameraUtils.calculateOffsetTarget(
+        location,
+        detailsCardHeight / 2,
         zoom
     );
 
-    // Create a new target with the offset applied
-    final offsetTarget = LatLng(
-        location.latitude - latitudeOffset, // Move south (down in screen coordinates)
-        location.longitude
-    );
-
-    // Create the camera update
-    final cameraUpdate = CameraUpdate.newCameraPosition(
-      CameraPosition(
-        target: offsetTarget,
-        zoom: zoom,
-        tilt: tilt,
-        bearing: bearing,
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: offsetTarget,
+          zoom: zoom,
+          tilt: tilt,
+        ),
       ),
     );
-
-    // Apply the camera update
-    if (animate) {
-      _mapController!.animateCamera(cameraUpdate);
-    } else {
-      _mapController!.moveCamera(cameraUpdate);
-    }
-  }
-
-  /// Calculates latitude offset based on vertical pixel offset, current latitude, and zoom level.
-  /// This converts screen pixels to geographic coordinates.
-  double _calculateLatitudeOffset(double pixelOffset, double latitude, double zoom) {
-    // The number of pixels per degree varies based on latitude and zoom level
-    // This is an approximation based on the Mercator projection
-    final metersPerPixel = 156543.03392 * cos(latitude * pi / 180) / pow(2, zoom);
-    final metersOffset = pixelOffset * metersPerPixel;
-
-    // Convert meters to degrees (approximate)
-    // 111,111 meters per degree of latitude (roughly)
-    return metersOffset / 111111;
   }
 
   void _completeNavigationReset() {
@@ -3958,10 +3543,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     if (_routeDetails != null &&
         _currentStepIndex < _routeDetails!.routes[0].legs[0].steps.length) {
       final currentStep = _routeDetails!.routes[0].legs[0].steps[_currentStepIndex];
-      final distanceToNextTurn = _calculateDistance2(
-          _lastKnownLocation!,
-          currentStep.endLocation
-      );
+      final distanceToNextTurn = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
 
       // If approaching a turn, zoom in more
       if (distanceToNextTurn < 100) {
@@ -4002,10 +3584,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     final currentStep = leg.steps[_currentStepIndex];
 
     // Calculate distance to the end of current step
-    final distanceToStepEnd = _calculateDistance2(
-        currentLocation,
-        currentStep.endLocation
-    );
+    final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(currentLocation, currentStep.endLocation);
 
     // If we're close to the end of the current step, move to the next one
     // Use a threshold based on GPS accuracy - typically 20-50 meters
@@ -4016,10 +3595,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         });
       } else {
         // We've reached the last step, check if we're close to destination
-        final distToDestination = _calculateDistance2(
-            currentLocation,
-            leg.endLocation
-        );
+        final distToDestination = LocationUtils.calculateDistanceInMeters(currentLocation, leg.endLocation);
 
         if (distToDestination < 30) {
           _handleArrival();
@@ -4030,26 +3606,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   void _logNavigationEvent(String event, [dynamic data]) {
     print("NAVIGATION: $event ${data != null ? '- $data' : ''}");
-  }
-
-  // Calculate straight-line distance between two points (in meters)
-  double _calculateDistance2(LatLng point1, LatLng point2) {
-    // Haversine formula for calculating distance between two coordinates
-    const double earthRadius = 6371000; // meters
-    final double lat1 = point1.latitude * pi / 180;
-    final double lat2 = point2.latitude * pi / 180;
-    final double lon1 = point1.longitude * pi / 180;
-    final double lon2 = point2.longitude * pi / 180;
-
-    final double dLat = lat2 - lat1;
-    final double dLon = lon2 - lon1;
-
-    final double a = sin(dLat/2) * sin(dLat/2) +
-        cos(lat1) * cos(lat2) *
-            sin(dLon/2) * sin(dLon/2);
-    final double c = 2 * atan2(sqrt(a), sqrt(1-a));
-
-    return earthRadius * c;
   }
 
   // Handle arrival at destination
@@ -4372,7 +3928,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
       // When traffic is disabled, use a style that maintains POI visibility
       // When traffic is enabled, use default Google style (null)
-      _currentMapStyle = _trafficEnabled ? null : trafficOffMapStyle;
+      _currentMapStyle = _trafficEnabled ? null : MapStyles.trafficOffMapStyle;
 
       // Apply the map style if controller exists
       if (_mapController != null) {
@@ -4509,11 +4065,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Calculate distance to next maneuver
     String distanceText = currentStep.distance.text;
     if (_lastKnownLocation != null) {
-      final distanceToStepEnd = _calculateDistance2(
-          _lastKnownLocation!,
-          currentStep.endLocation
-      );
-      distanceText = _formatDistance(distanceToStepEnd.toInt());
+      final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
+      distanceText = FormatUtils.formatDistance(distanceToStepEnd.toInt());
     }
 
     // Calculate ETA
@@ -4597,7 +4150,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _cleanInstruction(currentStep.instruction),
+                              FormatUtils.cleanInstruction(currentStep.instruction),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
@@ -4651,7 +4204,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            'Then ${_cleanInstruction(leg.steps[_currentStepIndex + 1].instruction)}',
+                            'Then ${FormatUtils.cleanInstruction(leg.steps[_currentStepIndex + 1].instruction)}',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,
@@ -4708,18 +4261,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // Helper to clean HTML from instructions
-  String _cleanInstruction(String instruction) {
-    // Remove HTML tags
-    String cleaned = instruction.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    // Simplify common phrases
-    cleaned = cleaned
-        .replaceAll('Proceed to', 'Go to')
-        .replaceAll('Continue onto', 'Continue on');
-
-    return cleaned;
-  }
 
   // Calculate estimated arrival time
   String _calculateETA() {
@@ -4750,14 +4291,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       // If we're in the middle of a step, adjust for progress
       if (_currentStepIndex < leg.steps.length && _lastKnownLocation != null) {
         final currentStep = leg.steps[_currentStepIndex];
-        final distanceToStepEnd = _calculateDistance2(
-            _lastKnownLocation!,
-            currentStep.endLocation
-        );
-        final totalStepDistance = _calculateDistance2(
-            currentStep.startLocation,
-            currentStep.endLocation
-        );
+        final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
+        final totalStepDistance = LocationUtils.calculateDistanceInMeters(currentStep.startLocation, currentStep.endLocation);
 
         if (totalStepDistance > 0) {
           // Calculate how far through the current step we are (0 to 1)
@@ -4937,7 +4472,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       child: ListTile(
                         leading: _buildManeuverIcon(step.instruction),
                         title: Text(
-                          _cleanInstruction(step.instruction),
+                          FormatUtils.cleanInstruction(step.instruction),
                           style: TextStyle(
                             fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                           ),
@@ -5022,115 +4557,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  // 2. Map styles for navigation mode
-
-// Function to set a night mode map style for better visibility at night
-  void _setNightModeMapStyle() {
-    if (_mapController == null) return;
-
-    // This is a simplified example - you would typically load this from a JSON file
-    const String nightMapStyle = '''
-  [
-    {
-      "elementType": "geometry",
-      "stylers": [
-        {
-          "color": "#242f3e"
-        }
-      ]
-    },
-    {
-      "elementType": "labels.text.fill",
-      "stylers": [
-        {
-          "color": "#746855"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry",
-      "stylers": [
-        {
-          "color": "#38414e"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.stroke",
-      "stylers": [
-        {
-          "color": "#212a37"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "labels.text.fill",
-      "stylers": [
-        {
-          "color": "#9ca5b3"
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(nightMapStyle);
-  }
-
-  // Function to set a simplified map style for navigation
-  void _setNavigationMapStyle() {
-    if (_mapController == null) return;
-
-    // This is a simplified example - you would typically load this from a JSON file
-    const String navigationMapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "transit",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.fill",
-      "stylers": [
-        {
-          "weight": 3
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(navigationMapStyle);
-  }
-
-
-
-  // Helper method to format distances from meters
-  String _formatDistance(int meters) {
-    if (meters < 1000) {
-      return '$meters m';
-    } else {
-      final km = meters / 1000.0;
-      return '${km.toStringAsFixed(1)} km';
-    }
-  }
 
   // Show a confirmation dialog before ending navigation
   void _showEndNavigationDialog() {
@@ -5466,7 +4892,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         location.name,
                         location.address,
                             () => _selectRecentLocation(location),
-                        getIconForType(location.iconType),
+                        MapUtils.getIconForPlaceType(location.iconType),
                       );
                     },
                   ),
@@ -5476,52 +4902,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ),
       ],
     );
-  }
-
-  // Helper method to determine icon based on location type
-  IconData getIconForType(String? type) {
-    if (type == null) return Icons.location_on_outlined;
-
-    switch (type) {
-      case 'restaurant':
-      case 'food':
-      case 'cafe':
-        return Icons.restaurant;
-      case 'store':
-      case 'shopping_mall':
-      case 'supermarket':
-        return Icons.shopping_bag;
-      case 'school':
-      case 'university':
-        return Icons.school;
-      case 'hospital':
-      case 'doctor':
-      case 'pharmacy':
-        return Icons.local_hospital;
-      case 'airport':
-      case 'bus_station':
-      case 'train_station':
-        return Icons.directions_transit;
-      case 'hotel':
-      case 'lodging':
-        return Icons.hotel;
-      case 'park':
-      case 'tourist_attraction':
-        return Icons.park;
-      case 'gym':
-      case 'fitness_center':
-        return Icons.fitness_center;
-      case 'bar':
-      case 'night_club':
-        return Icons.nightlife;
-      case 'gas_station':
-        return Icons.local_gas_station;
-      case 'bank':
-      case 'atm':
-        return Icons.account_balance;
-      default:
-        return Icons.location_on_outlined;
-    }
   }
 
   Widget _buildSearchResults() {
@@ -5584,9 +4964,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             overflow: TextOverflow.ellipsis,
           ),
           trailing: Text(
-            _calculateDistance(suggestion) == "-"
+            _getFormattedDistanceForSuggestion(suggestion) == "-"
                 ? "-"
-                : "${_calculateDistance(suggestion)} km",
+                : "${_getFormattedDistanceForSuggestion(suggestion)} km",
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -5598,7 +4978,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  String _calculateDistance(api.PlaceSuggestion suggestion) {
+  String _getFormattedDistanceForSuggestion(api.PlaceSuggestion suggestion) {
     // Return cached distance if available
     if (_suggestionDistances.containsKey(suggestion.placeId)) {
       return _suggestionDistances[suggestion.placeId]!;
@@ -5613,19 +4993,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     return "-";
   }
 
+  // Updated async calculation:
   Future<void> _calculateDistanceAsync(api.PlaceSuggestion suggestion) async {
     try {
       // Get place details to access its coordinates
       final place = await api.GoogleApiServices.getPlaceDetails(suggestion.placeId);
 
       if (place != null && _currentLocation != null && mounted) {
-        // Calculate distance using the Haversine formula
-        final distanceInMeters = _calculateDistance2(
+        // Use LocationUtils for calculation
+        final distanceInMeters = LocationUtils.calculateDistanceInMeters(
             LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!),
             place.latLng
         );
 
-        // Format the distance appropriately
+        // Use FormatUtils for formatting
         String formattedDistance;
         if (distanceInMeters < 1000) {
           formattedDistance = "${distanceInMeters.toInt()} m";

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:project_navigo/models/saved_map.dart';
-import 'package:project_navigo/services/utils/firebase_utils.dart';
+import 'package:project_navigo/utils/firebase_utils.dart';
 
 /// Service class for managing saved maps/locations
 class SavedMapService {

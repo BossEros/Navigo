@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:project_navigo/models/quick_access_shortcut_model.dart';
-import 'package:project_navigo/services/utils/firebase_utils.dart';
+import 'package:project_navigo/utils/firebase_utils.dart';
 
 class QuickAccessShortcutService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

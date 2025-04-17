@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:project_navigo/models/recent_location.dart';
-import 'package:project_navigo/services/utils/firebase_utils.dart';
+import 'package:project_navigo/utils/firebase_utils.dart';
 
 class RecentLocationsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:project_navigo/models/route_history.dart';
-import 'package:project_navigo/services/utils/firebase_utils.dart';
+import 'package:project_navigo/utils/firebase_utils.dart';
 
 class RouteHistoryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
