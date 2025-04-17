@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
 import 'package:project_navigo/themes/app_typography.dart';
+import '../../main.dart';
 import '../../widgets/profile_image.dart';
 import 'profile.dart';
 import 'settings.dart';
@@ -23,6 +24,7 @@ class MenuIcon {
   static Widget saved() => FaIcon(FontAwesomeIcons.solidHeart, size: iconSize, color: iconColor);
   static Widget settings() => FaIcon(FontAwesomeIcons.gear, size: iconSize, color: iconColor);
   static Widget logout() => FaIcon(FontAwesomeIcons.rightFromBracket, size: iconSize, color: iconColor);
+  static Widget shortcuts() => FaIcon(FontAwesomeIcons.star, size: iconSize, color: iconColor);
 }
 
 class Hamburgmenu extends StatefulWidget {
@@ -330,20 +332,11 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                 ),
                 const Divider(height: 1),
                 buildListTile(
-                  MenuIcon.profile(),
-                  'Saved Shortcuts',
-                  context,
-                  ProfileScreen(),
-                ),
-
-                const Divider(height: 1),
-                buildListTile(
                   MenuIcon.settings(),
                   'Settings',
                   context,
                   SettingsPage(),
                 ),
-
                 const Divider(height: 1),
                 // Log out option with confirmation dialog
                 ListTile(
@@ -370,6 +363,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
       ),
     );
   }
+
 
   /// Function to build each menu option as a clickable list tile
   Widget buildListTile(

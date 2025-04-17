@@ -36,8 +36,6 @@ void main() async {
   runApp(const MyApp());
 }
 
-
-
 enum NavigationState {
   idle,           // Initial state, no destination selected
   placeSelected,  // A destination is selected, showing place details
@@ -160,10 +158,6 @@ class NavigoMapScreen extends StatefulWidget {
   State<NavigoMapScreen> createState() => _NavigoMapScreenState();
 }
 
-// A state variable to control traffic visibility
-bool _trafficEnabled = true;
-String? _currentMapStyle;
-
 final String? dayMapStyle = null; // Use null for default Google styling with traffic
 final String navigationMapStyle = '''
 [
@@ -256,6 +250,10 @@ final String trafficOffMapStyle = '''
   }
 ]
 ''';
+
+// A state variable to control traffic visibility
+bool _trafficEnabled = true;
+String? _currentMapStyle;
 
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
 
