@@ -53,92 +53,96 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              children: [
-                _buildSettingItem(
-                  icon: Icons.accessibility_new,
-                  title: "Accessibility",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AccessibilityPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildSettingItem(
-                  icon: Icons.help_outline,
-                  title: "FAQ",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => FAQScreen()),
-                    );
-                  },
-                ),
-                _buildSettingItem(
-                  icon: Icons.description_outlined,
-                  title: "Terms of Service",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TermsOfServiceScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildSettingItem(
-                  icon: Icons.privacy_tip_outlined,
-                  title: "Privacy Policy",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PrivacyPolicyPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildSettingItem(
-                  icon: Icons.delete_outline,
-                  title: "Delete Account",
-                  onTap: () {
-                    _showDeleteAccountDialog(context);
-                  },
-                  isDestructive: true,
-                ),
-              ],
-            ),
-          ),
-          // Decorative wave - enhanced with gradient
-          Container(
-            height: 80,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade400, Colors.blue.shade700],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: SafeArea(
+        top: false, // Don't add padding at the top since AppBar already handles it
+        bottom: true, // Add padding at the bottom to avoid navigation bar
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                children: [
+                  _buildSettingItem(
+                    icon: Icons.accessibility_new,
+                    title: "Accessibility",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AccessibilityPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    icon: Icons.help_outline,
+                    title: "FAQ",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => FAQScreen()),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    icon: Icons.description_outlined,
+                    title: "Terms of Service",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TermsOfServiceScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    icon: Icons.privacy_tip_outlined,
+                    title: "Privacy Policy",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PrivacyPolicyPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildSettingItem(
+                    icon: Icons.delete_outline,
+                    title: "Delete Account",
+                    onTap: () {
+                      _showDeleteAccountDialog(context);
+                    },
+                    isDestructive: true,
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(300),
-                topRight: Radius.circular(300),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: Offset(0, -5),
-                ),
-              ],
             ),
-          ),
-        ],
+            // Decorative wave - enhanced with gradient
+            Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(300),
+                  topRight: Radius.circular(300),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -456,7 +460,7 @@ Future<void> _reauthenticateUser(BuildContext context) async {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.grey[50],
+                fillColor: Colors.grey[100],
               ),
               style: AppTypography.textTheme.bodyLarge,
               obscureText: true,
