@@ -4658,8 +4658,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildDefaultContent() {
     // Calculate how many custom shortcuts to show
     // We want a maximum of 4 total buttons (Home, Work, custom shortcuts, and New/See All)
-    final int maxCustomShortcutsToShow = 2; // Only 2 custom shortcuts to respect the 4-button limit
-    final bool showSeeAllButton = _quickAccessShortcuts.length > maxCustomShortcutsToShow;
+    final int maxCustomShortcutsToShow = 2; // Only 2 custom shortcuts to respect the 4-button limit\
     final displayShortcuts = _quickAccessShortcuts.take(maxCustomShortcutsToShow).toList();
 
     return Column(
@@ -4745,15 +4744,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         ),
                       ),
 
-                    // Dynamic button: "New" or "See All" based on condition
+                    //'assets/icons/more_icon.png' : 'assets/icons/plus_icon.png',
+
                     Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: _buildQuickAccessButton(
-                        showSeeAllButton ? 'assets/icons/more_icon.png' : 'assets/icons/plus_icon.png',
-                        showSeeAllButton ? 'See All' : 'New',
-                        showSeeAllButton ? _navigateToAllShortcuts : _handleNewButtonTap,
-                        // Use a custom icon for "See All" if the asset is missing
-                        errorIconData: showSeeAllButton ? Icons.more_horiz : Icons.add,
+                        'assets/icons/plus_icon.png', // Consistently use the "more" icon
+                        'See All', // Always use "Manage Shortcuts" label
+                        _navigateToAllShortcuts, // Always navigate to All Shortcuts screen
+                        // Provide a sensible fallback icon for consistency
+                        errorIconData: Icons.manage_search,
                       ),
                     ),
                   ],
