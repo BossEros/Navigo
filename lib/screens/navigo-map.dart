@@ -43,41 +43,6 @@ void main() async {
   runApp(const MyApp());
 }
 
-enum NavigationState {
-  idle,           // Initial state, no destination selected
-  placeSelected,  // A destination is selected, showing place details
-  routePreview,   // Showing route options before starting navigation
-  activeNavigation // Actively navigating
-}
-
-class PulsatingMarkerPainter extends CustomPainter {
-  final double radius;
-  final Color color;
-  final AnimationController controller;
-
-  PulsatingMarkerPainter({
-    required this.radius,
-    required this.color,
-    required this.controller,
-  }) : super(repaint: controller);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(1 - controller.value)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      radius * (1 + controller.value),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
 class MyApp extends StatelessWidget {
   final String? savedPlaceId;
   final LatLng? savedCoordinates;
@@ -793,14 +758,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                 itemBuilder: (context, index) {
                                   // Icons array - in a real app, you'd have more icons
                                   List<String> icons = [
-                                    'assets/icons/star_icon.png',
                                     'assets/icons/home_icon.png',
                                     'assets/icons/work_icon.png',
                                     'assets/icons/restaurant_icon.png',
+                                    'assets/icons/fastfood_icon.png',
+                                    'assets/icons/hotel_icon.png',
                                     'assets/icons/shopping_icon.png',
                                     'assets/icons/gym_icon.png',
                                     'assets/icons/school_icon.png',
                                     'assets/icons/cafe_icon.png',
+                                    'assets/icons/star_icon.png',
                                   ];
                                   String iconPath = index < icons.length
                                       ? icons[index]
@@ -3982,32 +3949,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       );
     }
 
-    // For standard mode, update the existing button
+    // For standard mode, keep only the traffic toggle button
     return Positioned(
       bottom: 200,
       right: 16,
-      child: Column(
-        children: [
-          FloatingActionButton(
-            heroTag: "toggleTraffic",
-            mini: true,
-            backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-            onPressed: () {
-              _toggleTrafficLayer();
-            },
-            child: Icon(
-              Icons.traffic,
-              color: _trafficEnabled ? Colors.white : Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          _buildCircularButton(
-            icon: _isNavigating ? Icons.close : Icons.navigation,
-            color: _isNavigating ? Colors.red : null,
-            onPressed: _isNavigating ? _stopNavigation : _startNavigation,
-          ),
-        ],
+      child: FloatingActionButton(
+        heroTag: "toggleTraffic",
+        mini: true,
+        backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
+        onPressed: () {
+          _toggleTrafficLayer();
+        },
+        child: Icon(
+          Icons.traffic,
+          color: _trafficEnabled ? Colors.white : Colors.grey,
+        ),
       ),
     );
   }

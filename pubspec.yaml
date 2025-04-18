@@ -116,7 +116,16 @@ flutter:
     # New icon assets
     - assets/icons/home_icon.png
     - assets/icons/work_icon.png
-    - assets/icons/plus_icon.png  
+    - assets/icons/plus_icon.png
+    - assets/icons/cafe_icon.png
+    - assets/icons/restaurant_icon.png
+    - assets/icons/school_icon.png  
+    - assets/icons/gym_icon.png
+    - assets/icons/fastfood_icon.png
+    - assets/icons/hotel_icon.png
+    - assets/icons/shopping_icon.png
+       
+    
  
   # To add assets to your application, add an assets section, like this:
   # assets:
