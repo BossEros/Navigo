@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
 import 'package:project_navigo/themes/app_typography.dart';
-import '../../main.dart';
+import 'package:project_navigo/themes/theme_provider.dart'; // Import the ThemeProvider
 import '../../widgets/profile_image.dart';
 import 'profile.dart';
 import 'settings.dart';
@@ -15,16 +15,31 @@ import 'package:project_navigo/screens/login_screen.dart';
 
 // Utility class for creating consistent menu icons
 class MenuIcon {
-  // Define standard size and color for all menu icons
+  // Define standard size for all menu icons
   static const double iconSize = 22.0;
-  static const Color iconColor = Colors.black87;
 
-  static Widget profile() => FaIcon(FontAwesomeIcons.userCircle, size: iconSize, color: iconColor);
-  static Widget route() => FaIcon(FontAwesomeIcons.route, size: iconSize, color: iconColor);
-  static Widget saved() => FaIcon(FontAwesomeIcons.solidHeart, size: iconSize, color: iconColor);
-  static Widget settings() => FaIcon(FontAwesomeIcons.gear, size: iconSize, color: iconColor);
-  static Widget logout() => FaIcon(FontAwesomeIcons.rightFromBracket, size: iconSize, color: iconColor);
-  static Widget shortcuts() => FaIcon(FontAwesomeIcons.star, size: iconSize, color: iconColor);
+  // Get the appropriate icon color based on theme
+  static Color getIconColor(BuildContext context) {
+    // Check if we're in dark mode using ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    return themeProvider.isDarkMode ? Colors.white : Colors.black87;
+  }
+
+  // Theme-aware icon builders
+  static Widget profile(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.userCircle, size: iconSize, color: getIconColor(context));
+
+  static Widget route(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.route, size: iconSize, color: getIconColor(context));
+
+  static Widget saved(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.solidHeart, size: iconSize, color: getIconColor(context));
+
+  static Widget settings(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.gear, size: iconSize, color: getIconColor(context));
+
+  static Widget logout(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.rightFromBracket, size: iconSize, color: getIconColor(context));
 }
 
 class Hamburgmenu extends StatefulWidget {
@@ -73,8 +88,16 @@ class _HamburgmenuState extends State<Hamburgmenu> {
   }
 
   /// Function to navigate to a new page
+  /// This ensures theme provider context is properly passed to new screens
   void navigateTo(BuildContext context, Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => page,
+          // Preserve the existing state by setting maintainState to true
+          maintainState: true,
+        )
+    );
   }
 
   /// Function to navigate back to the map with a smooth transition
@@ -136,6 +159,11 @@ class _HamburgmenuState extends State<Hamburgmenu> {
 
   /// Function to show logout confirmation dialog
   void showLogoutConfirmDialog(BuildContext context) {
+    // Get theme state from the provider to ensure we have the latest value
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final ThemeData theme = themeProvider.themeData;
+    final bool isDarkMode = themeProvider.isDarkMode;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -143,7 +171,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor: theme.cardColor,
           child: Container(
             width: 300,
             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -157,6 +185,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                   'Confirm Log out?',
                   style: AppTypography.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: theme.textTheme.headlineMedium?.color,
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -170,8 +199,8 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                       width: 120,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade300,
-                          foregroundColor: Colors.black,
+                          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                          foregroundColor: isDarkMode ? Colors.white : Colors.black,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -184,7 +213,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                           child: Text(
                             'Cancel',
                             style: AppTypography.textTheme.labelLarge?.copyWith(
-                              color: Colors.black87,
+                              color: isDarkMode ? Colors.white : Colors.black87,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -234,15 +263,22 @@ class _HamburgmenuState extends State<Hamburgmenu> {
     // Get the user provider to access user data
     final userProvider = Provider.of<UserProvider>(context);
 
+    // Get the theme provider to actively listen for theme changes
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: true);
+
+    // Get the current theme
+    final ThemeData theme = themeProvider.themeData;
+    final bool isDarkMode = themeProvider.isDarkMode;
+
     // Username and email with fallback values
     final username = userProvider.userProfile?.username ?? 'Guest User';
     final email = userProvider.userProfile?.email ?? 'No email available';
     final profileImageUrl = userProvider.userProfile?.profileImageUrl;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _isLoadingData
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
           : Column(
         children: [
           /// Header container with a gradient background
@@ -257,7 +293,12 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                     height: 180,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.blue, Colors.blue.shade300],
+                        colors: [
+                          theme.colorScheme.primary,
+                          isDarkMode
+                              ? theme.colorScheme.primary.withOpacity(0.7)
+                              : Colors.blue.shade300
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -269,7 +310,11 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                   top: 40,
                   right: 20,
                   child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black, size: 28),
+                    icon: Icon(
+                        Icons.close,
+                        color: isDarkMode ? Colors.white : Colors.black,
+                        size: 28
+                    ),
                     onPressed: () {
                       // Use the smooth transition method to go back to the map
                       navigateBackToMap(context);
@@ -293,14 +338,14 @@ class _HamburgmenuState extends State<Hamburgmenu> {
             username, // Dynamic username from Firestore
             style: AppTypography.textTheme.displaySmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.black,
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 5),
           Text(
             email, // Dynamic email from Firestore
             style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: Colors.grey,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             ),
           ),
           const SizedBox(height: 30),
@@ -311,47 +356,52 @@ class _HamburgmenuState extends State<Hamburgmenu> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 buildListTile(
-                  MenuIcon.profile(),
+                  MenuIcon.profile(context),
                   'View Profile',
                   context,
                   ProfileScreen(),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
                 buildListTile(
-                  MenuIcon.route(),
+                  MenuIcon.route(context),
                   'Your Route Data',
                   context,
                   RouteHistoryScreen(),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
                 buildListTile(
-                  MenuIcon.saved(),
+                  MenuIcon.saved(context),
                   'Saved Locations',
                   context,
                   SavedLocationsScreen(),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
                 buildListTile(
-                  MenuIcon.settings(),
+                  MenuIcon.settings(context),
                   'Settings',
                   context,
                   SettingsPage(),
                 ),
-                const Divider(height: 1),
+
+                Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
                 // Log out option with confirmation dialog
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     vertical: 8,
                     horizontal: 16,
                   ),
-                  leading: MenuIcon.logout(),
+                  leading: MenuIcon.logout(context),
                   title: Text(
                     'Log out',
                     style: AppTypography.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w500,
+                      color: theme.textTheme.titleMedium?.color,
                     ),
                   ),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  trailing: Icon(
+                      Icons.chevron_right,
+                      color: isDarkMode ? Colors.grey[500] : Colors.grey[600]
+                  ),
                   onTap: () {
                     showLogoutConfirmDialog(context);
                   },
@@ -364,6 +414,7 @@ class _HamburgmenuState extends State<Hamburgmenu> {
     );
   }
 
+  // We've now replaced this with the updated MenuIcon class methods
 
   /// Function to build each menu option as a clickable list tile
   Widget buildListTile(
@@ -372,6 +423,11 @@ class _HamburgmenuState extends State<Hamburgmenu> {
       BuildContext context,
       Widget page,
       ) {
+    // Get theme from the provider to ensure we respond to theme changes
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final theme = themeProvider.themeData;
+    final isDarkMode = themeProvider.isDarkMode;
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       leading: icon,
@@ -379,11 +435,16 @@ class _HamburgmenuState extends State<Hamburgmenu> {
         title,
         style: AppTypography.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w500,
+          color: theme.textTheme.titleMedium?.color,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      trailing: Icon(
+          Icons.chevron_right,
+          color: isDarkMode ? Colors.grey[500] : Colors.grey[600]
+      ),
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+        // Use navigateTo function for consistent navigation with theme persistence
+        navigateTo(context, page);
       },
     );
   }

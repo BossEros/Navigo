@@ -172,16 +172,25 @@ class _IntroScreenState extends State<IntroScreen> {
             context: context,
             barrierDismissible: false,
             builder: (BuildContext context) => AlertDialog(
-              title: Text('Location Services Disabled'),
+              title: Text(
+                'Location Services Disabled',
+                style: TextStyle(color: Colors.black87),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Please enable location services to use navigation features.'),
+                  Text(
+                    'Please enable location services to use navigation features.',
+                    style: TextStyle(color: Colors.black87),
+                  ),
                   SizedBox(height: 12),
                   Text(
                     'Without location services, Navigo won\'t be able to:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                   SizedBox(height: 8),
                   _buildFeatureItem(Icons.navigation, 'Provide turn-by-turn navigation'),
@@ -195,7 +204,10 @@ class _IntroScreenState extends State<IntroScreen> {
                     Navigator.of(context).pop();
                     _nextPage(); // Still allow to continue without location
                   },
-                  child: Text('CONTINUE ANYWAY'),
+                  child: Text(
+                    'CONTINUE ANYWAY',
+                    style: TextStyle(color: Colors.blue),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -235,7 +247,10 @@ class _IntroScreenState extends State<IntroScreen> {
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Location permission is needed for navigation'),
+                content: Text(
+                  'Location permission is needed for navigation',
+                  style: TextStyle(color: Colors.white), // Snackbar always uses white text
+                ),
                 action: SnackBarAction(
                   label: 'Try Again',
                   onPressed: _requestLocationPermission,
@@ -259,18 +274,25 @@ class _IntroScreenState extends State<IntroScreen> {
             context: context,
             barrierDismissible: false,
             builder: (BuildContext context) => AlertDialog(
-              title: Text('Location Permission Required'),
+              title: Text(
+                'Location Permission Required',
+                style: TextStyle(color: Colors.black87),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Location permissions are permanently denied. Please enable them in device settings to use all navigation features.',
+                    style: TextStyle(color: Colors.black87),
                   ),
                   SizedBox(height: 12),
                   Text(
                     'Navigation features that require location:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                   SizedBox(height: 8),
                   _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
@@ -284,7 +306,10 @@ class _IntroScreenState extends State<IntroScreen> {
                     Navigator.of(context).pop();
                     _nextPage(); // Still allow to continue without location
                   },
-                  child: Text('CONTINUE ANYWAY'),
+                  child: Text(
+                    'CONTINUE ANYWAY',
+                    style: TextStyle(color: Colors.blue),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -316,7 +341,10 @@ class _IntroScreenState extends State<IntroScreen> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Location permission granted'),
+            content: Text(
+              'Location permission granted',
+              style: TextStyle(color: Colors.white), // Snackbar always uses white text
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
@@ -345,7 +373,10 @@ class _IntroScreenState extends State<IntroScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error accessing location: $e'),
+            content: Text(
+              'Error accessing location: $e',
+              style: TextStyle(color: Colors.white), // Snackbar always uses white text
+            ),
             action: SnackBarAction(
               label: 'Try Again',
               onPressed: _requestLocationPermission,
@@ -367,7 +398,12 @@ class _IntroScreenState extends State<IntroScreen> {
         children: [
           Icon(icon, size: 18, color: Colors.blue),
           SizedBox(width: 8),
-          Flexible(child: Text(text)),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.black87),
+            ),
+          ),
         ],
       ),
     );
@@ -376,7 +412,7 @@ class _IntroScreenState extends State<IntroScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.white, // Keep background white
       body: Stack(
         children: [
           PageView.builder(
@@ -415,13 +451,13 @@ class _IntroScreenState extends State<IntroScreen> {
                       "Skip",
                       style: AppTypography.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Colors.black, // Always black
                       ),
                     ),
                     SizedBox(width: 5),
                     Icon(
                       Icons.arrow_forward,
-                      color: Colors.black,
+                      color: Colors.black, // Always black
                       size: 18,
                     ),
                   ],
@@ -452,7 +488,6 @@ class _IntroScreenState extends State<IntroScreen> {
   }
 
   // Enhanced dialog shown when user denies location permission
-  // Replace the _showLocationImportanceDialog method with this fixed version
   void _showLocationImportanceDialog() {
     showDialog(
       context: context,
@@ -465,7 +500,10 @@ class _IntroScreenState extends State<IntroScreen> {
             Icon(Icons.info_outline, color: Colors.blue),
             Text(
               'Location Enhances Navigation',
-              style: TextStyle(fontSize: 18), // Slightly smaller font size
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.black87, // Always black
+              ),
             ),
           ],
         ),
@@ -475,7 +513,10 @@ class _IntroScreenState extends State<IntroScreen> {
           children: [
             Text(
               'Navigo works best with location access. Without it, you\'ll miss out on:',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87, // Always black
+              ),
             ),
             SizedBox(height: 16),
             _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
@@ -485,7 +526,11 @@ class _IntroScreenState extends State<IntroScreen> {
             SizedBox(height: 12),
             Text(
               'You can always enable location permissions later in Settings.',
-              style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14, color: Colors.grey[700]),
+              style: TextStyle(
+                fontStyle: FontStyle.italic,
+                fontSize: 14,
+                color: Colors.grey[700], // Slightly lighter but still dark
+              ),
             ),
           ],
         ),
@@ -495,7 +540,10 @@ class _IntroScreenState extends State<IntroScreen> {
               Navigator.of(context).pop();
               _nextPage(); // Continue anyway
             },
-            child: Text('Continue Without Location'),
+            child: Text(
+              'Continue Without Location',
+              style: TextStyle(color: Colors.blue),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -542,7 +590,7 @@ class IntroContent extends StatelessWidget {
     // Special UI for the location permission page
     if (isLocationAccessPage) {
       return Container(
-        color: Colors.white,
+        color: Colors.white, // Keep background white
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -563,7 +611,9 @@ class IntroContent extends StatelessWidget {
                   if (title != null)
                     Text(
                       title!,
-                      style: AppTypography.onboardingTitle,
+                      style: AppTypography.onboardingTitle.copyWith(
+                        color: Colors.black, // Always black
+                      ),
                       textAlign: TextAlign.center,
                     ),
                 ],
@@ -575,7 +625,9 @@ class IntroContent extends StatelessWidget {
               if (subtitle != null)
                 Text(
                   subtitle!,
-                  style: AppTypography.onboardingDescription,
+                  style: AppTypography.onboardingDescription.copyWith(
+                    color: Colors.black, // Always black
+                  ),
                   textAlign: TextAlign.center,
                 ),
               SizedBox(height: 8),
@@ -594,7 +646,11 @@ class IntroContent extends StatelessWidget {
                   children: [
                     Text(
                       "Location enables Navigo to:",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.black, // Always black
+                      ),
                     ),
                     SizedBox(height: 12),
                     _buildFeatureRow(Icons.navigation, "Provide turn-by-turn directions"),
@@ -649,7 +705,10 @@ class IntroContent extends StatelessWidget {
                   SizedBox(height: 8),
                   Text(
                     "You can change this later in app settings",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -661,7 +720,7 @@ class IntroContent extends StatelessWidget {
 
     // Regular intro page layout for non-location pages
     return Container(
-      color: Colors.white,
+      color: Colors.white, // Keep background white
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -674,7 +733,11 @@ class IntroContent extends StatelessWidget {
             if (title != null)
               Text(
                 title!,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black, // Always black
+                ),
                 textAlign: TextAlign.center,
               ),
             if (subtitle != null)
@@ -682,7 +745,10 @@ class IntroContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   subtitle!,
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black, // Always black
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -727,7 +793,12 @@ class IntroContent extends StatelessWidget {
         Icon(icon, color: Colors.blue, size: 20),
         SizedBox(width: 12),
         Expanded(
-          child: Text(text, style: AppTypography.textTheme.bodyMedium),
+          child: Text(
+            text,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: Colors.black, // Always black
+            ),
+          ),
         ),
       ],
     );
@@ -740,10 +811,21 @@ class RegisterPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Register")),
-      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(
+          "Register",
+          style: TextStyle(color: Colors.black), // Always black
+        ),
+      ),
+      backgroundColor: Colors.white, // Keep background white
       body: Center(
-        child: Text("Registration Page", style: TextStyle(fontSize: 24)),
+        child: Text(
+          "Registration Page",
+          style: TextStyle(
+            fontSize: 24,
+            color: Colors.black, // Always black
+          ),
+        ),
       ),
     );
   }

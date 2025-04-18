@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography system
+import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/models/route_history.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
 
 class RouteDetailScreen extends StatefulWidget {
   final RouteHistory route;
@@ -126,6 +128,67 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+
+    // Apply map style based on theme
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    if (themeProvider.isDarkMode) {
+      controller.setMapStyle('''
+        [
+          {
+            "elementType": "geometry",
+            "stylers": [
+              {
+                "color": "#242f3e"
+              }
+            ]
+          },
+          {
+            "elementType": "labels.text.fill",
+            "stylers": [
+              {
+                "color": "#746855"
+              }
+            ]
+          },
+          {
+            "elementType": "labels.text.stroke",
+            "stylers": [
+              {
+                "color": "#242f3e"
+              }
+            ]
+          },
+          {
+            "featureType": "road",
+            "elementType": "geometry",
+            "stylers": [
+              {
+                "color": "#38414e"
+              }
+            ]
+          },
+          {
+            "featureType": "road",
+            "elementType": "geometry.stroke",
+            "stylers": [
+              {
+                "color": "#212a37"
+              }
+            ]
+          },
+          {
+            "featureType": "road",
+            "elementType": "labels.text.fill",
+            "stylers": [
+              {
+                "color": "#9ca5b3"
+              }
+            ]
+          }
+        ]
+      ''');
+    }
+
     _fitMapToRoute();
   }
 
@@ -194,16 +257,21 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(
           widget.route.routeName ?? 'Route Details',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+        foregroundColor: isDarkMode ? Colors.white : Colors.black,
         elevation: 0,
         actions: [
           IconButton(
@@ -214,8 +282,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                 SnackBar(
                   content: Text(
                     'Sharing coming soon',
-                    style: AppTypography.textTheme.bodyMedium,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
+                  backgroundColor: isDarkMode ? Colors.grey[800] : null,
                 ),
               );
             },
@@ -244,7 +315,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
             )
-                : const Center(child: CircularProgressIndicator()),
+                : Center(
+              child: CircularProgressIndicator(
+                color: isDarkMode ? Colors.white70 : null,
+              ),
+            ),
           ),
 
           // Route details (scrollable section below the map)
@@ -257,6 +332,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                   // Summary card
                   Card(
                     elevation: 2,
+                    color: isDarkMode ? Colors.grey[800] : Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -265,13 +341,17 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           // Date and time
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                              Icon(
+                                Icons.calendar_today,
+                                size: 16,
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _formatDateTime(widget.route.createdAt),
                                   style: AppTypography.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey,
+                                    color: isDarkMode ? Colors.grey[400] : Colors.grey,
                                   ),
                                 ),
                               ),
@@ -287,19 +367,30 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                                 icon: Icons.straighten,
                                 label: 'Distance',
                                 value: widget.route.distance.text,
+                                isDarkMode: isDarkMode,
                               ),
-                              Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+                              Container(
+                                width: 1,
+                                height: 40,
+                                color: (isDarkMode ? Colors.grey[600]!.withOpacity(0.3) : Colors.grey.withOpacity(0.3)).withOpacity(0.3),
+                              ),
                               _buildInfoTile(
                                 icon: Icons.access_time,
                                 label: 'Duration',
                                 value: _formatDuration(widget.route.duration.text),
+                                isDarkMode: isDarkMode,
                               ),
-                              Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+                              Container(
+                                width: 1,
+                                height: 40,
+                                color: (isDarkMode ? Colors.grey[600] : Colors.grey)!.withOpacity(0.3),
+                              ),
                               _buildInfoTile(
                                 icon: Icons.traffic,
                                 label: 'Traffic',
                                 value: widget.route.trafficConditions?.capitalize() ?? 'Unknown',
                                 valueColor: _getTrafficColor(),
+                                isDarkMode: isDarkMode,
                               ),
                             ],
                           ),
@@ -315,6 +406,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     'Locations',
                     style: AppTypography.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -325,6 +417,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     address: widget.route.startLocation.formattedAddress,
                     iconData: Icons.trip_origin,
                     iconColor: Colors.green,
+                    isDarkMode: isDarkMode,
                   ),
 
                   // Waypoints (if any)
@@ -338,6 +431,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           : waypoint.formattedAddress,
                       iconData: Icons.more_horiz,
                       iconColor: Colors.purple,
+                      isDarkMode: isDarkMode,
                     );
                   }).toList(),
 
@@ -347,6 +441,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                     address: widget.route.endLocation.formattedAddress,
                     iconData: Icons.place,
                     iconColor: Colors.red,
+                    isDarkMode: isDarkMode,
                   ),
 
                   const SizedBox(height: 24),
@@ -361,6 +456,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                           'Conditions',
                           style: AppTypography.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
+                            color: isDarkMode ? Colors.white : Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -372,6 +468,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             value: widget.route.trafficConditions!.capitalize(),
                             iconData: Icons.traffic,
                             iconColor: _getTrafficColor(),
+                            isDarkMode: isDarkMode,
                           ),
 
                         // Weather conditions
@@ -381,6 +478,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                             value: widget.route.weatherConditions!,
                             iconData: Icons.cloud,
                             iconColor: Colors.blue,
+                            isDarkMode: isDarkMode,
                           ),
                       ],
                     ),
@@ -405,6 +503,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                         'Travel Mode: ${widget.route.travelMode.capitalize()}',
                         style: AppTypography.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w500,
+                          color: isDarkMode ? Colors.white : Colors.black87,
                         ),
                       ),
                     ],
@@ -423,17 +522,18 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     required String label,
     required String value,
     Color? valueColor,
+    required bool isDarkMode,
   }) {
     return SizedBox(
       width: 90,
       child: Column(
         children: [
-          Icon(icon, color: Colors.grey),
+          Icon(icon, color: isDarkMode ? Colors.grey[400] : Colors.grey),
           const SizedBox(height: 4),
           Text(
             label,
             style: AppTypography.textTheme.bodySmall?.copyWith(
-              color: Colors.grey[600],
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             ),
           ),
           const SizedBox(height: 4),
@@ -441,7 +541,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             value,
             style: AppTypography.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: valueColor,
+              color: valueColor ?? (isDarkMode ? Colors.white : Colors.black87),
             ),
             textAlign: TextAlign.center,
           ),
@@ -455,6 +555,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     required String address,
     required IconData iconData,
     required Color iconColor,
+    required bool isDarkMode,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -465,7 +566,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withOpacity(isDarkMode ? 0.2 : 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -483,13 +584,14 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
                   title,
                   style: AppTypography.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   address,
                   style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[700],
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                   ),
                 ),
               ],
@@ -505,6 +607,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     required String value,
     required IconData iconData,
     required Color iconColor,
+    required bool isDarkMode,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -514,7 +617,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withOpacity(isDarkMode ? 0.2 : 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -530,7 +633,7 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
               Text(
                 title,
                 style: AppTypography.textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey,
                 ),
               ),
               Text(

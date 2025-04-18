@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
+import '../../themes/theme_provider.dart';
 import '../login_screen.dart';
 import 'faq_screen.dart';
 import 'terms_of_service.dart';
@@ -30,25 +31,35 @@ class NaviGoApp extends StatelessWidget {
 class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to access dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        // Apply theme-aware AppBar styling
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Settings',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          // Apply theme-aware icon color
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close, color: Colors.black),
+            // Apply theme-aware icon color
+            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -72,6 +83,7 @@ class SettingsPage extends StatelessWidget {
                         ),
                       );
                     },
+                    isDarkMode: isDarkMode, // Pass theme state
                   ),
                   _buildSettingItem(
                     icon: Icons.help_outline,
@@ -82,6 +94,7 @@ class SettingsPage extends StatelessWidget {
                         MaterialPageRoute(builder: (context) => FAQScreen()),
                       );
                     },
+                    isDarkMode: isDarkMode, // Pass theme state
                   ),
                   _buildSettingItem(
                     icon: Icons.description_outlined,
@@ -94,6 +107,7 @@ class SettingsPage extends StatelessWidget {
                         ),
                       );
                     },
+                    isDarkMode: isDarkMode, // Pass theme state
                   ),
                   _buildSettingItem(
                     icon: Icons.privacy_tip_outlined,
@@ -106,25 +120,30 @@ class SettingsPage extends StatelessWidget {
                         ),
                       );
                     },
+                    isDarkMode: isDarkMode, // Pass theme state
                   ),
                   _buildSettingItem(
                     icon: Icons.delete_outline,
                     title: "Delete Account",
                     onTap: () {
-                      _showDeleteAccountDialog(context);
+                      _showDeleteAccountDialog(context, isDarkMode);
                     },
                     isDestructive: true,
+                    isDarkMode: isDarkMode, // Pass theme state
                   ),
                 ],
               ),
             ),
-            // Decorative wave - enhanced with gradient
+            // Decorative wave - enhanced with gradient and theme-aware colors
             Container(
               height: 80,
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue.shade400, Colors.blue.shade700],
+                  // Apply theme-aware gradient colors
+                  colors: isDarkMode
+                      ? [Colors.blue.shade800, Colors.blue.shade900]
+                      : [Colors.blue.shade400, Colors.blue.shade700],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -134,7 +153,10 @@ class SettingsPage extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
+                    // Apply theme-aware shadow color
+                    color: isDarkMode
+                        ? Colors.black.withOpacity(0.5)
+                        : Colors.blue.withOpacity(0.3),
                     blurRadius: 15,
                     offset: Offset(0, -5),
                   ),
@@ -152,6 +174,7 @@ class SettingsPage extends StatelessWidget {
     required String title,
     required VoidCallback onTap,
     bool isDestructive = false,
+    required bool isDarkMode, // Add theme state parameter
   }) {
     return Column(
       children: [
@@ -166,25 +189,37 @@ class SettingsPage extends StatelessWidget {
             title,
             style: AppTypography.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w500,
-              color: isDestructive ? Colors.red : Colors.black87,
+              // Apply theme-aware text color
+              color: isDestructive
+                  ? Colors.red
+                  : (isDarkMode ? Colors.white : Colors.black87),
             ),
           ),
           trailing: Icon(
             Icons.chevron_right,
-            color: isDestructive ? Colors.red.withOpacity(0.5) : Colors.grey,
+            // Apply theme-aware icon color
+            color: isDestructive
+                ? Colors.red.withOpacity(0.5)
+                : (isDarkMode ? Colors.grey[400] : Colors.grey[700]),
           ),
           onTap: onTap,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
-        Divider(height: 1, indent: 24, endIndent: 24, color: Colors.grey[200]),
+        // Apply theme-aware divider color
+        Divider(
+            height: 1,
+            indent: 24,
+            endIndent: 24,
+            color: isDarkMode ? Colors.grey[800] : Colors.grey[200]
+        ),
       ],
     );
   }
 }
 
-void _showDeleteAccountDialog(BuildContext context) {
+void _showDeleteAccountDialog(BuildContext context, bool isDarkMode) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -192,6 +227,8 @@ void _showDeleteAccountDialog(BuildContext context) {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
+        // Apply theme-aware background color
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         title: Text(
           "Delete Account Permanently?",
           style: AppTypography.textTheme.titleLarge?.copyWith(
@@ -205,18 +242,23 @@ void _showDeleteAccountDialog(BuildContext context) {
           children: [
             Text(
               "This action cannot be undone. All your data will be permanently deleted, including:",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
             ),
             SizedBox(height: 16),
-            _buildDeleteInfoItem(Icons.person, "Your profile information"),
-            _buildDeleteInfoItem(Icons.route, "Your navigation history"),
-            _buildDeleteInfoItem(Icons.map, "Your saved locations"),
-            _buildDeleteInfoItem(Icons.photo, "Your profile picture"),
+            _buildDeleteInfoItem(Icons.person, "Your profile information", isDarkMode),
+            _buildDeleteInfoItem(Icons.route, "Your navigation history", isDarkMode),
+            _buildDeleteInfoItem(Icons.map, "Your saved locations", isDarkMode),
+            _buildDeleteInfoItem(Icons.photo, "Your profile picture", isDarkMode),
             SizedBox(height: 16),
             Text(
               "Are you sure you want to proceed?",
               style: AppTypography.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
           ],
@@ -227,7 +269,8 @@ void _showDeleteAccountDialog(BuildContext context) {
             child: Text(
               "CANCEL",
               style: AppTypography.textTheme.labelLarge?.copyWith(
-                color: Colors.grey[800],
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[800],
               ),
             ),
           ),
@@ -252,6 +295,10 @@ void _proceedWithAccountDeletion(BuildContext context) async {
 }
 
 Future<void> _performAccountDeletion(BuildContext context) async {
+  // Get theme status for dialog styling
+  final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+  final isDarkMode = themeProvider.isDarkMode;
+
   // This will help us navigate even after the user is signed out
   final navigatorKey = GlobalKey<NavigatorState>();
   BuildContext? dialogContext;
@@ -268,14 +315,23 @@ Future<void> _performAccountDeletion(BuildContext context) async {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          // Apply theme-aware background color
+          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
+              // Use theme-aware CircularProgressIndicator color
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    isDarkMode ? Colors.white : Colors.blue),
+              ),
               SizedBox(height: 16),
               Text(
                 "Deleting your account...",
-                style: AppTypography.textTheme.bodyLarge,
+                style: AppTypography.textTheme.bodyLarge?.copyWith(
+                  // Apply theme-aware text color
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
               ),
             ],
           ),
@@ -298,7 +354,7 @@ Future<void> _performAccountDeletion(BuildContext context) async {
     final userId = currentUser.uid;
 
     // First, reauthenticate the user
-    await _reauthenticateUser(context);
+    await _reauthenticateUser(context, isDarkMode);
 
     // Set a flag to track successful deletion
     bool deletionSuccessful = false;
@@ -326,6 +382,8 @@ Future<void> _performAccountDeletion(BuildContext context) async {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
+            // Apply theme-aware background color
+            backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
             title: Text(
               "Account Deleted Successfully",
               style: AppTypography.textTheme.titleLarge?.copyWith(
@@ -339,13 +397,17 @@ Future<void> _performAccountDeletion(BuildContext context) async {
               children: [
                 Text(
                   "Your account and all associated data have been permanently deleted.",
-                  style: AppTypography.textTheme.bodyLarge,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    // Apply theme-aware text color
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
                 ),
                 SizedBox(height: 12),
                 Text(
                   "Redirecting you back to the login page.",
                   style: AppTypography.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[700],
+                    // Apply theme-aware text color
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -391,6 +453,8 @@ Future<void> _performAccountDeletion(BuildContext context) async {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
+            // Apply theme-aware background color
+            backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
             title: Text(
               "Error Deleting Account",
               style: AppTypography.textTheme.titleLarge?.copyWith(
@@ -400,7 +464,10 @@ Future<void> _performAccountDeletion(BuildContext context) async {
             ),
             content: Text(
               "We encountered an error while trying to delete your account: $e\n\nPlease try again later or contact support.",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
             ),
             actions: [
               TextButton(
@@ -420,7 +487,7 @@ Future<void> _performAccountDeletion(BuildContext context) async {
   }
 }
 
-Future<void> _reauthenticateUser(BuildContext context) async {
+Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
   final currentUser = FirebaseAuth.instance.currentUser;
   if (currentUser == null) throw Exception('No user is logged in');
   if (currentUser.email == null) throw Exception('User has no email');
@@ -437,10 +504,14 @@ Future<void> _reauthenticateUser(BuildContext context) async {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
+        // Apply theme-aware background color
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         title: Text(
           'Security Verification',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         content: Column(
@@ -448,21 +519,31 @@ Future<void> _reauthenticateUser(BuildContext context) async {
           children: [
             Text(
               'Please enter your password to confirm account deletion:',
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
             ),
             SizedBox(height: 16),
             TextField(
               controller: passwordController,
               decoration: InputDecoration(
                 labelText: 'Password',
-                labelStyle: AppTypography.textTheme.bodyMedium,
+                labelStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                  // Apply theme-aware label color
+                  color: isDarkMode ? Colors.grey[400] : null,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: Colors.grey[100],
+                // Apply theme-aware fill color
+                fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
               ),
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
               obscureText: true,
             ),
           ],
@@ -476,7 +557,8 @@ Future<void> _reauthenticateUser(BuildContext context) async {
             child: Text(
               'CANCEL',
               style: AppTypography.textTheme.labelLarge?.copyWith(
-                color: Colors.grey[700],
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
               ),
             ),
           ),
@@ -516,18 +598,20 @@ Future<void> _reauthenticateUser(BuildContext context) async {
   }
 }
 
-Widget _buildDeleteInfoItem(IconData icon, String text) {
+Widget _buildDeleteInfoItem(IconData icon, String text, bool isDarkMode) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 12.0),
     child: Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey[700]),
+        // Apply theme-aware icon color
+        Icon(icon, size: 20, color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
         SizedBox(width: 12),
         Flexible(
           child: Text(
             text,
             style: AppTypography.textTheme.bodyMedium?.copyWith(
-              color: Colors.black87,
+              // Apply theme-aware text color
+              color: isDarkMode ? Colors.white.withOpacity(0.9) : Colors.black87,
             ),
           ),
         ),
@@ -542,34 +626,38 @@ class AccessibilityPage extends StatefulWidget {
 }
 
 class _AccessibilityPageState extends State<AccessibilityPage> {
-  bool isDarkMode = false;
   bool isLargeFont = false;
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Accessibility',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close, color: Colors.black),
+            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
+
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
       body: Padding(
         padding: EdgeInsets.all(20.0),
@@ -657,9 +745,53 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
                   Switch(
                     value: isDarkMode,
                     onChanged: (bool? value) {
-                      setState(() {
-                        isDarkMode = value!;
-                      });
+                      if (value != null) {
+                        // Update theme provider which will propagate changes app-wide
+                        themeProvider.setDarkMode(value);
+                        // No need to call setState as the provider will trigger a rebuild
+                      }
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16),
+
+            // Traffic layer option with matching styling
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.grey[900]
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: themeProvider.isTrafficEnabled
+                      ? Colors.blue
+                      : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Traffic Layer',
+                    style: AppTypography.textTheme.titleMedium?.copyWith(
+                      fontSize: isLargeFont ? 24 : null,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  Switch(
+                    value: themeProvider.isTrafficEnabled,
+                    onChanged: (bool? value) {
+                      if (value != null) {
+                        // Update theme provider which will propagate changes app-wide
+                        themeProvider.setTrafficEnabled(value);
+                        // No need to call setState as the provider will trigger a rebuild
+                      }
                     },
                     activeColor: Colors.blue,
                   ),
@@ -676,25 +808,35 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
 class PrivacyPolicyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to access dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        // Apply theme-aware AppBar styling
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Privacy Policy',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          // Apply theme-aware icon color
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.close, color: Colors.black),
+            // Apply theme-aware icon color
+            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -708,7 +850,8 @@ class PrivacyPolicyPage extends StatelessWidget {
               "Privacy Policy",
               style: AppTypography.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
             SizedBox(height: 10),
@@ -716,7 +859,8 @@ class PrivacyPolicyPage extends StatelessWidget {
               "Effective Date: December 5, 2024",
               style: AppTypography.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
             SizedBox(height: 16),
@@ -724,106 +868,135 @@ class PrivacyPolicyPage extends StatelessWidget {
               "At NaviGo, your privacy is important to us. This Privacy Policy outlines how we collect, use, and protect your personal information when you use our app and services. By using the app, you agree to the terms of this policy.",
               style: AppTypography.textTheme.bodyLarge?.copyWith(
                 height: 1.5,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
               ),
             ),
             SizedBox(height: 24),
 
-            _buildPrivacySectionTitle("1. Information We Collect"),
+            _buildPrivacySectionTitle("1. Information We Collect", isDarkMode),
             Text(
               "We collect information to provide and improve our services. This includes: ",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
             SizedBox(height: 12),
 
-            _buildPrivacySubsectionTitle("a. Information You Provide"),
-            _buildPrivacyBulletPoint("Account Information: Name, email address, and any other details you provide during registration."),
-            _buildPrivacyBulletPoint("Reports and Feedback: Information submitted through traffic reports or feedback forms."),
+            _buildPrivacySubsectionTitle("a. Information You Provide", isDarkMode),
+            _buildPrivacyBulletPoint("Account Information: Name, email address, and any other details you provide during registration.", isDarkMode),
+            _buildPrivacyBulletPoint("Reports and Feedback: Information submitted through traffic reports or feedback forms.", isDarkMode),
             SizedBox(height: 12),
 
-            _buildPrivacySubsectionTitle("b. Automatically Collected Information"),
-            _buildPrivacyBulletPoint("Location Data: Real-time GPS location to generate personalized routes and traffic updates."),
-            _buildPrivacyBulletPoint("Usage Data: Information about how you use the app, including clicks, routes generated, and time spent."),
-            _buildPrivacyBulletPoint("Device Information: Details about your device such as model, operating system, and app version."),
+            _buildPrivacySubsectionTitle("b. Automatically Collected Information", isDarkMode),
+            _buildPrivacyBulletPoint("Location Data: Real-time GPS location to generate personalized routes and traffic updates.", isDarkMode),
+            _buildPrivacyBulletPoint("Usage Data: Information about how you use the app, including clicks, routes generated, and time spent.", isDarkMode),
+            _buildPrivacyBulletPoint("Device Information: Details about your device such as model, operating system, and app version.", isDarkMode),
             SizedBox(height: 12),
 
-            _buildPrivacySubsectionTitle("c. Cookies and Tracking Technologies"),
-            _buildPrivacyBulletPoint("We use cookies and similar technologies to enhance your experience and gather analytics data."),
+            _buildPrivacySubsectionTitle("c. Cookies and Tracking Technologies", isDarkMode),
+            _buildPrivacyBulletPoint("We use cookies and similar technologies to enhance your experience and gather analytics data.", isDarkMode),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("2. How We Use Your Information"),
+            _buildPrivacySectionTitle("2. How We Use Your Information", isDarkMode),
             Text("We use the information collected for purposes such as: ",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
             SizedBox(height: 12),
 
-            _buildPrivacyBulletPoint("Providing Services: Generating routes, real-time traffic updates, and personalized recommendations."),
-            _buildPrivacyBulletPoint("Improving the App: Analyzing usage patterns to enhance features and performance."),
-            _buildPrivacyBulletPoint("Communication: Sending notifications, updates, and responding to feedback."),
-            _buildPrivacyBulletPoint("Safety and Security: Detecting and preventing fraudulent and unauthorized activities."),
+            _buildPrivacyBulletPoint("Providing Services: Generating routes, real-time traffic updates, and personalized recommendations.", isDarkMode),
+            _buildPrivacyBulletPoint("Improving the App: Analyzing usage patterns to enhance features and performance.", isDarkMode),
+            _buildPrivacyBulletPoint("Communication: Sending notifications, updates, and responding to feedback.", isDarkMode),
+            _buildPrivacyBulletPoint("Safety and Security: Detecting and preventing fraudulent and unauthorized activities.", isDarkMode),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("3. Sharing Your Information"),
+            _buildPrivacySectionTitle("3. Sharing Your Information", isDarkMode),
             Text("We do not sell your information. We may share information: ",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
             SizedBox(height: 12),
 
-            _buildPrivacyBulletPoint("With Service Providers: Third-party services that help us operate the application (e.g., hosting, analytics)."),
-            _buildPrivacyBulletPoint("For Legal Reasons: If required by law or to protect rights, safety, and property."),
-            _buildPrivacyBulletPoint("With Your Consent: When you explicitly agree to share your information for specific purposes."),
+            _buildPrivacyBulletPoint("With Service Providers: Third-party services that help us operate the application (e.g., hosting, analytics).", isDarkMode),
+            _buildPrivacyBulletPoint("For Legal Reasons: If required by law or to protect rights, safety, and property.", isDarkMode),
+            _buildPrivacyBulletPoint("With Your Consent: When you explicitly agree to share your information for specific purposes.", isDarkMode),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("4. Data Security"),
+            _buildPrivacySectionTitle("4. Data Security", isDarkMode),
             Text(
               "We implement industry-standard security measures to protect your information from unauthorized access, loss, or misuse. However, no system is completely secure, and we cannot guarantee absolute security.",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("5. Your Rights and Choices"),
+            _buildPrivacySectionTitle("5. Your Rights and Choices", isDarkMode),
             Text("You have the right to: ",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
             SizedBox(height: 12),
 
-            _buildPrivacyBulletPoint("Access and Update: View and update your personal information through your account settings."),
-            _buildPrivacyBulletPoint("Delete Data: Request deletion of your account and associated data."),
-            _buildPrivacyBulletPoint("Opt-Out: Disable location tracking or notification through your device settings."),
+            _buildPrivacyBulletPoint("Access and Update: View and update your personal information through your account settings.", isDarkMode),
+            _buildPrivacyBulletPoint("Delete Data: Request deletion of your account and associated data.", isDarkMode),
+            _buildPrivacyBulletPoint("Opt-Out: Disable location tracking or notification through your device settings.", isDarkMode),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("6. Data Retention"),
+            _buildPrivacySectionTitle("6. Data Retention", isDarkMode),
             Text(
               "We retain your data only as long as necessary to provide services or comply with legal obligations. Once data is no longer needed, we securely delete or anonymize it.",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("7. Children's Privacy"),
+            _buildPrivacySectionTitle("7. Children's Privacy", isDarkMode),
             Text(
               "Our services are not intended for children under 13. We do not knowingly collect personal information from children. If you believe a child has provided us with information, please contact us to remove it.",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("8. Changes to This Policy"),
+            _buildPrivacySectionTitle("8. Changes to This Policy", isDarkMode),
             Text(
               "We may update this Privacy Policy from time to time. Any changes will be posted within the application, and your continued use of the application signifies acceptance of the updated terms.",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
 
-            _buildPrivacySectionDivider(),
+            _buildPrivacySectionDivider(isDarkMode),
 
-            _buildPrivacySectionTitle("9. Contact Us"),
+            _buildPrivacySectionTitle("9. Contact Us", isDarkMode),
             Text(
               "If you have questions or concerns about this Privacy Policy or how we handle your data, please contact us at: ",
-              style: AppTypography.textTheme.bodyLarge,
+              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
             SizedBox(height: 12),
 
@@ -831,14 +1004,16 @@ class PrivacyPolicyPage extends StatelessWidget {
               "Email: support@navigo.com",
               style: AppTypography.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
             Text(
               "Address: navigosupport@gmail.com",
               style: AppTypography.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
             SizedBox(height: 40),
@@ -848,34 +1023,36 @@ class PrivacyPolicyPage extends StatelessWidget {
     );
   }
 
-  // Helper methods for consistent Privacy Policy styling
-  Widget _buildPrivacySectionTitle(String text) {
+  // Helper methods for consistent Privacy Policy styling with dark mode support
+  Widget _buildPrivacySectionTitle(String text, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 12),
       child: Text(
         text,
         style: AppTypography.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          // Apply theme-aware text color
+          color: isDarkMode ? Colors.white : Colors.black87,
         ),
       ),
     );
   }
 
-  Widget _buildPrivacySubsectionTitle(String text) {
+  Widget _buildPrivacySubsectionTitle(String text, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
         style: AppTypography.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.bold,
-          color: Colors.black87,
+          // Apply theme-aware text color
+          color: isDarkMode ? Colors.white : Colors.black87,
         ),
       ),
     );
   }
 
-  Widget _buildPrivacyBulletPoint(String text) {
+  Widget _buildPrivacyBulletPoint(String text, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, left: 8),
       child: Row(
@@ -896,6 +1073,8 @@ class PrivacyPolicyPage extends StatelessWidget {
               text,
               style: AppTypography.textTheme.bodyMedium?.copyWith(
                 height: 1.5,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
               ),
             ),
           ),
@@ -904,12 +1083,13 @@ class PrivacyPolicyPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPrivacySectionDivider() {
+  Widget _buildPrivacySectionDivider(bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Container(
         height: 1,
-        color: Colors.grey[200],
+        // Apply theme-aware divider color
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
       ),
     );
   }

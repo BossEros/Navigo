@@ -6,6 +6,8 @@ import 'package:project_navigo/screens/hamburger_menu_screens/route-detail_scree
 import 'package:project_navigo/models/route_history.dart';
 import 'package:project_navigo/services/route_history_service.dart';
 import 'package:project_navigo/themes/app_typography.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
 
 class RouteHistoryScreen extends StatefulWidget {
   const RouteHistoryScreen({Key? key}) : super(key: key);
@@ -162,8 +164,13 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
           SnackBar(
             content: Text(
               'Error loading more routes: $e',
-              style: AppTypography.textTheme.bodyMedium,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+              ),
             ),
+            backgroundColor: Provider.of<ThemeProvider>(context, listen: false).isDarkMode
+                ? Colors.grey[800]
+                : null,
           ),
         );
       }
@@ -190,12 +197,17 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
       });
 
       if (mounted) {
+        final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Route deleted',
-              style: AppTypography.textTheme.bodyMedium,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+              ),
             ),
+            backgroundColor: isDarkMode ? Colors.grey[800] : null,
             action: SnackBarAction(
               label: 'Undo',
               onPressed: () {
@@ -205,18 +217,24 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                 // now, just refresh the list.
                 _refreshRoutes();
               },
+              textColor: Colors.blue[200],
             ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Error deleting route: $e',
-              style: AppTypography.textTheme.bodyMedium,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+              ),
             ),
+            backgroundColor: isDarkMode ? Colors.grey[800] : null,
           ),
         );
       }
@@ -262,16 +280,22 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(
           'Your Route History',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+        foregroundColor: isDarkMode ? Colors.white : Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -285,21 +309,28 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                 SnackBar(
                   content: Text(
                     'Filtering coming soon',
-                    style: AppTypography.textTheme.bodyMedium,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
+                  backgroundColor: isDarkMode ? Colors.grey[800] : null,
                 ),
               );
             },
           ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(isDarkMode),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isDarkMode) {
     if (_isLoading && _routes.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: isDarkMode ? Colors.white70 : null,
+        ),
+      );
     }
 
     if (_error != null && _routes.isEmpty) {
@@ -307,18 +338,25 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            Icon(Icons.error_outline, size: 64, color: isDarkMode ? Colors.grey[500] : Colors.grey),
             const SizedBox(height: 16),
             Text(
               _error!,
-              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+              ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchRouteHistory,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDarkMode ? Colors.blueGrey[700] : Colors.blue,
+              ),
               child: Text(
                 'Try Again',
-                style: AppTypography.authButton,
+                style: AppTypography.authButton.copyWith(
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -331,26 +369,37 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.route, size: 64, color: Colors.grey),
+            Icon(
+              Icons.route,
+              size: 64,
+              color: isDarkMode ? Colors.grey[500] : Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               'No routes yet',
               style: AppTypography.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Your navigation history will appear here',
-              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+              ),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
               label: Text(
                 'Refresh',
-                style: AppTypography.authButton,
+                style: AppTypography.authButton.copyWith(
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDarkMode ? Colors.blueGrey[700] : Colors.blue,
               ),
               onPressed: _refreshRoutes,
             ),
@@ -371,16 +420,20 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
 
     return RefreshIndicator(
       onRefresh: _refreshRoutes,
+      color: isDarkMode ? Colors.blue[300] : Colors.blue,
+      backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
         itemCount: groupedRoutes.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == groupedRoutes.length) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
+                padding: const EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(
+                  color: isDarkMode ? Colors.white70 : null,
+                ),
               ),
             );
           }
@@ -395,10 +448,12 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   date,
-                  style: AppTypography.textTheme.headlineSmall,
+                  style: AppTypography.textTheme.headlineSmall?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                  ),
                 ),
               ),
-              ...dateRoutes.map((route) => _buildRouteCard(route)).toList(),
+              ...dateRoutes.map((route) => _buildRouteCard(route, isDarkMode)).toList(),
               const SizedBox(height: 16),
             ],
           );
@@ -407,10 +462,11 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
     );
   }
 
-  Widget _buildRouteCard(RouteHistory route) {
+  Widget _buildRouteCard(RouteHistory route, bool isDarkMode) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
+      color: isDarkMode ? Colors.grey[800] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -437,7 +493,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: _getTrafficColor(route.trafficConditions).withOpacity(0.1),
+                      color: _getTrafficColor(route.trafficConditions).withOpacity(isDarkMode ? 0.2 : 0.1),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Icon(
@@ -456,7 +512,9 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                         // Route name or destination
                         Text(
                           route.routeName ?? route.endLocation.formattedAddress,
-                          style: AppTypography.textTheme.titleMedium,
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            color: isDarkMode ? Colors.white : Colors.black,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -466,7 +524,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                         Text(
                           _formatDate(route.createdAt),
                           style: AppTypography.textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                           ),
                         ),
                       ],
@@ -475,10 +533,14 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
 
                   // Options menu
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                    ),
+                    color: isDarkMode ? Colors.grey[850] : Colors.white,
                     onSelected: (value) {
                       if (value == 'delete') {
-                        _showDeleteConfirmation(route);
+                        _showDeleteConfirmation(route, isDarkMode);
                       } else if (value == 'detail') {
                         Navigator.push(
                           context,
@@ -493,11 +555,17 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                         value: 'detail',
                         child: Row(
                           children: [
-                            const Icon(Icons.info_outline, size: 18),
+                            Icon(
+                              Icons.info_outline,
+                              size: 18,
+                              color: isDarkMode ? Colors.white70 : Colors.black87,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'View Details',
-                              style: AppTypography.textTheme.bodyMedium,
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
                             ),
                           ],
                         ),
@@ -526,7 +594,7 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                 margin: const EdgeInsets.symmetric(vertical: 16),
                 height: 4,
                 decoration: BoxDecoration(
-                  color: _getTrafficColor(route.trafficConditions).withOpacity(0.2),
+                  color: _getTrafficColor(route.trafficConditions).withOpacity(isDarkMode ? 0.3 : 0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Row(
@@ -567,12 +635,16 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                   // Distance
                   Row(
                     children: [
-                      Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.straighten,
+                        size: 16,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         route.distance.text,
                         style: AppTypography.distanceText.copyWith(
-                          color: Colors.grey[600],
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
                     ],
@@ -581,12 +653,16 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                   // Duration
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         route.duration.text,
                         style: AppTypography.distanceText.copyWith(
-                          color: Colors.grey[600],
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
                     ],
@@ -595,7 +671,11 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
                   // Traffic
                   Row(
                     children: [
-                      Icon(Icons.traffic, size: 16, color: _getTrafficColor(route.trafficConditions)),
+                      Icon(
+                        Icons.traffic,
+                        size: 16,
+                        color: _getTrafficColor(route.trafficConditions),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         StringExtension(route.trafficConditions)?.capitalize() ?? 'Unknown',
@@ -614,24 +694,31 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
     );
   }
 
-  void _showDeleteConfirmation(RouteHistory route) {
+  void _showDeleteConfirmation(RouteHistory route, bool isDarkMode) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         title: Text(
           'Delete Route?',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
         ),
         content: Text(
           'This action cannot be undone.',
-          style: AppTypography.textTheme.bodyMedium,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            color: isDarkMode ? Colors.grey[300] : Colors.black87,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'CANCEL',
-              style: AppTypography.textTheme.labelLarge,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: isDarkMode ? Colors.grey[300] : Colors.black87,
+              ),
             ),
           ),
           TextButton(
@@ -653,8 +740,9 @@ class _RouteHistoryScreenState extends State<RouteHistoryScreen> {
 }
 
 // Extension method to capitalize first letter
-extension StringExtension on String {
+extension StringExtension on String? {
   String capitalize() {
-    return "${this[0].toUpperCase()}${this.substring(1)}";
+    if (this == null || this!.isEmpty) return 'Unknown';
+    return "${this![0].toUpperCase()}${this!.substring(1)}";
   }
 }

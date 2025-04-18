@@ -5,6 +5,7 @@ import 'package:project_navigo/screens/forgotPasswordScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
+import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import 'package:project_navigo/screens/onboarding/onboarding_screen.dart';
@@ -151,6 +152,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
       // Set to false to prevent resizing when the keyboard appears
       resizeToAvoidBottomInset: false,
@@ -206,10 +211,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 8),
 
-                      // Subtitle - using our standardized typography
+                      // Subtitle - using our standardized typography with theme-aware color
                       Text(
                         'Welcome back!',
-                        style: AppTypography.authSubtitle,
+                        style: AppTypography.authSubtitle.copyWith(
+                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
                       ),
 
                       const SizedBox(height: 32),
@@ -306,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Text(
                           'Or sign in with',
                           style: AppTypography.textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                            color: isDarkMode ? Colors.white60 : Colors.grey[600],
                           ),
                         ),
                       ),
@@ -350,7 +357,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Text(
                             "Don't have an account?",
-                            style: AppTypography.textTheme.bodyMedium,
+                            style: AppTypography.textTheme.bodyMedium?.copyWith(
+                              color: isDarkMode ? Colors.white70 : null,
+                            ),
                           ),
                           TextButton(
                             onPressed: () {

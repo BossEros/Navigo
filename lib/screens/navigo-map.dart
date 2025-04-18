@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
 import '../services/user_provider.dart';
 import '../themes/app_typography.dart';
+import '../themes/theme_provider.dart';
 import 'hamburger_menu_screens/all_shortcuts_screen.dart';
 import 'login_screen.dart';
 import 'package:project_navigo/services/quick_access_shortcut_service.dart';
@@ -113,7 +114,7 @@ class NavigoMapScreen extends StatefulWidget {
 }
 
 // A state variable to control traffic visibility
-bool _trafficEnabled = true;
+bool _trafficEnabled = false;
 String? _currentMapStyle;
 
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
@@ -200,8 +201,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     ));
 
     _initLocationService();
-    _trafficEnabled = true;
-    _currentMapStyle = null;
+    _trafficEnabled = false;
+    _currentMapStyle = MapStyles.trafficOffMapStyle;
 
     _pulseController = AnimationController(
       vsync: this,
@@ -2436,6 +2437,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    // Get traffic state from provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    _trafficEnabled = themeProvider.isTrafficEnabled;
+
+    // Set map style based on traffic state
+    _currentMapStyle = _trafficEnabled ? null : MapStyles.trafficOffMapStyle;
+
+    // Apply map style if controller exists
+    if (_mapController != null) {
+      _mapController!.setMapStyle(_currentMapStyle);
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -2448,6 +2461,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
                   _updateCurrentLocationMarker();
+
+                  // Apply map style based on traffic state when map is created
+                  controller.setMapStyle(_currentMapStyle);
                 },
                 markers: _markers,
                 polylines: _polylines,
@@ -3890,8 +3906,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   // Toggle function
   void _toggleTrafficLayer() {
+    // Get the provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    // Update the provider state
+    themeProvider.setTrafficEnabled(!themeProvider.isTrafficEnabled);
+
+    // Update local state
     setState(() {
-      _trafficEnabled = !_trafficEnabled;
+      _trafficEnabled = themeProvider.isTrafficEnabled;
 
       // When traffic is disabled, use a style that maintains POI visibility
       // When traffic is enabled, use default Google style (null)
@@ -3916,21 +3939,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Enhanced traffic toggle button
-            FloatingActionButton(
-              heroTag: "trafficToggle",
-              mini: true,
-              backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-              elevation: 4.0,
-              child: Icon(
-                Icons.traffic,
-                color: _trafficEnabled ? Colors.white : Colors.grey[600],
-                size: 20,
-              ),
-              onPressed: () {
-                _toggleTrafficLayer();
-              },
-            ),
+            // Remove traffic toggle button
             SizedBox(height: 8),
 
             FloatingActionButton(
@@ -3949,23 +3958,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       );
     }
 
-    // For standard mode, keep only the traffic toggle button
-    return Positioned(
-      bottom: 200,
-      right: 16,
-      child: FloatingActionButton(
-        heroTag: "toggleTraffic",
-        mini: true,
-        backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-        onPressed: () {
-          _toggleTrafficLayer();
-        },
-        child: Icon(
-          Icons.traffic,
-          color: _trafficEnabled ? Colors.white : Colors.grey,
-        ),
-      ),
-    );
+    // For standard mode, remove traffic toggle completely
+    return const SizedBox.shrink();
   }
 
   Widget _buildReportButton() {
