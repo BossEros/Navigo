@@ -24,14 +24,20 @@ class NaviGoApp extends StatelessWidget {
 }
 
 class IntroScreen extends StatefulWidget {
-  const IntroScreen({super.key});
+  // Add parameter to allow starting at location page
+  final bool startAtLocationPage;
+
+  const IntroScreen({
+    super.key,
+    this.startAtLocationPage = false,
+  });
 
   @override
   _IntroScreenState createState() => _IntroScreenState();
 }
 
 class _IntroScreenState extends State<IntroScreen> {
-  final PageController _controller = PageController();
+  late final PageController _controller;
   int _currentPage = 0;
   bool _isRequestingPermission = false;
   bool _locationPermissionGranted = false;
@@ -72,6 +78,36 @@ class _IntroScreenState extends State<IntroScreen> {
       "buttonText": "Start Exploring",
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize controller with initial page based on startAtLocationPage
+    if (widget.startAtLocationPage) {
+      // Find the index of the location access page
+      int locationPageIndex = 4; // Default to the 5th page (index 4)
+
+      for (int i = 0; i < introData.length; i++) {
+        if (introData[i]['isLocationAccessPage'] == "true") {
+          locationPageIndex = i;
+          break;
+        }
+      }
+
+      _controller = PageController(initialPage: locationPageIndex);
+      _currentPage = locationPageIndex;
+    } else {
+      _controller = PageController();
+      _currentPage = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _nextPage() {
     if (_currentPage < introData.length - 1) {
@@ -801,32 +837,6 @@ class IntroContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Register",
-          style: TextStyle(color: Colors.black), // Always black
-        ),
-      ),
-      backgroundColor: Colors.white, // Keep background white
-      body: Center(
-        child: Text(
-          "Registration Page",
-          style: TextStyle(
-            fontSize: 24,
-            color: Colors.black, // Always black
-          ),
-        ),
-      ),
     );
   }
 }

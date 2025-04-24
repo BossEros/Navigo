@@ -2503,6 +2503,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     _trafficEnabled = themeProvider.isTrafficEnabled;
 
     return Scaffold(
+      // ONLY change to prevent the UI from moving up when keyboard appears
+      resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
@@ -2515,8 +2517,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
                   _updateCurrentLocationMarker();
-
-
                   print("Map Created with Cloud Map ID: ${_getCurrentMapId()}");
                 },
                 cloudMapId: _getCurrentMapId(),
@@ -2527,7 +2527,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 compassEnabled: true,
-                // Disable user gestures during navigation to prevent accidental map movement
                 trafficEnabled: _trafficEnabled,
                 scrollGesturesEnabled: !_isInNavigationMode,
                 zoomGesturesEnabled: !_isInNavigationMode,
@@ -2535,7 +2534,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 rotateGesturesEnabled: !_isInNavigationMode
             ),
 
-            // Original SlidingUpPanel for location search
+            // SlidingUpPanel with original structure
             SlidingUpPanel(
               controller: _panelController,
               minHeight: (_destinationPlace != null || _showingRouteAlternatives) ? 0 : 100,
@@ -4022,6 +4021,62 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+  Widget _buildCustomCircularButton({
+    required String iconAsset,
+    required VoidCallback onPressed,
+    Color? color,
+    double buttonSize = 48, // Configurable button size
+    double iconSize = 28,    // Configurable icon size
+    double borderRadius = 10, // Configurable border radius
+  }) {
+    // Get dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    return Container(
+      width: buttonSize,
+      height: buttonSize,
+      decoration: BoxDecoration(
+        // Theme-aware background color
+        color: color ?? (isDarkMode ? Colors.grey[800] : Colors.white),
+        borderRadius: BorderRadius.circular(borderRadius),
+        boxShadow: [
+          BoxShadow(
+            // Darker shadow for dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.25)
+                : Colors.black.withOpacity(0.15),
+            blurRadius: 6, // Slightly bigger shadow for larger button
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(borderRadius),
+          onTap: onPressed,
+          child: Center(
+            child: Image.asset(
+              iconAsset,
+              width: iconSize,
+              height: iconSize,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback to default icon if asset fails to load
+                return Icon(
+                  Icons.warning_amber_rounded,
+                  size: iconSize,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // Toggle function
   void _toggleTrafficLayer() {
     // Get the provider
@@ -4083,14 +4138,26 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return Positioned(
         bottom: 100, // Position at bottom with padding
         left: 16, // Position at left
-        child: FloatingActionButton(
-          heroTag: "reportButton",
-          backgroundColor: Colors.white,
+        child: Material(
           elevation: 4.0,
-          child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
-          onPressed: () {
-            // Implement Hazard Reporting here
-          },
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32), // Larger circular radius
+          child: InkWell(
+            borderRadius: BorderRadius.circular(32),
+            onTap: () {
+              // Implement Hazard Reporting here
+            },
+            child: Container(
+              width: 64, // Increased from default FAB size
+              height: 64, // Increased from default FAB size
+              padding: const EdgeInsets.all(12),
+              child: Image.asset(
+                'assets/icons/warning_icon.png',
+                width: 40, // Larger icon
+                height: 40, // Larger icon
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -4099,11 +4166,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     return Positioned(
       bottom: 200,
       left: 16,
-      child: _buildCircularButton(
-        icon: Icons.warning_amber_rounded,
+      child: _buildCustomCircularButton(
+        iconAsset: 'assets/icons/warning_icon.png',
         onPressed: () {
           // Implement Hazard Reporting here
         },
+        buttonSize: 56, // Increased button size
+        iconSize: 32, // Increased icon size
       ),
     );
   }
@@ -4784,7 +4853,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
-          // Dark gray background in dark mode
           color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
           borderRadius: BorderRadius.circular(10),
         ),
@@ -4794,7 +4862,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Icon(
                   Icons.search,
-                  // Lighter icon in dark mode
                   color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
               ),
             ),
@@ -4806,7 +4873,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 onEditingComplete: () {
                   _ensureKeyboardHidden(context);
                 },
-                // Apply theme-aware text styles
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black87,
                 ),
@@ -4819,7 +4885,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 ),
                 onChanged: _onSearchChanged,
                 onTap: () {
-                  _panelController.open();
+                  // Ensure panel is open when search is tapped
+                  if (!_panelController.isPanelOpen) {
+                    _panelController.open();
+                  }
                 },
               ),
             ),
@@ -4835,7 +4904,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else if (_searchController.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.clear),
-                // Theme-aware icon color
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   setState(() {
@@ -4847,7 +4915,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else
               IconButton(
                 icon: const Icon(Icons.mic),
-                // Theme-aware icon color
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   // Voice search functionality
