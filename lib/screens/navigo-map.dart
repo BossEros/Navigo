@@ -12,6 +12,7 @@ import 'package:project_navigo/services/recent_locations_service.dart';
 import 'dart:async';
 import '../component/reusable-location-search_screen.dart';
 import '../config/config.dart';
+import '../models/map_models/map_ids.dart';
 import '../models/route_history.dart';
 import '../models/user_profile.dart';
 import '../services/google-api-services.dart' as api hide Duration;
@@ -2494,39 +2495,12 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  void _applyMapStyleIfNeeded(String? newStyle) {
-    // Only apply if controller exists and style is different
-    print("The style is $newStyle");
-
-    if (_mapController != null && newStyle != _currentAppliedStyle) {
-      print("Applying new map style: ${newStyle == null ? 'Default' : 'Custom'}");
-
-      _mapController!.setMapStyle(newStyle).then((_) {
-        // Update current style on success
-        _currentAppliedStyle = newStyle;
-      }).catchError((e) {
-        print("Error setting map style: $e");
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
     _trafficEnabled = themeProvider.isTrafficEnabled;
-
-    // Determine map style
-    String? mapStyleString;
-    if (isDarkMode) {
-      mapStyleString = MapStyles.nightMapStyle;
-    } else if (!_trafficEnabled) {
-      mapStyleString = MapStyles.trafficOffMapStyle;
-    } else {
-      mapStyleString = null;
-    }
-
-    _applyMapStyleIfNeeded(mapStyleString);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -2542,14 +2516,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   _mapController = controller;
                   _updateCurrentLocationMarker();
 
-                  // --- Apply Initial Style on Creation ---
-                  // Apply the style determined during the *initial* build immediately
-                  // after the controller is available.
-                  print("Map Created. Applying initial style: ${mapStyleString == null ? 'Default' : 'Custom'}");
-                  _mapController!.setMapStyle(mapStyleString).catchError((e) {
-                    print("Error setting initial map style: $e");
-                  });
+
+                  print("Map Created with Cloud Map ID: ${_getCurrentMapId()}");
                 },
+                cloudMapId: _getCurrentMapId(),
                 markers: _markers,
                 polylines: _polylines,
                 mapType: _currentMapType,
@@ -2598,6 +2568,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ),
       ),
     );
+  }
+
+  String _getCurrentMapId() {
+    // Get theme state from provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Determine which Map ID to use based on app state
+    if (_isInNavigationMode) {
+      return MapIds.navigationMapId;
+    } else if (isDarkMode) {
+      return MapIds.nightMapId;
+    } else if (!_trafficEnabled) {
+      return MapIds.trafficOffMapId;
+    } else {
+      return MapIds.defaultMapId;
+    }
   }
 
   Widget _buildRouteSelectionPanel() {
@@ -3386,10 +3373,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Ensure the keyboard is hidden
     _ensureKeyboardHidden(context);
 
-    // Reset map style if needed
-    if (_mapController != null) {
-      _mapController!.setMapStyle(_currentMapStyle);
-    }
   }
 
   void _handleShortcutTapFromAllScreen(dynamic shortcut) {
@@ -4043,16 +4026,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void _toggleTrafficLayer() {
     // Get the provider
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDarkMode = themeProvider.isDarkMode;
 
     // Update the provider state
     themeProvider.setTrafficEnabled(!themeProvider.isTrafficEnabled);
 
-    // No need to call setMapStyle manually - setState will trigger a rebuild
-    // which will pass the new style via the style parameter
+    // Update local state
     setState(() {
       _trafficEnabled = themeProvider.isTrafficEnabled;
+      // The rebuild will now use the updated cloudMapId based on the traffic state
     });
+
+    // Note: No need to manually call setMapStyle anymore - it's handled by cloudMapId
+    print("Traffic toggled: $_trafficEnabled. Using Cloud Map ID: ${_getCurrentMapId()}");
   }
 
   Widget _buildMapActionButtons() {
