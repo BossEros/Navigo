@@ -21,6 +21,7 @@ import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
 import '../services/user_provider.dart';
+import '../themes/app_theme.dart';
 import '../themes/app_typography.dart';
 import '../themes/theme_provider.dart';
 import 'hamburger_menu_screens/all_shortcuts_screen.dart';
@@ -118,6 +119,7 @@ bool _trafficEnabled = false;
 String? _currentMapStyle;
 
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
+  String? _currentAppliedStyle;
 
   // Controllers
   GoogleMapController? _mapController;
@@ -193,12 +195,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   @override
   void initState() {
     super.initState();
-
-    // Set status bar to black with light (white) icons for contrast
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.black, // Black status bar
-      statusBarIconBrightness: Brightness.light, // Light (white) icons for dark background
-    ));
 
     _initLocationService();
     _trafficEnabled = false;
@@ -484,6 +480,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     bool editMode = false,
     QuickAccessShortcut? existingShortcut
   }) async {
+    // Get the current theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final TextEditingController labelController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
     String? selectedIcon;
@@ -539,6 +539,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     borderRadius: BorderRadius.circular(28),
                   ),
                   elevation: 8,
+                  // Theme-aware background color
+                  backgroundColor: isDarkMode
+                      ? AppTheme.darkTheme.dialogBackgroundColor
+                      : Colors.white,
                   child: SingleChildScrollView(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -554,7 +558,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                 editMode ? 'Edit Shortcut' : 'Add Quick Access',
                                 style: AppTypography.textTheme.headlineMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  // Theme-aware text color
+                                  color: isDarkMode ? Colors.white : Colors.black87,
                                 ),
                               ),
                             ),
@@ -565,7 +570,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               'Name',
                               style: AppTypography.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -574,14 +580,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               decoration: InputDecoration(
                                 hintText: 'Enter shortcut name',
                                 filled: true,
-                                fillColor: Colors.grey[50],
+                                // Theme-aware fill color
+                                fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[50],
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                  borderSide: BorderSide(
+                                    // Theme-aware border color
+                                    color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                  ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                  borderSide: BorderSide(
+                                    // Theme-aware border color
+                                    color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -592,8 +605,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                   vertical: 16.0,
                                 ),
                                 counterText: '${labelController.text.length}/15',
+                                // Theme-aware hint text and counter
+                                hintStyle: TextStyle(
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                                ),
+                                counterStyle: TextStyle(
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                ),
                               ),
-                              style: AppTypography.textTheme.bodyLarge,
+                              // Theme-aware text style
+                              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
                               maxLength: 15,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -609,18 +632,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               'Location',
                               style: AppTypography.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: Colors.grey[50],
+                                // Theme-aware background color
+                                color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: selectedLocation != null
                                       ? Colors.blue
-                                      : Colors.grey[300]!,
+                                      : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
                                   width: selectedLocation != null ? 2 : 1,
                                 ),
                               ),
@@ -637,7 +662,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                           Icons.location_on,
                                           color: selectedLocation != null
                                               ? Colors.blue
-                                              : Colors.grey[600],
+                                              : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
@@ -650,8 +675,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                                     : 'Select location',
                                                 style: AppTypography.textTheme.bodyLarge?.copyWith(
                                                   color: selectedLocation != null
-                                                      ? Colors.black87
-                                                      : Colors.grey[600],
+                                                      ? (isDarkMode ? Colors.white : Colors.black87)
+                                                      : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                                                   fontWeight: selectedLocation != null
                                                       ? FontWeight.w500
                                                       : FontWeight.normal,
@@ -662,7 +687,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                                 Text(
                                                   selectedAddress,
                                                   style: AppTypography.textTheme.bodySmall?.copyWith(
-                                                    color: Colors.grey[600],
+                                                    // Theme-aware text color
+                                                    color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
                                                   ),
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
@@ -674,7 +700,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                         Icon(
                                           Icons.arrow_forward_ios,
                                           size: 16,
-                                          color: Colors.grey[600],
+                                          // Theme-aware icon color
+                                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                                         ),
                                       ],
                                     ),
@@ -689,7 +716,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                 child: Container(
                                   height: 120,
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey[300]!),
+                                    // Theme-aware border color
+                                    border: Border.all(
+                                      color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                    ),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Stack(
@@ -701,14 +731,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                         width: double.infinity,
                                         height: double.infinity,
                                         errorBuilder: (context, error, stackTrace) {
-                                          // Fallback if map image fails to load
+                                          // Fallback if map image fails to load - theme-aware
                                           return Container(
-                                            color: Colors.grey[200],
+                                            // Theme-aware background color
+                                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                                             child: Center(
                                               child: Icon(
                                                 Icons.map,
                                                 size: 40,
-                                                color: Colors.grey[400],
+                                                // Theme-aware icon color
+                                                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
                                               ),
                                             ),
                                           );
@@ -734,16 +766,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               'Choose an Icon',
                               style: AppTypography.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
                               ),
                             ),
                             const SizedBox(height: 12),
                             Container(
                               height: 100,
                               decoration: BoxDecoration(
-                                color: Colors.grey[50],
+                                // Theme-aware background color
+                                color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey[300]!),
+                                // Theme-aware border color
+                                border: Border.all(
+                                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                ),
                               ),
                               child: GridView.builder(
                                 padding: const EdgeInsets.all(8),
@@ -757,7 +794,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                 itemCount: 8,
                                 // More icons
                                 itemBuilder: (context, index) {
-                                  // Icons array - in a real app, you'd have more icons
                                   List<String> icons = [
                                     'assets/icons/home_icon.png',
                                     'assets/icons/work_icon.png',
@@ -788,8 +824,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       child: AnimatedContainer(
                                         duration: const Duration(milliseconds: 200),
                                         decoration: BoxDecoration(
+                                          // Theme-aware background color for selected items
                                           color: isSelected
-                                              ? Colors.blue.withOpacity(0.1)
+                                              ? (isDarkMode
+                                              ? Colors.blue.withOpacity(0.2)
+                                              : Colors.blue.withOpacity(0.1))
                                               : Colors.transparent,
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(
@@ -804,13 +843,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                             iconPath,
                                             width: 32,
                                             height: 32,
+                                            // Apply color filter in dark mode to brighten icons
                                             errorBuilder: (context, error, stackTrace) {
-                                              // Fallback for missing assets
+                                              // Fallback for missing assets - theme-aware
                                               return Icon(
                                                 Icons.star,
                                                 color: isSelected
                                                     ? Colors.blue
-                                                    : Colors.grey[700],
+                                                    : (isDarkMode ? Colors.grey[400] : Colors.grey[700]),
                                                 size: 32,
                                               );
                                             },
@@ -824,7 +864,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             ),
                             const SizedBox(height: 32),
 
-                            // Action buttons
+                            // Action buttons - theme-aware
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -839,11 +879,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(16),
                                       ),
+                                      // Theme-aware text color
+                                      foregroundColor: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                                     ),
                                     child: Text(
                                       'Cancel',
                                       style: AppTypography.textTheme.labelLarge?.copyWith(
-                                        color: Colors.grey[700],
+                                        // Theme-aware text color
+                                        color: isDarkMode ? Colors.white : Colors.grey[700],
                                       ),
                                     ),
                                   ),
@@ -856,8 +899,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       if (formKey.currentState?.validate() == true) {
                                         if (selectedLocation == null) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
+                                            SnackBar(
                                               content: Text('Please select a location'),
+                                              // Theme-aware background
+                                              backgroundColor: isDarkMode ? Colors.grey[800] : null,
                                             ),
                                           );
                                           return;
@@ -880,7 +925,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
+                                      // Theme-aware button colors
+                                      backgroundColor: isDarkMode
+                                          ? AppTheme.darkTheme.colorScheme.primary
+                                          : Colors.blue,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1145,41 +1193,49 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildSelectedPlaceCard() {
     if (_navigationState != NavigationState.placeSelected) return const SizedBox.shrink();
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Theme-aware background
+          color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              // Darker shadow in dark mode
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.1),
               blurRadius: 10,
               spreadRadius: 2,
             ),
           ],
         ),
-        child: SingleChildScrollView(  // Make the card scrollable to handle keyboard overlap
+        child: SingleChildScrollView(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
+              // Drag handle with theme-aware color
               Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   width: 40,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
 
-              // Location name and address
+              // Location name and address with theme-aware text
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -1187,21 +1243,26 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   children: [
                     Text(
                       _destinationPlace!.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 24,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                        Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             _destinationPlace!.address,
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               fontSize: 14,
                             ),
                             maxLines: 2,
@@ -1216,7 +1277,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
               const SizedBox(height: 16),
 
-              /// Actions row - Save and Navigate buttons
+              // Actions row - Save and Navigate buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -1226,66 +1287,82 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     label: _isLocationSaved ? 'Saved' : 'Save',
                     onPressed: _saveOrUnsaveLocation,
                     isLoading: _isLoadingLocationSave,
+                    isDarkMode: isDarkMode,
                   ),
 
-                  // Keep the existing Navigate button unchanged
+                  // Navigate button
                   _buildActionButton(
                     icon: Icons.navigation,
                     label: 'Navigate',
                     onPressed: _startNavigation,
                     isPrimary: true,
+                    isDarkMode: isDarkMode,
                   ),
                 ],
               ),
 
               const SizedBox(height: 16),
 
-              // Photos section - only show place images, no add photo option
+              // Photos section with theme-aware styling
               Container(
                 height: 120,
                 padding: const EdgeInsets.only(left: 16),
                 child: _destinationPlace!.photoUrls.isEmpty && _isLoadingPhotos
                     ? Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        isDarkMode ? Colors.white : Colors.blue
+                    ),
+                  ),
                 )
                     : _destinationPlace!.photoUrls.isEmpty
                     ? Center(
                   child: Text(
                     'No photos available',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                    ),
                   ),
                 )
                     : ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _destinationPlace!.photoUrls.length,
                   itemBuilder: (context, index) {
-                    return _buildPhotoItem(_destinationPlace!.photoUrls[index]);
+                    return _buildPhotoItem(
+                        _destinationPlace!.photoUrls[index],
+                        isDarkMode: isDarkMode
+                    );
                   },
                 ),
               ),
 
-              // Information section
+              // Information section with theme-aware styling
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Information',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                        Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Operating hours may vary',
                           style: TextStyle(
-                            color: Colors.grey[800],
+                            color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                             fontSize: 14,
                           ),
                         ),
@@ -1296,12 +1373,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     if (_destinationPlace!.types.isNotEmpty)
                       Row(
                         children: [
-                          Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                          Icon(
+                              Icons.category,
+                              size: 16,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             _getFormattedType(_destinationPlace!.types.first),
                             style: TextStyle(
-                              color: Colors.grey[800],
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                               fontSize: 14,
                             ),
                           ),
@@ -1318,6 +1399,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
     );
   }
+
 
   // Method to show a saved location on the map
   void showSavedLocation(String placeId, LatLng coordinates, String name) {
@@ -1366,6 +1448,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     required VoidCallback onPressed,
     bool isPrimary = false,
     bool isLoading = false,
+    bool isDarkMode = false,
   }) {
     return GestureDetector(
       onTap: isLoading ? null : onPressed,
@@ -1375,7 +1458,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: isPrimary ? Colors.blue : Colors.grey[200],
+              // Theme-aware colors
+              color: isPrimary
+                  ? Colors.blue
+                  : (isDarkMode ? Colors.grey[800] : Colors.grey[200]),
               shape: BoxShape.circle,
             ),
             child: isLoading
@@ -1387,6 +1473,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             )
                 : Icon(
               icon,
+              // Keep blue for contrast in dark mode
               color: isPrimary ? Colors.white : Colors.blue,
             ),
           ),
@@ -1394,7 +1481,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           Text(
             label,
             style: TextStyle(
-              color: isPrimary ? Colors.blue : Colors.black,
+              // Blue stays for primary, but text color changes based on theme
+              color: isPrimary ? Colors.blue : (isDarkMode ? Colors.white : Colors.black),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1459,14 +1547,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-
-  Widget _buildPhotoItem(String imageUrl) {
+  Widget _buildPhotoItem(String imageUrl, {bool isDarkMode = false}) {
     return Container(
       width: 120,
       height: 120,
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
+        // Add subtle border in dark mode
+        border: isDarkMode
+            ? Border.all(color: Colors.grey[800]!, width: 1)
+            : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -1480,12 +1571,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
-              color: Colors.grey[200],
+              // Darker background in dark mode
+              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
               child: Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
                       ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                       : null,
+                  // White in dark mode for contrast
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      isDarkMode ? Colors.white : Colors.blue
+                  ),
                 ),
               ),
             );
@@ -1493,9 +1589,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           errorBuilder: (context, error, stackTrace) {
             print('Error loading image: $error');
             return Container(
-              color: Colors.grey[200],
+              // Darker background in dark mode
+              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
               child: Center(
-                child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                child: Icon(
+                    Icons.broken_image,
+                    color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+                ),
               ),
             );
           },
@@ -2382,47 +2482,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         markerId.value.startsWith('route_duration_'));
   }
 
-  // Create a custom map style that enhances route visibility
-  void _applyOptimizedMapStyle() {
-    if (_mapController == null) return;
-
-    // Apply a map style that reduces visual noise and enhances route visibility
-    // This is optional but can improve the user experience
-    final String optimizedMapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "transit",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.fill",
-      "stylers": [
-        {
-          "weight": 2
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(optimizedMapStyle);
-  }
-
   void _stopNavigation() {
     _completeNavigationReset();
   }
@@ -2435,21 +2494,42 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  void _applyMapStyleIfNeeded(String? newStyle) {
+    // Only apply if controller exists and style is different
+    print("The style is $newStyle");
+
+    if (_mapController != null && newStyle != _currentAppliedStyle) {
+      print("Applying new map style: ${newStyle == null ? 'Default' : 'Custom'}");
+
+      _mapController!.setMapStyle(newStyle).then((_) {
+        // Update current style on success
+        _currentAppliedStyle = newStyle;
+      }).catchError((e) {
+        print("Error setting map style: $e");
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get traffic state from provider
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
     _trafficEnabled = themeProvider.isTrafficEnabled;
 
-    // Set map style based on traffic state
-    _currentMapStyle = _trafficEnabled ? null : MapStyles.trafficOffMapStyle;
-
-    // Apply map style if controller exists
-    if (_mapController != null) {
-      _mapController!.setMapStyle(_currentMapStyle);
+    // Determine map style
+    String? mapStyleString;
+    if (isDarkMode) {
+      mapStyleString = MapStyles.nightMapStyle;
+    } else if (!_trafficEnabled) {
+      mapStyleString = MapStyles.trafficOffMapStyle;
+    } else {
+      mapStyleString = null;
     }
 
+    _applyMapStyleIfNeeded(mapStyleString);
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -2462,8 +2542,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   _mapController = controller;
                   _updateCurrentLocationMarker();
 
-                  // Apply map style based on traffic state when map is created
-                  controller.setMapStyle(_currentMapStyle);
+                  // --- Apply Initial Style on Creation ---
+                  // Apply the style determined during the *initial* build immediately
+                  // after the controller is available.
+                  print("Map Created. Applying initial style: ${mapStyleString == null ? 'Default' : 'Custom'}");
+                  _mapController!.setMapStyle(mapStyleString).catchError((e) {
+                    print("Error setting initial map style: $e");
+                  });
                 },
                 markers: _markers,
                 polylines: _polylines,
@@ -2474,7 +2559,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 compassEnabled: true,
                 // Disable user gestures during navigation to prevent accidental map movement
                 trafficEnabled: _trafficEnabled,
-                style: _currentMapStyle,
                 scrollGesturesEnabled: !_isInNavigationMode,
                 zoomGesturesEnabled: !_isInNavigationMode,
                 tiltGesturesEnabled: !_isInNavigationMode,
@@ -2493,8 +2577,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 });
               },
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color! : Colors.white,
               panel: _buildSearchPanel(),
-              body: _buildMapView(),
+              body: _buildUIOverlays(),
             ),
 
             // Conditionally show the route selection panel
@@ -2513,48 +2598,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ),
       ),
     );
-  }
-
-  void _startLocationSimulation() {
-    if (_routeDetails == null || _routeDetails!.routes.isEmpty) return;
-
-    final route = _routeDetails!.routes[0];
-    final points = route.polylinePoints;
-
-    if (points.isEmpty) return;
-
-    int pointIndex = 0;
-
-    _locationSimulationTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (pointIndex >= points.length) {
-        timer.cancel();
-        return;
-      }
-
-      final point = points[pointIndex];
-
-      // Calculate bearing to next point for realistic simulation
-      double bearing = 0;
-      if (pointIndex < points.length - 1) {
-        bearing = LocationUtils.calculateBearing(points[pointIndex], points[pointIndex + 1]);
-      }
-
-      // Simulate a LocationData object
-      final locationData = LocationData.fromMap({
-        'latitude': point.latitude,
-        'longitude': point.longitude,
-        'heading': bearing,
-        'accuracy': 5.0,
-        'altitude': 0.0,
-        'speed': 15.0, // simulate ~50 km/h
-        'speed_accuracy': 1.0,
-        'time': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      _handleNavigationLocationUpdate(locationData);
-
-      pointIndex++;
-    });
   }
 
   Widget _buildRouteSelectionPanel() {
@@ -2624,7 +2667,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-// Add this method to handle saving/unsaving locations
+  // Add this method to handle saving/unsaving locations
   Future<void> _saveOrUnsaveLocation() async {
     if (_destinationPlace == null || _savedMapService == null) {
       return;
@@ -2711,7 +2754,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-// Helper method to show login prompt
+  // Helper method to show login prompt
   void _showLoginPrompt() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2730,7 +2773,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-// Helper method to show category selection dialog
+  // Helper method to show category selection dialog
   Future<String?> _showCategorySelectionDialog() async {
     String category = 'favorite'; // Default category
 
@@ -2803,16 +2846,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildCollapsedRoutePanel() {
     if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final route = _routeAlternatives[0].routes[_selectedRouteIndex];
     final leg = route.legs[0];
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Theme-aware background
+        color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            // Darker shadow in dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -2820,20 +2871,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
       child: Column(
         children: [
-          // Drag handle
+          // Drag handle with theme-aware color
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 8),
               width: 40,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
 
-          // Route summary - concise information
+          // Route summary with theme-aware text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -2846,27 +2897,33 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     const SizedBox(width: 8),
                     Text(
                       leg.duration.text,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       leg.distance.text,
                       style: TextStyle(
-                        color: Colors.grey[700],
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                       ),
                     ),
                   ],
                 ),
 
-                // Go button
+                // Go button with theme-aware styling
                 ElevatedButton(
                   onPressed: () {
                     _startActiveNavigation();
                   },
                   style: ElevatedButton.styleFrom(
+                    // Use theme colors
+                    backgroundColor: isDarkMode
+                        ? AppTheme.darkTheme.colorScheme.primary
+                        : AppTheme.lightTheme.colorScheme.primary,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -2882,29 +2939,35 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+
   Widget _buildFullRoutePanel() {
     if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
+
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
 
     final routes = _routeAlternatives[0].routes;
 
     return Container(
-      color: Colors.white,
+      // Theme-aware background
+      color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
       child: Column(
         children: [
-          // Drag handle
+          // Drag handle with theme-aware color
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 8),
               width: 40,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
 
-          // Route info header
+          // Route info header with theme-aware text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -2914,10 +2977,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.arrow_forward, size: 16),
+                Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -2926,6 +2994,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                       overflow: TextOverflow.ellipsis,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                   ),
                 ),
@@ -2935,7 +3004,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
           const SizedBox(height: 16),
 
-          // Routes list
+          // Routes list with theme-aware styling
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2955,13 +3024,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
+                      // Theme-aware background with selection highlight
                       color: _selectedRouteIndex == index
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.white,
+                          ? (isDarkMode
+                          ? Colors.blue.withOpacity(0.15)
+                          : Colors.blue.withOpacity(0.1))
+                          : (isDarkMode ? Colors.grey[850] : Colors.white),
                       border: Border.all(
                         color: _selectedRouteIndex == index
                             ? Colors.blue
-                            : Colors.grey[300]!,
+                            : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(8),
@@ -2977,9 +3049,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               children: [
                                 Text(
                                   leg.duration.text,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,
+                                    color: isDarkMode ? Colors.white : Colors.black87,
                                   ),
                                 ),
                                 if (isBest) ...[
@@ -2990,14 +3063,19 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.green[50],
+                                      // Keep green for best route even in dark mode
+                                      color: isDarkMode
+                                          ? Colors.green[900]
+                                          : Colors.green[50],
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: Colors.green),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Best',
                                       style: TextStyle(
-                                        color: Colors.green,
+                                        color: isDarkMode
+                                            ? Colors.green[300]
+                                            : Colors.green,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                       ),
@@ -3009,7 +3087,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             Text(
                               leg.distance.text,
                               style: TextStyle(
-                                color: Colors.grey[700],
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                                 fontSize: 16,
                               ),
                             ),
@@ -3022,7 +3100,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Via ${_getRouteDescription(route)}',
                           style: TextStyle(
-                            color: Colors.grey[800],
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[800],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -3034,7 +3112,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Typical traffic',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
                             fontSize: 13,
                           ),
                         ),
@@ -3046,14 +3124,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             ),
           ),
 
-          // Bottom buttons
+          // Bottom buttons with theme-aware styling
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Theme-aware background
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  // Darker shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
                   blurRadius: 6,
                   offset: const Offset(0, -3),
                 ),
@@ -3066,6 +3148,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   onPressed: () {
                     _showLeaveLaterDialog();
                   },
+                  // Use theme-aware text color
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDarkMode ? Colors.blue[300] : Colors.blue,
+                  ),
                   child: const Text('Leave later'),
                 ),
                 ElevatedButton(
@@ -3073,7 +3159,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     _startActiveNavigation();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    // Use theme-specific colors
+                    backgroundColor: isDarkMode
+                        ? AppTheme.darkTheme.colorScheme.primary
+                        : AppTheme.lightTheme.colorScheme.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(150, 48),
                     shape: RoundedRectangleBorder(
@@ -3730,28 +3819,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  Widget _buildMapView() {
+  Widget _buildUIOverlays() {
     return Stack(
       children: [
-        // Map
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: _defaultLocation,
-            zoom: 15,
-          ),
-          onMapCreated: (GoogleMapController controller) {
-            _mapController = controller;
-            _updateCurrentLocationMarker();
-          },
-          markers: _markers,
-          polylines: _polylines,
-          mapType: _currentMapType,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          compassEnabled: true,
-          trafficEnabled: _trafficEnabled,
-        ),
 
         // Top menu buttons only in idle state
         if (_navigationState == NavigationState.idle)
@@ -3787,43 +3857,97 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   void _showLeaveLaterDialog() {
-    // Implementation for departure time selection
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       enableDrag: true,
       isDismissible: true,
+      // Theme-aware background color
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => Container(
         height: 300,
         child: Column(
           children: [
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+
+            // Options with theme-aware styling
             ListTile(
-              title: const Text('Leave now'),
-              leading: const Icon(Icons.directions_car),
+              title: Text(
+                'Leave now',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.directions_car,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _startActiveNavigation();
               },
             ),
             ListTile(
-              title: const Text('Leave in 30 minutes'),
-              leading: const Icon(Icons.access_time),
+              title: Text(
+                'Leave in 30 minutes',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.access_time,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // You would implement delayed routing here
               },
             ),
             ListTile(
-              title: const Text('Leave in 1 hour'),
-              leading: const Icon(Icons.access_time),
+              title: Text(
+                'Leave in 1 hour',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.access_time,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // You would implement delayed routing here
               },
             ),
             ListTile(
-              title: const Text('Choose departure time'),
-              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                'Choose departure time',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.calendar_today,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // Show date/time picker
@@ -3880,15 +4004,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     required VoidCallback onPressed,
     Color? color,
   }) {
+    // Get dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: color ?? Colors.white,
+        // Theme-aware background color
+        color: color ?? (isDarkMode ? Colors.grey[800] : Colors.white),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            // Darker shadow for dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.25)
+                : Colors.black.withOpacity(0.15),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -3896,7 +4028,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
       child: IconButton(
         icon: Icon(icon, size: 28),
-        color: color != null ? Colors.white : null,
+        // Theme-aware icon color
+        color: color != null
+            ? Colors.white
+            : (isDarkMode ? Colors.white : Colors.black87),
         onPressed: onPressed,
         padding: EdgeInsets.zero,
         constraints: BoxConstraints(),
@@ -3908,25 +4043,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void _toggleTrafficLayer() {
     // Get the provider
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
 
     // Update the provider state
     themeProvider.setTrafficEnabled(!themeProvider.isTrafficEnabled);
 
-    // Update local state
+    // No need to call setMapStyle manually - setState will trigger a rebuild
+    // which will pass the new style via the style parameter
     setState(() {
       _trafficEnabled = themeProvider.isTrafficEnabled;
-
-      // When traffic is disabled, use a style that maintains POI visibility
-      // When traffic is enabled, use default Google style (null)
-      _currentMapStyle = _trafficEnabled ? null : MapStyles.trafficOffMapStyle;
-
-      // Apply the map style if controller exists
-      if (_mapController != null) {
-        _mapController!.setMapStyle(_currentMapStyle);
-      }
-
-      print("Traffic Enabled: $_trafficEnabled");
-      print("Current Map Style: " + (_currentMapStyle == null ? "NULL (Default Google)" : "Minimal Style"));
     });
   }
 
@@ -4003,6 +4128,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return const SizedBox.shrink();
     }
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final route = _routeDetails!.routes[0];
     final leg = route.legs[0];
 
@@ -4015,7 +4144,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Calculate distance to next maneuver
     String distanceText = currentStep.distance.text;
     if (_lastKnownLocation != null) {
-      final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
+      final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(
+          _lastKnownLocation!, currentStep.endLocation);
       distanceText = FormatUtils.formatDistance(distanceToStepEnd.toInt());
     }
 
@@ -4026,15 +4156,19 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Main instruction panel
+          // Main instruction panel with theme-aware styling
           Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Theme-aware background
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  // Darker shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -4047,7 +4181,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
+                    // Darker background for top bar in dark mode
+                    color: isDarkMode ? Colors.grey[900] : Colors.grey[50],
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   ),
                   child: Row(
@@ -4056,12 +4191,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       // Distance to destination
                       Row(
                         children: [
-                          const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                          Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             leg.distance.text,
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -4070,12 +4209,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       // ETA
                       Row(
                         children: [
-                          const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                          Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             eta,
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -4090,7 +4233,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      // Maneuver icon
+                      // Maneuver icon - don't change color based on theme
                       _buildManeuverIcon(currentStep.instruction),
                       const SizedBox(width: 16),
 
@@ -4101,9 +4244,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           children: [
                             Text(
                               FormatUtils.cleanInstruction(currentStep.instruction),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
+                                color: isDarkMode ? Colors.white : Colors.black87,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -4112,6 +4256,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             Text(
                               'In $distanceText',
                               style: TextStyle(
+                                // Keep blue for visibility in both themes
                                 color: Colors.blue[700],
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
@@ -4123,7 +4268,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
                       // Options button
                       IconButton(
-                        icon: const Icon(Icons.more_vert),
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                         onPressed: () {
                           _showNavigationOptions();
                         },
@@ -4142,13 +4290,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: Colors.grey[200],
+                            // Darker circle in dark mode
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_forward,
                             size: 16,
-                            color: Colors.grey,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -4156,7 +4305,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           child: Text(
                             'Then ${FormatUtils.cleanInstruction(leg.steps[_currentStepIndex + 1].instruction)}',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               fontSize: 14,
                             ),
                             maxLines: 1,
@@ -4281,6 +4430,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   // Show a dialog with navigation options
   void _showNavigationOptions() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // Ensure keyboard is hidden before showing options
     _ensureKeyboardHidden(context);
 
@@ -4289,6 +4442,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     showModalBottomSheet(
       context: context,
+      // Theme-aware background
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -4297,36 +4452,62 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           mainAxisSize: MainAxisSize.min,
           children: [
             // Drag handle
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
 
-            // Options
+            // Options with theme-aware styling
             ListTile(
-              leading: const Icon(Icons.list_alt),
-              title: const Text('Show all steps'),
+              leading: Icon(
+                Icons.list_alt,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              title: Text(
+                'Show all steps',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showAllSteps();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.map),
-              title: const Text('Overview map'),
+              leading: Icon(
+                Icons.map,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              title: Text(
+                'Overview map',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showRouteOverview();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.stop_circle),
-              title: const Text('End navigation'),
+              leading: Icon(
+                Icons.stop_circle,
+                color: isDarkMode ? Colors.red[300] : Colors.red,
+              ),
+              title: Text(
+                'End navigation',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showEndNavigationDialog();
@@ -4510,16 +4691,36 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   // Show a confirmation dialog before ending navigation
   void _showEndNavigationDialog() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End Navigation'),
-        content: const Text('Are you sure you want to end navigation?'),
+        // Theme-aware background
+        backgroundColor: isDarkMode ? AppTheme.darkTheme.dialogBackgroundColor : Colors.white,
+        title: Text(
+          'End Navigation',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to end navigation?',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
             },
+            // Use theme-aware text color
+            style: TextButton.styleFrom(
+              foregroundColor: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+            ),
             child: const Text('Cancel'),
           ),
           TextButton(
@@ -4527,6 +4728,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               Navigator.of(context).pop();
               _completeNavigationReset();
             },
+            style: TextButton.styleFrom(
+              foregroundColor: isDarkMode ? Colors.red[300] : Colors.red,
+            ),
             child: const Text('End'),
           ),
         ],
@@ -4535,13 +4739,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildSearchPanel() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Apply theme-aware background color
+        color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            // Soften shadow in dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -4550,50 +4762,56 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle
-          _buildDragHandle(),
+          // Drag handle with theme-aware color
+          _buildDragHandle(isDarkMode),
 
-          // Search bar
-          _buildSearchBar(),
+          // Search bar with theme awareness
+          _buildSearchBar(isDarkMode),
 
           // Content area - changes based on search state
           Expanded(
             child: _searchController.text.isEmpty
-                ? _buildDefaultContent()
-                : _buildSearchResults(),
+                ? _buildDefaultContent(isDarkMode)
+                : _buildSearchResults(isDarkMode),
           )
         ],
       ),
     );
   }
 
-  Widget _buildDragHandle() {
+  Widget _buildDragHandle(bool isDarkMode) {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         width: 40,
         height: 5,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          // Lighter gray in dark mode
+          color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
           borderRadius: BorderRadius.circular(3),
         ),
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          // Dark gray background in dark mode
+          color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(Icons.search, color: Colors.grey[600]),
+              child: Icon(
+                  Icons.search,
+                  // Lighter icon in dark mode
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+              ),
             ),
             Expanded(
               child: TextField(
@@ -4601,13 +4819,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.search,
                 onEditingComplete: () {
-                  // Handle search completion and explicitly hide keyboard
                   _ensureKeyboardHidden(context);
                 },
+                // Apply theme-aware text styles
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Where to?',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  hintStyle: TextStyle(
+                      color: isDarkMode ? Colors.grey[500] : Colors.grey[600]
+                  ),
                 ),
                 onChanged: _onSearchChanged,
                 onTap: () {
@@ -4627,7 +4850,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else if (_searchController.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.clear),
-                color: Colors.grey[600],
+                // Theme-aware icon color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   setState(() {
                     _searchController.clear();
@@ -4638,7 +4862,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else
               IconButton(
                 icon: const Icon(Icons.mic),
-                color: Colors.grey[600],
+                // Theme-aware icon color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   // Voice search functionality
                 },
@@ -4649,10 +4874,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildDefaultContent() {
-    // Calculate how many custom shortcuts to show
-    // We want a maximum of 4 total buttons (Home, Work, custom shortcuts, and New/See All)
-    final int maxCustomShortcutsToShow = 2; // Only 2 custom shortcuts to respect the 4-button limit\
+
+  Widget _buildDefaultContent(bool isDarkMode) {
+    // Calculate shortcuts to show as before
+    final int maxCustomShortcutsToShow = 2;
     final displayShortcuts = _quickAccessShortcuts.take(maxCustomShortcutsToShow).toList();
 
     return Column(
@@ -4661,10 +4886,12 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Quick access buttons section
         Container(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 28),
+          // Theme-aware background
+          color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section title
+              // Section title with theme-aware text
               Padding(
                 padding: const EdgeInsets.only(bottom: 16.0, left: 4.0),
                 child: Text(
@@ -4672,7 +4899,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    // Theme-aware text color
+                    color: isDarkMode ? Colors.white : Colors.grey[800],
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -4680,50 +4908,55 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
               // Scrollable container for buttons
               Container(
-                height: 100, // Height for the scrollable container
+                height: 100,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   controller: _shortcutsScrollController,
                   physics: const BouncingScrollPhysics(),
                   children: [
-                    // Standard Home button
+                    // Pass isDarkMode to each button
+                    // Home button
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: _buildQuickAccessButton(
                         'assets/icons/home_icon.png',
                         'Home',
                         _handleHomeButtonTap,
+                        isDarkMode: isDarkMode,
                       ),
                     ),
 
-                    // Standard Work button
+                    // Work button
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _buildQuickAccessButton(
                         'assets/icons/work_icon.png',
                         'Work',
                         _handleWorkButtonTap,
+                        isDarkMode: isDarkMode,
                       ),
                     ),
 
-                    // Limited custom shortcuts
+                    // Custom shortcuts with dark mode
                     ...displayShortcuts.map((shortcut) => Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _buildQuickAccessButton(
                         shortcut.iconPath,
                         shortcut.label,
                             () => _handleCustomShortcutTap(shortcut),
+                        isDarkMode: isDarkMode,
                       ),
                     )),
 
-                    // Loading indicator (when shortcuts are loading)
+                    // Loading indicator with dark mode support
                     if (_isLoadingShortcuts)
                       Container(
                         width: 80,
                         height: 80,
                         margin: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
+                          // Darker background in dark mode
+                          color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
@@ -4732,21 +4965,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.grey[400],
+                              // Lighter color in dark mode
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[400],
                             ),
                           ),
                         ),
                       ),
 
-                    //'assets/icons/more_icon.png' : 'assets/icons/plus_icon.png',
-
+                    // "See All" button with dark mode
                     Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: _buildQuickAccessButton(
-                        'assets/icons/plus_icon.png', // Consistently use the "more" icon
-                        'See All', // Always use "Manage Shortcuts" label
-                        _navigateToAllShortcuts, // Always navigate to All Shortcuts screen
-                        // Provide a sensible fallback icon for consistency
+                        'assets/icons/plus_icon.png',
+                        'See All',
+                        _navigateToAllShortcuts,
+                        isDarkMode: isDarkMode,
                         errorIconData: Icons.manage_search,
                       ),
                     ),
@@ -4760,14 +4993,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Visual divider between sections
         Container(
           height: 8,
-          color: Colors.grey[100],
+          // Darker divider in dark mode
+          color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
         ),
 
-        // Recent locations section - improved spacing and removed "See All"
+        // Recent locations section
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Section title with theme-aware text
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Text(
@@ -4776,12 +5011,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     fontWeight: FontWeight.w600,
                     fontSize: 18,
                     letterSpacing: -0.3,
-                    color: Colors.black87,
+                    // Theme-aware text color
+                    color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
 
-              // Loading indicator while fetching recents
+              // Loading state
               if (_isLoadingRecentLocations)
                 const Center(
                   child: Padding(
@@ -4789,7 +5025,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     child: CircularProgressIndicator(),
                   ),
                 )
-              // Empty state message if no recents
+              // Empty state with dark mode support
               else if (_recentLocations.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -4801,16 +5037,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            // Darker background in dark mode
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.history, size: 32, color: Colors.grey[400]),
+                          child: Icon(
+                              Icons.history,
+                              size: 32,
+                              // Lighter icon in dark mode
+                              color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No recent locations',
                           style: GoogleFonts.poppins(
-                            color: Colors.black87,
+                            // Theme-aware text color
+                            color: isDarkMode ? Colors.white : Colors.black87,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.2,
@@ -4820,7 +5063,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Places you search for will appear here',
                           style: GoogleFonts.poppins(
-                            color: Colors.grey[500],
+                            // Lighter text in dark mode
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
@@ -4830,7 +5074,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     ),
                   ),
                 )
-              // List of recent locations
+              // List with dark mode support
               else
                 Expanded(
                   child: ListView.builder(
@@ -4843,6 +5087,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         location.address,
                             () => _selectRecentLocation(location),
                         MapUtils.getIconForPlaceType(location.iconType),
+                        isDarkMode,
                       );
                     },
                   ),
@@ -4854,22 +5099,32 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(bool isDarkMode) {
     if (_isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Searching places...'),
+            CircularProgressIndicator(
+              // Use theme-aware color
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  isDarkMode ? Colors.white : Colors.blue
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Searching places...',
+              style: TextStyle(
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
           ],
         ),
       );
     }
 
     if (_searchController.text.isEmpty) {
-      return _buildDefaultContent();
+      return _buildDefaultContent(isDarkMode);
     }
 
     if (_placeSuggestions.isEmpty) {
@@ -4877,22 +5132,39 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+            Icon(
+                Icons.search_off,
+                size: 48,
+                color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+            ),
             const SizedBox(height: 16),
             Text(
               'No places found for "${_searchController.text}"',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              style: TextStyle(
+                  fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.grey[600]
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Try a different search term or check your internet connection',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 _onSearchChanged(_searchController.text);
               },
+              // Use theme colors from AppTheme
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDarkMode
+                    ? AppTheme.darkTheme.colorScheme.primary
+                    : AppTheme.lightTheme.colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Try Again'),
             ),
           ],
@@ -4906,19 +5178,30 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       itemBuilder: (context, index) {
         final suggestion = _placeSuggestions[index];
         return ListTile(
-          leading: Icon(Icons.location_on, color: Colors.grey[600]),
-          title: Text(suggestion.mainText),
+          leading: Icon(
+              Icons.location_on,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+          ),
+          title: Text(
+            suggestion.mainText,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
           subtitle: Text(
             suggestion.secondaryText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
           ),
           trailing: Text(
             _getFormattedDistanceForSuggestion(suggestion) == "-"
                 ? "-"
                 : "${_getFormattedDistanceForSuggestion(suggestion)} km",
             style: TextStyle(
-              color: Colors.grey[600],
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               fontSize: 14,
             ),
           ),
@@ -4988,61 +5271,69 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildQuickAccessButton(
       String iconPath,
       String label,
-      VoidCallback onTap,
-      {IconData errorIconData = Icons.star}
-      ) {
+      VoidCallback onTap, {
+        IconData errorIconData = Icons.star,
+        bool isDarkMode = false,
+      }) {
     return InkWell(
       onTap: onTap,
-      // Long-press handler removed
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 80,
-        width: 80, // Fixed width for consistent sizing in horizontal scroll
+        width: 80,
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Theme-aware background
+          color: isDarkMode ? Colors.grey[850] : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              // Darker shadow in dark mode
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: 4,
               spreadRadius: 1,
               offset: const Offset(0, 2),
             ),
           ],
           border: Border.all(
-            color: Colors.grey[200]!,
+            // Darker border in dark mode
+            color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
             width: 1,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon
+            // Icon with theme support
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Image.asset(
                 iconPath,
                 width: 32,
                 height: 32,
+                // Apply color filter in dark mode to make icons lighter if needed
+                //color: isDarkMode ? Colors.white : null,
                 errorBuilder: (context, error, stackTrace) {
-                  // Fallback for missing assets
                   return Icon(
-                    errorIconData, // Use the custom errorIconData
-                    color: Colors.grey[700],
+                    errorIconData,
+                    // Lighter icon in dark mode
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
                     size: 32,
                   );
                 },
               ),
             ),
             const SizedBox(height: 4),
-            // Label
+            // Label with theme support
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                // Theme-aware text color
+                color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                 letterSpacing: -0.2,
               ),
               maxLines: 1,
@@ -5178,17 +5469,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       String title,
       String subtitle,
       VoidCallback onTap,
-      [IconData icon = Icons.location_on_outlined]
+      [IconData icon = Icons.location_on_outlined,
+        bool isDarkMode = false]
       ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-        // Subtler shadow for better depth perception
+        // Theme-aware background
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            // Adjusted shadow for dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.15)
+                : Colors.black.withOpacity(0.03),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -5199,11 +5494,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            // Darker blue background in dark mode
+            color: isDarkMode
+                ? Colors.blue.withOpacity(0.2)
+                : Colors.blue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
             icon,
+            // Same blue color in both modes for contrast
             color: Colors.blue,
             size: 20,
           ),
@@ -5216,7 +5515,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             fontWeight: FontWeight.w600,
             fontSize: 15,
             letterSpacing: -0.2,
-            color: Colors.black87,
+            // Theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         subtitle: Text(
@@ -5226,7 +5526,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w400,
             fontSize: 13,
-            color: Colors.grey[600],
+            // Lighter text in dark mode
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             letterSpacing: -0.1,
           ),
         ),
@@ -5235,17 +5536,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           borderRadius: BorderRadius.circular(12),
         ),
         onTap: onTap,
-        // Long press to show options like delete
         onLongPress: () {
-          // Only show if item is a RecentLocation, not a quick access button
           if (title != 'Home' && title != 'Work' && title != 'New') {
-            _showRecentLocationOptions(title, subtitle, onTap);
+            _showRecentLocationOptions(title, subtitle, onTap, isDarkMode);
           }
         },
-        // Clearer visual indication that item is tappable
         trailing: Icon(
           Icons.chevron_right,
-          color: Colors.grey[400],
+          // Lighter icon in dark mode
+          color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
           size: 20,
         ),
       ),
@@ -5253,7 +5552,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   // Method to show options when long pressing a recent location
-  void _showRecentLocationOptions(String title, String subtitle, VoidCallback onSelect) {
+  // Update method signature
+  void _showRecentLocationOptions(String title, String subtitle, VoidCallback onSelect, [bool isDarkMode = false]) {
     // Find the location in our list
     final location = _recentLocations.firstWhere(
           (loc) => loc.name == title && loc.address == subtitle,
@@ -5273,7 +5573,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -5282,18 +5582,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
+            // Drag handle - theming
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
 
-            // Location name header
+            // Location name header - theming
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
               child: Text(
@@ -5301,20 +5601,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
 
-            // Address
+            // Address - theming
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
                 subtitle,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -5324,13 +5624,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
             const SizedBox(height: 24),
 
-            // Navigate option
+            // Navigate option - theming
             ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: isDarkMode
+                      ? Colors.blue.withOpacity(0.2)
+                      : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(Icons.navigation, color: Colors.blue, size: 20),
@@ -5340,6 +5642,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               onTap: () {
@@ -5348,13 +5651,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               },
             ),
 
-            // Remove option
+            // Remove option - theming
             ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: isDarkMode
+                      ? Colors.red.withOpacity(0.2)
+                      : Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
@@ -5364,6 +5669,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               onTap: () async {
@@ -5378,6 +5684,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         'Removed from recent locations',
                         style: GoogleFonts.poppins(),
                       ),
+                      backgroundColor: isDarkMode ? Colors.grey[800] : null,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -5389,6 +5696,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         'Error removing location',
                         style: GoogleFonts.poppins(),
                       ),
+                      backgroundColor: isDarkMode ? Colors.grey[800] : null,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );

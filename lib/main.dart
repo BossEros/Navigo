@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:project_navigo/themes/app_theme.dart';
+
 import 'package:project_navigo/themes/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'screens/landing_page.dart';

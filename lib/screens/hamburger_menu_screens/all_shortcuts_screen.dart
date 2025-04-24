@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:project_navigo/themes/app_typography.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:project_navigo/themes/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/quick_access_shortcut_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' show lerpDouble;
 import 'dart:ui' as ui; // For BackdropFilter
+import 'package:project_navigo/themes/theme_provider.dart';
 
 class AllShortcutsScreen extends StatefulWidget {
   // Pass the current shortcuts, callback handlers
@@ -55,7 +56,11 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
       _shortcuts.removeWhere((item) => item.id == shortcut.id);
     });
 
-    // Show confirmation
+    // Get the current theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Show confirmation with theme-aware styling
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -63,9 +68,11 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
           style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.white),
         ),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.black87,
+        // Dark snackbar in light mode, lighter in dark mode for contrast
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
         action: SnackBarAction(
           label: 'UNDO',
+          // Use white text on both themes for contrast
           textColor: Colors.white,
           onPressed: () {
             // In a real app, you'd handle undo here
@@ -73,6 +80,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
               SnackBar(
                 content: Text('Restore feature coming soon'),
                 behavior: SnackBarBehavior.floating,
+                backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
               ),
             );
           },
@@ -83,23 +91,31 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the current theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // Get the bottom padding needed for the system navigation bar
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Theme-aware background color
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.scaffoldBackgroundColor : Colors.white,
       appBar: AppBar(
         title: Text(
           'Quick Access Shortcuts',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            // Theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
-        backgroundColor: Colors.white,
+        // Theme-aware AppBar styling
+        backgroundColor: isDarkMode ? AppTheme.darkTheme.appBarTheme.backgroundColor : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          // Theme-aware icon color
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black87),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -109,33 +125,29 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description text
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Text(
-                'Tap to navigate or edit your favorite destinations',
-                style: AppTypography.textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
-
             // Main content - shortcuts or empty state
             _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(
+              child: CircularProgressIndicator(
+                // Use theme-aware color for the progress indicator
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isDarkMode ? Colors.white : Colors.blue,
+                ),
+              ),
+            )
                 : _shortcuts.isEmpty
-                ? _buildEmptyState()
-                : _buildShortcutsContent(),
+                ? _buildEmptyState(isDarkMode)
+                : _buildShortcutsContent(isDarkMode),
 
             // Add new shortcut button (persistent at bottom with safe area padding)
-            _buildAddButton(bottomPadding),
+            _buildAddButton(bottomPadding, isDarkMode),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDarkMode) {
     return Expanded(
       child: Center(
         child: Column(
@@ -144,21 +156,24 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
             Icon(
               Icons.bookmarks_outlined,
               size: 72,
-              color: Colors.grey[300],
+              // Lighter gray in dark mode
+              color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
             ),
             const SizedBox(height: 16),
             Text(
               'No shortcuts added yet',
               style: AppTypography.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
+                // White text in dark mode
+                color: isDarkMode ? Colors.white : Colors.grey[700],
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Add shortcuts for your frequent destinations',
               style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
+                // Lighter text in dark mode
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               ),
               textAlign: TextAlign.center,
             ),
@@ -168,19 +183,27 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  Widget _buildShortcutsContent() {
+  Widget _buildShortcutsContent(bool isDarkMode) {
     return Expanded(  // Wrap the entire content in Expanded to provide bounded height
       child: Column(
         children: [
-          // Help text for edit feature
+          // Help text for edit feature - theme-aware styling
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                // Darker blue in dark mode
+                color: isDarkMode
+                    ? Colors.blue.withOpacity(0.15)
+                    : Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                border: Border.all(
+                  // Darker blue border in dark mode
+                  color: isDarkMode
+                      ? Colors.blue.withOpacity(0.4)
+                      : Colors.blue.withOpacity(0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -190,7 +213,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                     child: Text(
                       'Tap to navigate, drag to reorder, or use the edit button for more options',
                       style: AppTypography.textTheme.bodyMedium?.copyWith(
-                        color: Colors.blue[800],
+                        // Keep blue text in both modes for emphasis but adjust shade
+                        color: isDarkMode ? Colors.blue[300] : Colors.blue[800],
                       ),
                     ),
                   ),
@@ -223,7 +247,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                   }
                 });
               },
-              // Add the proxyDecorator for better visual feedback
+              // Add the proxyDecorator for better visual feedback - theme-aware styling
               proxyDecorator: (child, index, animation) {
                 return AnimatedBuilder(
                   animation: animation,
@@ -233,7 +257,10 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                     return Material(
                       elevation: elevation,
                       color: Colors.transparent,
-                      shadowColor: Colors.black.withOpacity(0.2),
+                      // Darker shadow in dark mode
+                      shadowColor: isDarkMode
+                          ? Colors.black.withOpacity(0.3)
+                          : Colors.black.withOpacity(0.2),
                       child: child,
                     );
                   },
@@ -242,7 +269,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
               },
               itemBuilder: (context, index) {
                 final shortcut = _shortcuts[index];
-                return _buildReorderableShortcutItem(shortcut, index);
+                return _buildReorderableShortcutItem(shortcut, index, isDarkMode);
               },
             ),
           ),
@@ -251,30 +278,39 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  Widget _buildReorderableShortcutItem(dynamic shortcut, int index) {
+  Widget _buildReorderableShortcutItem(dynamic shortcut, int index, bool isDarkMode) {
     return Container(
       key: ValueKey(shortcut.id),  // Key is required for ReorderableListView
       margin: const EdgeInsets.only(bottom: 12),
       child: Stack(
         children: [
-          // Main shortcut card
+          // Main shortcut card - theme-aware styling
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Dark card background in dark mode
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  // Darker, more subtle shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.06),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Material(
+              // Use transparent material to preserve ink effects
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
+                // In dark mode, make splash more visible
+                splashColor: isDarkMode
+                    ? Colors.grey[700]
+                    : null,
                 onTap: () {
                   Navigator.of(context).pop();
                   widget.onShortcutTap(shortcut);
@@ -283,7 +319,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      // Drag handle icon for reordering
+                      // Drag handle icon for reordering - theme-aware
                       ReorderableDragStartListener(
                         index: index,
                         child: Semantics(
@@ -294,24 +330,31 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                             height: 24,
                             margin: const EdgeInsets.only(right: 12),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.1),
+                              // Darker background in dark mode
+                              color: isDarkMode
+                                  ? Colors.grey[800]
+                                  : Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Icon(
                               Icons.drag_handle,
-                              color: Colors.grey[600],
+                              // Lighter icon in dark mode
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               size: 16,
                             ),
                           ),
                         ),
                       ),
 
-                      // Shortcut icon
+                      // Shortcut icon - theme-aware container
                       Container(
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          // Darker blue background in dark mode
+                          color: isDarkMode
+                              ? Colors.blue.withOpacity(0.2)
+                              : Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Center(
@@ -319,9 +362,11 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                             shortcut.iconPath,
                             width: 28,
                             height: 28,
+                            // Apply a color filter in dark mode to brighten the icon
                             errorBuilder: (context, error, stackTrace) {
                               return Icon(
                                 Icons.star,
+                                // Blue color in both modes for contrast
                                 color: Colors.blue,
                                 size: 24,
                               );
@@ -331,7 +376,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                       ),
                       const SizedBox(width: 16),
 
-                      // Shortcut label and address preview
+                      // Shortcut label and address preview - theme-aware text
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,6 +385,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                               shortcut.label,
                               style: AppTypography.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
+                                // White text in dark mode
+                                color: isDarkMode ? Colors.white : null,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -348,7 +395,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                             Text(
                               shortcut.address ?? 'Tap to navigate',
                               style: AppTypography.textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
+                                // Lighter text in dark mode
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -357,17 +405,18 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                         ),
                       ),
 
-                      // Edit button (integrated into the row)
+                      // Edit button (integrated into the row) - theme-aware
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
-                          onTap: () => _showEditOptions(shortcut),
+                          onTap: () => _showEditOptions(shortcut, isDarkMode),
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Icon(
                               Icons.edit,
                               size: 20,
+                              // Keep blue for contrast in both modes
                               color: Colors.blue,
                             ),
                           ),
@@ -384,7 +433,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-    void _onReorder(int oldIndex, int newIndex) {
+  void _onReorder(int oldIndex, int newIndex, bool isDarkMode) {
     setState(() {
       // ReorderableListView's behavior: when you drag an item down,
       // the index of the insertion point is shifted
@@ -400,7 +449,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     // Notify parent about the reordered list
     widget.onReorderShortcuts!(_shortcuts);
 
-    // Show confirmation
+    // Show confirmation with theme-aware styling
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -409,120 +458,14 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Widget _buildShortcutItem(dynamic shortcut, Key key) {
-    return Container(
-      key: key,  // Important for ReorderableListView
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Stack(
-        children: [
-          // Main shortcut card
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  widget.onShortcutTap(shortcut);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      // Drag handle icon
-                      Icon(
-                        Icons.drag_handle,
-                        color: Colors.grey[400],
-                        size: 24,
-                      ),
-                      SizedBox(width: 12),
-
-                      // Shortcut icon with error handling
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          // Use Icon as the default and only attempt to load the asset if it's available
-                          child: _buildSafeIcon(shortcut.iconPath),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-
-                      // Shortcut details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shortcut.label,
-                              style: AppTypography.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              shortcut.address ?? 'Tap to navigate',
-                              style: AppTypography.textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Edit button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => _showEditOptions(shortcut),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Icon(
-                              Icons.edit,
-                              size: 20,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        // Theme-aware background
+        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
       ),
     );
   }
 
   // Helper method to safely load icons with fallbacks
-  Widget _buildSafeIcon(String iconPath) {
+  Widget _buildSafeIcon(String iconPath, bool isDarkMode) {
     // Map of standard icons to use as fallbacks
     final Map<String, IconData> fallbackIcons = {
       'home': Icons.home,
@@ -557,10 +500,13 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
         iconPath,
         width: 28,
         height: 28,
+        // Apply a color filter in dark mode to make icons more visible
+        color: isDarkMode ? Colors.white : null,
         errorBuilder: (context, error, stackTrace) {
           // On error, use the icon
           return Icon(
             iconData,
+            // Use blue in both modes for visibility
             color: Colors.blue,
             size: 24,
           );
@@ -569,16 +515,20 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  Widget _buildAddButton([double bottomPadding = 0]) {
+  Widget _buildAddButton([double bottomPadding = 0, bool isDarkMode = false]) {
     return Container(
       width: double.infinity,
       // Add additional padding at the bottom to respect system navigation
       padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomPadding),
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Theme-aware background
+        color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            // Darker shadow in dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
             blurRadius: 6,
             offset: const Offset(0, -3),
           ),
@@ -629,6 +579,11 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
           }
         },
         style: ElevatedButton.styleFrom(
+          // Use theme-aware color
+          backgroundColor: isDarkMode
+              ? AppTheme.darkTheme.colorScheme.primary
+              : Colors.blue,
+          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -646,7 +601,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  void _showEditOptions(dynamic shortcut) {
+  void _showEditOptions(dynamic shortcut, bool isDarkMode) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -658,11 +613,15 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
           child: Container(
             padding: const EdgeInsets.only(top: 12, bottom: 24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Theme-aware background
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  // Darker shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
                   blurRadius: 10,
                   spreadRadius: 0,
                   offset: Offset(0, -2),
@@ -678,7 +637,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    // Darker gray in dark mode
+                    color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -693,7 +653,13 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                         shortcut.iconPath,
                         width: 24,
                         height: 24,
-                        errorBuilder: (_, __, ___) => Icon(Icons.star, color: Colors.blue),
+                        // Lighter icon in dark mode
+                        //color: isDarkMode ? Colors.white : null,
+                        errorBuilder: (_, __, ___) => Icon(
+                            Icons.star,
+                            // Keep blue in both modes
+                            color: Colors.blue
+                        ),
                       ),
                       SizedBox(width: 12),
                       Expanded(
@@ -701,6 +667,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                           shortcut.label,
                           style: AppTypography.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
+                            // White text in dark mode
+                            color: isDarkMode ? Colors.white : null,
                           ),
                           textAlign: TextAlign.center,
                           maxLines: 1,
@@ -728,7 +696,10 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       child: Ink(
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.08),
+                          // Darker blue in dark mode
+                          color: isDarkMode
+                              ? Colors.blue.withOpacity(0.15)
+                              : Colors.blue.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -738,7 +709,10 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                               Container(
                                 padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
+                                  // Darker blue in dark mode
+                                  color: isDarkMode
+                                      ? Colors.blue.withOpacity(0.2)
+                                      : Colors.blue.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(Icons.edit, color: Colors.blue, size: 24),
@@ -749,10 +723,16 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                                   'Edit Shortcut',
                                   style: AppTypography.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w500,
+                                    // White text in dark mode
+                                    color: isDarkMode ? Colors.white : null,
                                   ),
                                 ),
                               ),
-                              Icon(Icons.chevron_right, color: Colors.grey[400]),
+                              Icon(
+                                  Icons.chevron_right,
+                                  // Lighter gray in dark mode
+                                  color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+                              ),
                             ],
                           ),
                         ),
@@ -773,12 +753,15 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                         // Add haptic feedback for better UX
                         HapticFeedback.mediumImpact();
                         Navigator.pop(context);
-                        _showDeleteConfirmation(shortcut);
+                        _showDeleteConfirmation(shortcut, isDarkMode);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Ink(
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.08),
+                          // Darker red in dark mode
+                          color: isDarkMode
+                              ? Colors.red.withOpacity(0.15)
+                              : Colors.red.withOpacity(0.08),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Padding(
@@ -788,7 +771,10 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                               Container(
                                 padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
+                                  // Darker red in dark mode
+                                  color: isDarkMode
+                                      ? Colors.red.withOpacity(0.2)
+                                      : Colors.red.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(Icons.delete_outline, color: Colors.red, size: 24),
@@ -803,7 +789,11 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
                                   ),
                                 ),
                               ),
-                              Icon(Icons.chevron_right, color: Colors.red[200]),
+                              Icon(
+                                  Icons.chevron_right,
+                                  // Lighter red in dark mode
+                                  color: isDarkMode ? Colors.red[300] : Colors.red[200]
+                              ),
                             ],
                           ),
                         ),
@@ -835,6 +825,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     required VoidCallback onTap,
     Color? textColor,
     Color? iconColor,
+    bool isDarkMode = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -843,7 +834,8 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          // Darker background in dark mode
+          color: isDarkMode ? Colors.grey[850] : Colors.grey[50],
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -857,7 +849,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
             Text(
               title,
               style: AppTypography.textTheme.titleMedium?.copyWith(
-                color: textColor ?? Colors.black87,
+                color: textColor ?? (isDarkMode ? Colors.white : Colors.black87),
               ),
             ),
           ],
@@ -866,23 +858,50 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  void _showRenameDialog(dynamic shortcut) {
+  void _showRenameDialog(dynamic shortcut, bool isDarkMode) {
     final TextEditingController controller = TextEditingController(text: shortcut.label);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        // Theme-aware background
+        backgroundColor: isDarkMode ? AppTheme.darkTheme.dialogBackgroundColor : Colors.white,
         title: Text(
           'Rename Shortcut',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            // White text in dark mode
+            color: isDarkMode ? Colors.white : null,
+          ),
         ),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(
             labelText: 'Shortcut Name',
+            // Theme-aware border and text colors
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+              ),
             ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.blue, width: 2),
+            ),
+            // Theme-aware text styles
+            labelStyle: TextStyle(
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+            ),
+          ),
+          style: TextStyle(
+            // White text in dark mode
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
           maxLength: 15,
           autofocus: true,
@@ -892,16 +911,27 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'CANCEL',
-              style: AppTypography.textTheme.labelLarge,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+              ),
             ),
           ),
           ElevatedButton(
+            // Theme-aware button styling
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode
+                  ? AppTheme.darkTheme.colorScheme.primary
+                  : Colors.blue,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               // In a real implementation, you would update the shortcut name
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Rename functionality will be implemented soon'),
+                  // Theme-aware background
+                  backgroundColor: isDarkMode ? Colors.grey[800] : null,
                 ),
               );
             },
@@ -920,24 +950,35 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  void _showDeleteConfirmation(dynamic shortcut) {
+  void _showDeleteConfirmation(dynamic shortcut, bool isDarkMode) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        // Theme-aware background
+        backgroundColor: isDarkMode ? AppTheme.darkTheme.dialogBackgroundColor : Colors.white,
         title: Text(
           'Delete Shortcut?',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            // White text in dark mode
+            color: isDarkMode ? Colors.white : null,
+          ),
         ),
         content: Text(
           'Are you sure you want to delete "${shortcut.label}"? This action cannot be undone.',
-          style: AppTypography.textTheme.bodyLarge,
+          style: AppTypography.textTheme.bodyLarge?.copyWith(
+            // Lighter text in dark mode
+            color: isDarkMode ? Colors.grey[300] : null,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'CANCEL',
-              style: AppTypography.textTheme.labelLarge,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                // Lighter text in dark mode
+                color: isDarkMode ? Colors.grey[400] : null,
+              ),
             ),
           ),
           TextButton(
@@ -948,6 +989,7 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
             child: Text(
               'DELETE',
               style: AppTypography.textTheme.labelLarge?.copyWith(
+                // Keep red in both modes for emphasis
                 color: Colors.red,
               ),
             ),

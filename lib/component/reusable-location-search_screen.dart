@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/google-api-services.dart' as api;
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
+import 'package:project_navigo/themes/app_theme.dart';
+import 'package:project_navigo/themes/app_typography.dart';
 
 /// A reusable location search screen that matches the main app's search experience.
 /// Returns the selected [api.Place] when a location is chosen.
@@ -141,7 +145,15 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error getting place suggestions: $e')),
+              SnackBar(
+                content: Text(
+                  'Error getting place suggestions: $e',
+                  style: TextStyle(
+                    color: Colors.white,
+                  ),
+                ),
+                backgroundColor: Colors.red,
+              ),
             );
             setState(() {
               _isSearching = false;
@@ -254,8 +266,21 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
           setState(() {
             _isSearching = false;
           });
+
+          // Get theme state for proper styling
+          final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+          final isDarkMode = themeProvider.isDarkMode;
+
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not get details for the selected place')),
+            SnackBar(
+              content: Text(
+                'Could not get details for the selected place',
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: isDarkMode ? Colors.red[700] : Colors.red,
+            ),
           );
         }
       }
@@ -264,8 +289,21 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         setState(() {
           _isSearching = false;
         });
+
+        // Get theme state for proper styling
+        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+        final isDarkMode = themeProvider.isDarkMode;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting place details: $e')),
+          SnackBar(
+            content: Text(
+              'Error getting place details: $e',
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: isDarkMode ? Colors.red[700] : Colors.red,
+          ),
         );
       }
     }
@@ -273,14 +311,36 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode
+          ? AppTheme.darkTheme.scaffoldBackgroundColor
+          : AppTheme.lightTheme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(
+          widget.title,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            color: isDarkMode ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        // Apply theme-aware AppBar styling
+        backgroundColor: isDarkMode
+            ? AppTheme.darkTheme.appBarTheme.backgroundColor
+            : Colors.white,
+        foregroundColor: isDarkMode
+            ? AppTheme.darkTheme.appBarTheme.foregroundColor
+            : Colors.black,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -291,23 +351,35 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+                // Theme-aware search bar background
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(Icons.search, color: Colors.grey[600]),
+                    child: Icon(
+                      Icons.search,
+                      // Theme-aware icon color
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
+                      // Theme-aware text styling
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
                       decoration: InputDecoration(
                         hintText: widget.searchHint,
                         border: InputBorder.none,
-                        hintStyle: TextStyle(color: Colors.grey[600]),
+                        // Theme-aware hint text
+                        hintStyle: TextStyle(
+                          color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                        ),
                       ),
                       onChanged: _onSearchChanged,
                     ),
@@ -324,7 +396,8 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                   else if (_searchController.text.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.clear),
-                      color: Colors.grey[600],
+                      // Theme-aware icon color
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                       onPressed: () {
                         setState(() {
                           _searchController.clear();
@@ -335,7 +408,8 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                   else
                     IconButton(
                       icon: const Icon(Icons.mic),
-                      color: Colors.grey[600],
+                      // Theme-aware icon color
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                       onPressed: () {
                         // Voice search functionality
                       },
@@ -354,12 +428,22 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                   SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      // Theme-aware progress indicator color
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDarkMode ? Colors.white : Colors.blue,
+                      ),
+                    ),
                   ),
                   SizedBox(width: 8),
                   Text(
                     'Getting your location for distance calculation...',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      // Theme-aware text color
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
@@ -367,29 +451,40 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
 
           // Search results
           Expanded(
-            child: _buildSearchResults(),
+            child: _buildSearchResults(isDarkMode),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(bool isDarkMode) {
     if (_isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              // Theme-aware progress indicator color
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDarkMode ? Colors.white : Colors.blue,
+              ),
+            ),
             SizedBox(height: 16),
-            Text('Searching places...'),
+            Text(
+              'Searching places...',
+              style: TextStyle(
+                // Theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
           ],
         ),
       );
     }
 
     if (_searchController.text.isEmpty) {
-      return _buildSearchSuggestions();
+      return _buildSearchSuggestions(isDarkMode);
     }
 
     if (_placeSuggestions.isEmpty) {
@@ -397,16 +492,28 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+            Icon(
+              Icons.search_off,
+              size: 48,
+              // Theme-aware icon color
+              color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
               'No places found for "${_searchController.text}"',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              style: TextStyle(
+                fontSize: 16,
+                // Theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.grey[600],
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Try a different search term or check your internet connection',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                // Theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -419,66 +526,103 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
       itemCount: _placeSuggestions.length,
       itemBuilder: (context, index) {
         final suggestion = _placeSuggestions[index];
-        return ListTile(
-          leading: Icon(Icons.location_on, color: Colors.grey[600]),
-          title: Text(suggestion.mainText),
-          subtitle: Text(
-            suggestion.secondaryText,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        return Container(
+          margin: EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            // Theme-aware item background
+            color: isDarkMode ? Colors.grey[850] : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            // Theme-aware shadow
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-          trailing: Text(
-            _calculateDistance(suggestion) == "-"
-                ? "-"
-                : "${_calculateDistance(suggestion)} km",
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 14,
+          child: ListTile(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
+            leading: Icon(
+              Icons.location_on,
+              // Theme-aware icon color
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+            title: Text(
+              suggestion.mainText,
+              style: TextStyle(
+                // Theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Text(
+              suggestion.secondaryText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                // Theme-aware subtitle color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+            trailing: Text(
+              _calculateDistance(suggestion) == "-"
+                  ? "-"
+                  : "${_calculateDistance(suggestion)} km",
+              style: TextStyle(
+                // Theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+            onTap: () => _selectPlace(suggestion),
           ),
-          onTap: () => _selectPlace(suggestion),
         );
       },
     );
   }
 
-
-  Widget _buildSearchSuggestions() {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.search, size: 64, color: Colors.grey[300]),
-              SizedBox(height: 16),
-              Text(
-                'Start typing to search for a location',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
+  Widget _buildSearchSuggestions(bool isDarkMode) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search,
+              size: 64,
+              // Theme-aware icon color
+              color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Start typing to search for a location',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                // Theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.grey[600],
               ),
-              SizedBox(height: 8),
-              Text(
-                'You can search by address, neighborhood, or landmark',
-                style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                textAlign: TextAlign.center,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'You can search by address, neighborhood, or landmark',
+              style: TextStyle(
+                // Theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                fontSize: 14,
               ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-      );
-    }
-  }
-
-  Widget _buildSuggestionItem(String text, IconData icon, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.blue),
-      title: Text(text),
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
+      ),
     );
   }
+}

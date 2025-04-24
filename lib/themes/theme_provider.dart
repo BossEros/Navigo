@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
@@ -7,50 +8,44 @@ class ThemeProvider extends ChangeNotifier {
   static const String TRAFFIC_KEY = 'isTrafficEnabled';
 
   bool _isDarkMode = false;
-  bool _isTrafficEnabled = false; // Changed default to false per requirements
+  bool _isTrafficEnabled = true;
 
   bool get isDarkMode => _isDarkMode;
   bool get isTrafficEnabled => _isTrafficEnabled;
 
   ThemeData get themeData => _isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme;
 
-  // Initialize with the saved preference or default to light mode
   ThemeProvider() {
-    _loadThemePreference();
-    _loadTrafficPreference();
+    _loadThemePreferences();
   }
 
-  // Load the saved theme preference
-  Future<void> _loadThemePreference() async {
+  void toggleTheme() {
+    _isDarkMode = !_isDarkMode;
+    notifyListeners();
+  }
+
+  Future<void> _loadThemePreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedDarkMode = prefs.getBool(THEME_KEY) ?? false;
 
+      // Load dark mode preference
+      final savedDarkMode = prefs.getBool(THEME_KEY) ?? false;
       if (savedDarkMode != _isDarkMode) {
         _isDarkMode = savedDarkMode;
-        notifyListeners();
       }
-    } catch (e) {
-      print('Error loading theme preference: $e');
-    }
-  }
 
-  // Load the saved traffic preference
-  Future<void> _loadTrafficPreference() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedTrafficEnabled = prefs.getBool(TRAFFIC_KEY) ?? false; // Default to false
-
+      // Load traffic preference
+      final savedTrafficEnabled = prefs.getBool(TRAFFIC_KEY) ?? true;
       if (savedTrafficEnabled != _isTrafficEnabled) {
         _isTrafficEnabled = savedTrafficEnabled;
-        notifyListeners();
       }
+
+      notifyListeners();
     } catch (e) {
-      print('Error loading traffic preference: $e');
+      print('Error loading theme preferences: $e');
     }
   }
 
-  // Save the theme preference
   Future<void> _saveThemePreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -60,7 +55,6 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 
-  // Save the traffic preference
   Future<void> _saveTrafficPreference() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -70,7 +64,6 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 
-  // Set the dark mode value
   void setDarkMode(bool value) {
     if (_isDarkMode != value) {
       _isDarkMode = value;
@@ -79,7 +72,6 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 
-  // Set the traffic enabled value
   void setTrafficEnabled(bool value) {
     if (_isTrafficEnabled != value) {
       _isTrafficEnabled = value;
