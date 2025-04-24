@@ -36,7 +36,7 @@ class MapStyles {
   ''';
 
   // Dark theme for night navigation
-  static const String nightMapStyle = '''
+    static const String nightMapStyle = '''
   [
     {
       "elementType": "geometry",
