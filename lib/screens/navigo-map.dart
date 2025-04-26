@@ -15,7 +15,7 @@ import '../config/config.dart';
 import '../models/map_models/map_ids.dart';
 import '../models/route_history.dart';
 import '../models/user_profile.dart';
-import '../services/google-api-services.dart' as api hide Duration;
+import '../services/google-api-services.dart' as api;
 import 'package:project_navigo/screens/hamburger_menu_screens/hamburger-menu.dart';
 import '../services/route_history_service.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
@@ -31,14 +31,11 @@ import 'package:project_navigo/services/quick_access_shortcut_service.dart';
 
 import 'package:project_navigo/models/map_models/navigation_state.dart';
 import 'package:project_navigo/models/map_models/map_style.dart';
-import 'package:project_navigo/models/map_models/pulsating_marker_painter.dart';
 import 'package:project_navigo/models/map_models/quick_access_shortcut.dart';
-import 'package:project_navigo/models/map_models/route_info.dart';
 import 'package:project_navigo/utils/map_utilities/location_utils.dart';
 import 'package:project_navigo/utils/map_utilities/camera_utils.dart';
 import 'package:project_navigo/utils/map_utilities/format_utils.dart';
 import 'package:project_navigo/utils/map_utilities/map_utils.dart';
-import 'package:project_navigo/utils/map_utilities/ui_constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,8 +117,6 @@ bool _trafficEnabled = false;
 String? _currentMapStyle;
 
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
-  String? _currentAppliedStyle;
-
   // Controllers
   GoogleMapController? _mapController;
   final PanelController _panelController = PanelController();
@@ -212,6 +207,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Initialize quick access shortcuts
     _initQuickAccessShortcuts();
 
+    // Load user data if user is logged in from a persisted session
+    _loadUserDataIfLoggedIn();
+
     // Get saved map service
     Future.microtask(() {
       _savedMapService = Provider.of<SavedMapService>(context, listen: false);
@@ -235,6 +233,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     _dummyFocusNode.dispose();
     _shortcutsScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserDataIfLoggedIn() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Get user provider and load data if needed
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (userProvider.userProfile == null) {
+        await userProvider.loadUserData();
+      }
+    }
   }
 
   // method to initialize the quick access shortcuts
@@ -289,7 +298,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  // Add this method to handle the "New" button tap in the Quick acces button section
+  // Add this method to handle the "New" button tap in the Quick access button section
   Future<dynamic> _handleNewButtonTap() async {
     try {
       // Show dialog to create a new shortcut
@@ -408,73 +417,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       }
     }
   }
-
-  //==== METHODS FOR LONG-PRESS ACTIONS ====
-  void _showShortcutOptions(QuickAccessShortcut shortcut) {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              shortcut.label,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            ListTile(
-              leading: Icon(Icons.navigation, color: Colors.blue),
-              title: Text('Navigate Now'),
-              onTap: () {
-                Navigator.pop(context);
-                _handleCustomShortcutTap(shortcut);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete, color: Colors.red),
-              title: Text('Delete Shortcut', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteConfirmation(shortcut);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  void _showDeleteConfirmation(QuickAccessShortcut shortcut) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Shortcut?'),
-        content: Text('Are you sure you want to delete "${shortcut.label}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteShortcut(shortcut.id);
-            },
-            child: Text('DELETE', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   // Method to show dialog for adding a new shortcut
   Future<QuickAccessShortcut?> _showAddShortcutDialog({
@@ -960,77 +902,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-
-  // Add this helper method for icon selection
-  Widget _buildIconOption(StateSetter setState, String iconPath, String? selectedIcon) {
-    final bool isSelected = iconPath == selectedIcon;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedIcon = iconPath;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Center(
-          child: Image.asset(
-            iconPath,
-            width: 24,
-            height: 24,
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  // Method to save shortcuts to persistent storage (optional)
-  void _saveQuickAccessShortcuts() async {
-    try {
-      // Check if user is logged in
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        _showLoginPrompt();
-        return;
-      }
-
-      // Get the shortcut service if not already available
-      if (_shortcutService == null) {
-        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
-      }
-
-      // Save to Firebase (directly using the UI shortcuts)
-      await _shortcutService!.saveShortcuts(_quickAccessShortcuts);
-
-      // Optional: Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Your shortcuts have been saved')),
-        );
-      }
-    } catch (e) {
-      print('Error saving shortcuts: $e');
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving shortcuts: $e')),
-        );
-      }
-    }
-  }
-
-
   // Method to handle custom shortcut tap
   void _handleCustomShortcutTap(QuickAccessShortcut shortcut) async {
     try {
@@ -1278,7 +1149,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
               const SizedBox(height: 16),
 
-              // Actions row - Save and Navigate buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -1401,7 +1271,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-
   // Method to show a saved location on the map
   void showSavedLocation(String placeId, LatLng coordinates, String name) {
     // Create a place suggestion to use with existing methods
@@ -1424,25 +1293,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     ).join(' ');
   }
 
-  Widget _buildInfoItem(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              color: Colors.grey[800],
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -1459,11 +1309,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              // Theme-aware colors
+              // Theme-aware colors with more contrast in dark mode
               color: isPrimary
                   ? Colors.blue
                   : (isDarkMode ? Colors.grey[800] : Colors.grey[200]),
               shape: BoxShape.circle,
+              // Add subtle border in dark mode for better definition
+              border: isDarkMode && !isPrimary
+                  ? Border.all(color: Colors.grey[700]!, width: 1)
+                  : null,
             ),
             child: isLoading
                 ? CircularProgressIndicator(
@@ -1481,9 +1335,12 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              // Blue stays for primary, but text color changes based on theme
-              color: isPrimary ? Colors.blue : (isDarkMode ? Colors.white : Colors.black),
+            // Use the app's typography system instead of hardcoded TextStyle
+            style: AppTypography.textTheme.labelMedium?.copyWith(
+              // Use theme-aware colors
+              color: isPrimary
+                  ? Colors.blue
+                  : (isDarkMode ? Colors.white : Colors.black87),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1523,29 +1380,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         });
       }
     }
-  }
-
-  Widget _buildAddPhotoItem() {
-    return Container(
-      width: 120,
-      height: 120,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.add_a_photo, color: Colors.blue, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            'Add photo',
-            style: TextStyle(color: Colors.blue),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildPhotoItem(String imageUrl, {bool isDarkMode = false}) {
@@ -1605,7 +1439,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // 2. Add this utility method to your class
   void _ensureKeyboardHidden(BuildContext context) {
     // Hide keyboard by removing focus from any text field
     FocusScope.of(context).unfocus();
@@ -1614,7 +1447,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
-  // 3. Create a dummy focus node to redirect focus if needed
   final FocusNode _dummyFocusNode = FocusNode();
 
   Widget _buildNavigationTopButtons() {
@@ -1825,32 +1657,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             onPressed: _handleCloseButtonPressed,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDestinationIndicator() {
-    if (_destinationPlace == null) return const SizedBox.shrink();
-
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: PulsatingMarkerPainter(
-            radius: 10,
-            color: Colors.red.withOpacity(0.5),
-            controller: _pulseController,
-          ),
-          child: child,
-        );
-      },
-      child: Container(
-        width: 20,
-        height: 20,
-        decoration: BoxDecoration(
-          color: Colors.red,
-          shape: BoxShape.circle,
-        ),
       ),
     );
   }
@@ -2176,21 +1982,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  void _fitBoundsToDestination(api.Place place) {
-    final currentLocation = _currentLocation != null
-        ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
-        : _defaultLocation;
-
-    final LatLngBounds bounds = CameraUtils.calculateBoundsFromPoints(
-        [currentLocation, place.latLng]
-    );
-
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, UiConstants.standardPadding * 3),
-    );
-  }
-
-
   Future<void> _startNavigation() async {
     _logNavigationEvent("Starting navigation");
 
@@ -2366,125 +2157,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         );
 
         _polylinesMap[polylineId] = polyline;
-
-        // Add duration markers for each route
-        _addRouteDurationMarker(route, i, isSelected);
       }
     });
   }
-
-  // Create a custom bitmap for route duration bubbles
-  Future<BitmapDescriptor> _createRouteDurationBitmap(String duration, bool isSelected) async {
-    // Use a simple Flutter widget to generate a bitmap
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final size = Size(80, 40);
-
-    // Draw a rounded rectangle background
-    final paint = Paint()
-      ..color = isSelected
-          ? const Color(0xFF66B2FF) // Light blue for selected route
-          : const Color(0xFF888888); // Gray for alternate routes
-
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(20));
-    canvas.drawRRect(rrect, paint);
-
-    // Add text
-    final textSpan = TextSpan(
-      text: isSelected ? "$duration\nBest" : duration,
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: isSelected ? 16 : 14,
-        fontWeight: FontWeight.bold,
-        height: 1.0,
-      ),
-    );
-
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-
-    textPainter.layout(minWidth: size.width, maxWidth: size.width);
-    textPainter.paint(
-      canvas,
-      Offset((size.width - textPainter.width) / 2, (size.height - textPainter.height) / 2),
-    );
-
-    // Convert to image
-    final picture = recorder.endRecording();
-    final img = await picture.toImage(size.width.toInt(), size.height.toInt());
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-
-    if (byteData == null) {
-      // Fallback to standard marker if conversion fails
-      return BitmapDescriptor.defaultMarkerWithHue(
-          isSelected ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueViolet
-      );
-    }
-
-    final Uint8List bytes = byteData.buffer.asUint8List();
-    return BitmapDescriptor.fromBytes(bytes);
-  }
-
-  // Helper method to add route duration markers
-  void _addRouteDurationMarker(api.Route route, int routeIndex, bool isSelected) {
-    // Skip if no legs
-    if (route.legs.isEmpty) return;
-
-    final leg = route.legs[0];
-    final points = route.polylinePoints;
-
-    // Find a good position for the marker (around 40% along the route)
-    // This helps ensure the marker is visible but not too close to either end
-    final markerPosition = LocationUtils.findPositionAlongRoute(points, 0.4);
-
-    // Create marker ID
-    final markerId = MarkerId('route_duration_$routeIndex');
-
-    // Get duration text
-    final durationText = leg.duration.text;
-
-    // Create a route duration bubble using a custom bitmap
-    _createRouteDurationBitmap(durationText, isSelected).then((BitmapDescriptor customIcon) {
-      if (!mounted) return;
-
-      setState(() {
-        _markersMap[markerId] = Marker(
-          markerId: markerId,
-          position: markerPosition,
-          // Use our custom bitmap for the route duration
-          icon: customIcon,
-          // No info window needed as we have a custom bubble
-          infoWindow: InfoWindow.noText,
-          // Higher z-index to ensure visibility over the route lines
-          zIndex: isSelected ? 3 : 2,
-          // Make the icon clickable
-          consumeTapEvents: true,
-          visible: true,
-          // When tapped, select this route
-          onTap: () {
-            if (!isSelected) {
-              _updateDisplayedRoute(routeIndex);
-            }
-          },
-        );
-      });
-    });
-  }
-
 
   // Clear all route info markers before creating new ones
   void _clearRouteInfoMarkers() {
     // Remove any markers with IDs starting with 'route_duration_'
     _markersMap.removeWhere((markerId, marker) =>
         markerId.value.startsWith('route_duration_'));
-  }
-
-  void _stopNavigation() {
-    _completeNavigationReset();
   }
 
   void _showErrorSnackBar(String message) {
@@ -2763,11 +2444,27 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Future<String?> _showCategorySelectionDialog() async {
     String category = 'favorite'; // Default category
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Save to...'),
+          // Theme-aware background color
+          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: Text(
+            'Save to...',
+            style: AppTypography.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              // Theme-aware text color
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
               return SingleChildScrollView(
@@ -2782,6 +2479,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       key,
                       category,
                           (value) => setState(() => category = value),
+                      isDarkMode,
                     );
                   }).toList(),
                 ),
@@ -2791,11 +2489,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: AppTypography.textTheme.labelLarge?.copyWith(
+                  // Theme-aware text color
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                ),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(category),
-              child: const Text('Save'),
+              child: Text(
+                'Save',
+                style: AppTypography.textTheme.labelLarge?.copyWith(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         );
@@ -2810,22 +2520,67 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       String value,
       String selectedCategory,
       Function(String) onChanged,
+      bool isDarkMode, // Add isDarkMode parameter
       ) {
-    return RadioListTile<String>(
-      title: Row(
-        children: [
-          Icon(icon),
-          const SizedBox(width: 8),
-          Text(label),
-        ],
+    final isSelected = value == selectedCategory;
+
+    return Theme(
+      // Apply a local theme override for this RadioListTile
+      data: Theme.of(context).copyWith(
+        unselectedWidgetColor: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+        radioTheme: RadioThemeData(
+          fillColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+            if (states.contains(MaterialState.selected)) {
+              return Colors.blue;
+            }
+            return isDarkMode ? Colors.grey[700]! : Colors.grey[400]!;
+          }),
+        ),
       ),
-      value: value,
-      groupValue: selectedCategory,
-      onChanged: (String? newValue) {
-        if (newValue != null) {
-          onChanged(newValue);
-        }
-      },
+      child: RadioListTile<String>(
+        title: Row(
+          children: [
+            Icon(
+              icon,
+              // Apply accent color to the icon
+              color: isSelected
+                  ? Colors.blue
+                  : (isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: AppTypography.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                // Theme-aware text color
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        value: value,
+        groupValue: selectedCategory,
+        activeColor: Colors.blue, // Keep blue selection color for both themes
+        selectedTileColor: isDarkMode
+            ? Colors.blue.withOpacity(0.1)
+            : Colors.blue.withOpacity(0.05),
+        onChanged: (String? newValue) {
+          if (newValue != null) {
+            onChanged(newValue);
+          }
+        },
+        // Add shape for better definition in dark mode
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: isSelected
+                ? Colors.blue.withOpacity(0.3)
+                : Colors.transparent,
+            width: 1,
+          ),
+        ),
+      ),
     );
   }
 
@@ -3110,7 +2865,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             ),
           ),
 
-          // Bottom buttons with theme-aware styling
+          // Bottom button - Only "Go now" remains
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -3127,37 +2882,34 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 ),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    _showLeaveLaterDialog();
-                  },
-                  // Use theme-aware text color
-                  style: TextButton.styleFrom(
-                    foregroundColor: isDarkMode ? Colors.blue[300] : Colors.blue,
+            child: SizedBox(
+              width: double.infinity, // Full width button
+              child: ElevatedButton(
+                onPressed: () {
+                  _startActiveNavigation();
+                },
+                style: ElevatedButton.styleFrom(
+                  // Use theme-specific colors
+                  backgroundColor: isDarkMode
+                      ? AppTheme.darkTheme.colorScheme.primary
+                      : AppTheme.lightTheme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
                   ),
-                  child: const Text('Leave later'),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    _startActiveNavigation();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    // Use theme-specific colors
-                    backgroundColor: isDarkMode
-                        ? AppTheme.darkTheme.colorScheme.primary
-                        : AppTheme.lightTheme.colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(150, 48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Go now',
+                    style: AppTypography.textTheme.labelLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  child: const Text('Go now'),
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -3377,27 +3129,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void _handleShortcutTapFromAllScreen(dynamic shortcut) {
     // Cast the dynamic parameter to the expected type
     _handleCustomShortcutTap(shortcut as QuickAccessShortcut);
-  }
-
-  void _handleReorderShortcuts(List<dynamic> reorderedShortcuts) {
-    setState(() {
-      _quickAccessShortcuts = reorderedShortcuts.cast<QuickAccessShortcut>();
-    });
-
-    // Save with error handling
-    try {
-      _saveQuickAccessShortcuts();
-    } catch (e) {
-      print('Error saving reordered shortcuts: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving shortcut order. Please try again.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
   }
 
   // Add this method to navigate to the All Shortcuts screen
@@ -3838,109 +3569,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  void _showLeaveLaterDialog() {
-    // Get theme state
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: true,
-      isDismissible: true,
-      // Theme-aware background color
-      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Container(
-        height: 300,
-        child: Column(
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-
-            // Options with theme-aware styling
-            ListTile(
-              title: Text(
-                'Leave now',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              leading: Icon(
-                Icons.directions_car,
-                color: isDarkMode ? Colors.blue[300] : Colors.blue,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _startActiveNavigation();
-              },
-            ),
-            ListTile(
-              title: Text(
-                'Leave in 30 minutes',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              leading: Icon(
-                Icons.access_time,
-                color: isDarkMode ? Colors.blue[300] : Colors.blue,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // You would implement delayed routing here
-              },
-            ),
-            ListTile(
-              title: Text(
-                'Leave in 1 hour',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              leading: Icon(
-                Icons.access_time,
-                color: isDarkMode ? Colors.blue[300] : Colors.blue,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // You would implement delayed routing here
-              },
-            ),
-            ListTile(
-              title: Text(
-                'Choose departure time',
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              leading: Icon(
-                Icons.calendar_today,
-                color: isDarkMode ? Colors.blue[300] : Colors.blue,
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Show date/time picker
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTopMenuButtons() {
     return Positioned(
       top: 15,
@@ -4096,6 +3724,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildMapActionButtons() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // For navigation mode, include a more prominent traffic button
     if (_isInNavigationMode) {
       return Positioned(
@@ -4109,9 +3741,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
             FloatingActionButton(
               heroTag: "recenterButton",
-              backgroundColor: Colors.white,
-              elevation: 4.0,
-              child: const Icon(Icons.my_location, color: Colors.blue, size: 24),
+              // Theme-aware background color
+              backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+              // Adjusted elevation for dark mode
+              elevation: isDarkMode ? 6.0 : 4.0,
+              child: Icon(
+                  Icons.my_location,
+                  // Keep blue color for better visibility in both themes
+                  color: isDarkMode ? Colors.white : Colors.black,
+                  size: 24
+              ),
               onPressed: () {
                 if (_lastKnownLocation != null) {
                   _updateNavigationCamera();
@@ -4128,6 +3767,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildReportButton() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // Skip rendering the report button if we're in route selection mode
     if (_showingRouteAlternatives) {
       return const SizedBox.shrink(); // Return an empty widget
@@ -4140,7 +3783,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         left: 16, // Position at left
         child: Material(
           elevation: 4.0,
-          color: Colors.white,
+          // Theme-aware background color
+          color: isDarkMode ? Colors.grey[800] : Colors.white,
           borderRadius: BorderRadius.circular(32), // Larger circular radius
           child: InkWell(
             borderRadius: BorderRadius.circular(32),
@@ -4155,6 +3799,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 'assets/icons/warning_icon.png',
                 width: 40, // Larger icon
                 height: 40, // Larger icon
+                // Add color filter in dark mode to ensure visibility if needed
+                //color: isDarkMode ? Colors.amber[300] : null,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback icon with theme-aware color
+                  return Icon(
+                    Icons.warning_amber,
+                    size: 40,
+                    color: Colors.amber[600],
+                  );
+                },
               ),
             ),
           ),
@@ -4577,6 +4231,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   void _showAllSteps() {
     if (_routeDetails == null) return;
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // Ensure keyboard is hidden
     _ensureKeyboardHidden(context);
 
@@ -4589,6 +4247,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // Allow the sheet to be larger
+      // Theme-aware background
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -4603,38 +4263,47 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               // Header
               Container(
                 padding: const EdgeInsets.all(16),
+                // Theme-aware background
+                color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Drag handle
+                    // Drag handle with theme-aware color
                     Center(
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         width: 40,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          // Lighter color in dark mode
+                          color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
 
-                    // Title with back button
+                    // Title with back button - theme-aware colors
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back),
+                          icon: Icon(
+                            Icons.arrow_back,
+                            // Theme-aware icon color
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                          ),
                           onPressed: () {
                             Navigator.pop(context);
                             // Ensure keyboard remains hidden when returning
                             _ensureKeyboardHidden(context);
                           },
                         ),
-                        const Text(
+                        Text(
                           'All Steps',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
+                            // Theme-aware text color
+                            color: isDarkMode ? Colors.white : Colors.black87,
                           ),
                         ),
                       ],
@@ -4653,16 +4322,29 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     final bool isCurrent = index == _currentStepIndex;
 
                     return Container(
-                      color: isCurrent ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+                      // Theme-aware highlight color
+                      color: isCurrent
+                          ? (isDarkMode
+                          ? Colors.blue.withOpacity(0.15)
+                          : Colors.blue.withOpacity(0.1))
+                          : Colors.transparent,
                       child: ListTile(
                         leading: _buildManeuverIcon(step.instruction),
                         title: Text(
                           FormatUtils.cleanInstruction(step.instruction),
                           style: TextStyle(
                             fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                            // Theme-aware text color
+                            color: isDarkMode ? Colors.white : Colors.black87,
                           ),
                         ),
-                        subtitle: Text(step.distance.text),
+                        subtitle: Text(
+                          step.distance.text,
+                          style: TextStyle(
+                            // Theme-aware subtitle color - lighter in dark mode
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
                         trailing: isCurrent
                             ? const Icon(Icons.navigation, color: Colors.blue)
                             : null,

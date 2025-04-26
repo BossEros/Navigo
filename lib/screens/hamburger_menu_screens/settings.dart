@@ -300,7 +300,6 @@ Future<void> _performAccountDeletion(BuildContext context) async {
   final isDarkMode = themeProvider.isDarkMode;
 
   // This will help us navigate even after the user is signed out
-  final navigatorKey = GlobalKey<NavigatorState>();
   BuildContext? dialogContext;
 
   // Show a loading dialog and save its context

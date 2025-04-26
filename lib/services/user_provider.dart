@@ -49,6 +49,7 @@ class UserProvider extends ChangeNotifier {
     return loadUserData();
   }
 
+
   // Add a method to update profile image
   Future<void> updateProfileImage(String imageUrl, String imagePath) async {
     if (_userProfile == null) return;

@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_navigo/screens/landing_page.dart';
 import 'package:project_navigo/screens/login_screen.dart';
@@ -32,9 +34,14 @@ class _SplashScreenState extends State<SplashScreen> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       final bool isFirstLaunch = prefs.getBool(_firstLaunchKey) ?? true;
 
-      if (isFirstLaunch) {
-        // If it's the first launch, navigate to the landing page
-        // and update the first launch flag
+      // Check if user is already logged in
+      final User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (currentUser != null) {
+        // User is already logged in, navigate to main app
+        _navigateToMapScreen();
+      } else if (isFirstLaunch) {
+        // First launch flow
         await prefs.setBool(_firstLaunchKey, false);
         _navigateToLandingPage();
       } else {
@@ -42,18 +49,23 @@ class _SplashScreenState extends State<SplashScreen> {
         final hasLocationPermission = await _checkLocationPermission();
 
         if (hasLocationPermission) {
-          // If location permission is granted, go directly to login
           _navigateToLoginPage();
         } else {
-          // If location permission is not granted, go to the location access page
           _navigateToLocationAccessPage();
         }
       }
     } catch (e) {
       print('Error during app state check: $e');
-      // In case of error, default to the landing page
       _navigateToLandingPage();
     }
+  }
+
+  void _navigateToMapScreen() {
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const MyApp()),
+    );
   }
 
   Future<bool> _checkLocationPermission() async {

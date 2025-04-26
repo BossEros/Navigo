@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:project_navigo/screens/hamburger_menu_screens/search-history_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
 import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
@@ -40,6 +41,9 @@ class MenuIcon {
 
   static Widget logout(BuildContext context) =>
       FaIcon(FontAwesomeIcons.rightFromBracket, size: iconSize, color: getIconColor(context));
+
+  static Widget search(BuildContext context) =>
+      FaIcon(FontAwesomeIcons.magnifyingGlass, size: iconSize, color: getIconColor(context));
 }
 
 class Hamburgmenu extends StatefulWidget {
@@ -374,6 +378,13 @@ class _HamburgmenuState extends State<Hamburgmenu> {
                   'Saved Locations',
                   context,
                   SavedLocationsScreen(),
+                ),
+                Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
+                buildListTile(
+                  MenuIcon.search(context),
+                  'Search History',
+                  context,
+                  SearchHistoryScreen(),
                 ),
                 Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[300]),
                 buildListTile(
