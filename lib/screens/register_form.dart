@@ -1,12 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/screens/login_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography
+import 'package:project_navigo/themes/app_typography.dart';
+import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
 import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import 'navigo-map.dart';
@@ -213,7 +212,13 @@ class _RegisterFormState extends State<RegisterForm> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to determine dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       // Set to false to prevent resizing when the keyboard appears
       resizeToAvoidBottomInset: false,
       body: SizedBox.expand(
@@ -253,30 +258,55 @@ class _RegisterFormState extends State<RegisterForm> {
                       ),
                       const SizedBox(height: 22),
 
-                      // Title using standardized typography
+                      // Title using standardized typography with dark mode support
                       Text(
                         'Register',
-                        style: AppTypography.authTitle,
+                        style: AppTypography.authTitle.copyWith(
+                          // Theme-aware color
+                          color: isDarkMode ? Colors.white : null,
+                        ),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // Subtitle using standardized typography
+                      // Subtitle using standardized typography with dark mode support
                       Text(
                         'Create your account',
-                        style: AppTypography.authSubtitle,
+                        style: AppTypography.authSubtitle.copyWith(
+                          // Theme-aware color
+                          color: isDarkMode ? Colors.white70 : Colors.black54,
+                        ),
                       ),
 
                       const SizedBox(height: 24),
 
-                      // Email field with validation
+                      // Email field with validation and dark mode support
                       TextFormField(
                         controller: emailController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Email',
-                          prefixIcon: Icon(Icons.email),
+                          prefixIcon: Icon(
+                            Icons.email,
+                            // Theme-aware icon color
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
+                          // Theme-aware label color
+                          labelStyle: TextStyle(
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
+                          // Theme-aware border color
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: isDarkMode
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
                         ),
-                        style: AppTypography.authInputText,
+                        style: AppTypography.authInputText.copyWith(
+                          // Theme-aware text color
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -291,16 +321,23 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 16),
 
-                      // Password field with visibility toggle and validation
+                      // Password field with visibility toggle, validation and dark mode support
                       TextFormField(
                         controller: passwordController,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock),
+                          prefixIcon: Icon(
+                            Icons.lock,
+                            // Theme-aware icon color
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_off : Icons
-                                  .visibility,
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              // Theme-aware icon color
+                              color: isDarkMode ? Colors.grey[400] : null,
                             ),
                             onPressed: () {
                               setState(() {
@@ -308,8 +345,23 @@ class _RegisterFormState extends State<RegisterForm> {
                               });
                             },
                           ),
+                          // Theme-aware label color
+                          labelStyle: TextStyle(
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
+                          // Theme-aware border color
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: isDarkMode
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
                         ),
-                        style: AppTypography.authInputText,
+                        style: AppTypography.authInputText.copyWith(
+                          // Theme-aware text color
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                         obscureText: _obscurePassword,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -324,17 +376,23 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 16),
 
-                      // Confirm password field with validation
+                      // Confirm password field with validation and dark mode support
                       TextFormField(
                         controller: confirmPasswordController,
                         decoration: InputDecoration(
                           labelText: 'Confirm Password',
-                          prefixIcon: const Icon(Icons.lock),
+                          prefixIcon: Icon(
+                            Icons.lock,
+                            // Theme-aware icon color
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirmPassword
                                   ? Icons.visibility_off
                                   : Icons.visibility,
+                              // Theme-aware icon color
+                              color: isDarkMode ? Colors.grey[400] : null,
                             ),
                             onPressed: () {
                               setState(() {
@@ -343,8 +401,23 @@ class _RegisterFormState extends State<RegisterForm> {
                               });
                             },
                           ),
+                          // Theme-aware label color
+                          labelStyle: TextStyle(
+                            color: isDarkMode ? Colors.grey[400] : null,
+                          ),
+                          // Theme-aware border color
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: isDarkMode
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[300]!,
+                            ),
+                          ),
                         ),
-                        style: AppTypography.authInputText,
+                        style: AppTypography.authInputText.copyWith(
+                          // Theme-aware text color
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                         obscureText: _obscureConfirmPassword,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -359,7 +432,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 16),
 
-                      // Terms and conditions checkbox
+                      // Terms and conditions checkbox with dark mode support
                       Row(
                         children: [
                           Checkbox(
@@ -369,6 +442,14 @@ class _RegisterFormState extends State<RegisterForm> {
                                 _acceptedTerms = value ?? false;
                               });
                             },
+                            // Theme-aware checkbox colors
+                            fillColor: MaterialStateProperty.resolveWith((states) {
+                              if (states.contains(MaterialState.selected)) {
+                                return Colors.blue;
+                              }
+                              return isDarkMode ? Colors.grey[700] : null;
+                            }),
+                            checkColor: Colors.white,
                           ),
                           Expanded(
                             child: GestureDetector(
@@ -379,7 +460,10 @@ class _RegisterFormState extends State<RegisterForm> {
                               },
                               child: Text(
                                 'I agree to the Terms and Conditions and Privacy Policy',
-                                style: AppTypography.textTheme.bodySmall,
+                                style: AppTypography.textTheme.bodySmall?.copyWith(
+                                  // Theme-aware text color
+                                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                                ),
                               ),
                             ),
                           ),
@@ -388,12 +472,13 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 24),
 
-                      // Sign up button
+                      // Sign up button with theme-aware styling
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 50),
+                            backgroundColor: Colors.blue,
                           ),
                           onPressed: _isLoading ? null : signUp,
                           child: _isLoading
@@ -414,10 +499,15 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 20),
 
-                      // OR separator
+                      // OR separator with dark mode support
                       Row(
                         children: [
-                          Expanded(child: Divider(color: Colors.grey[400])),
+                          Expanded(
+                            child: Divider(
+                              // Theme-aware divider color
+                              color: isDarkMode ? Colors.grey[700] : Colors.grey[400],
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16),
@@ -425,17 +515,23 @@ class _RegisterFormState extends State<RegisterForm> {
                               'Or sign up with',
                               style: AppTypography.textTheme.bodyMedium
                                   ?.copyWith(
-                                color: Colors.grey[600],
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white70 : Colors.grey[600],
                               ),
                             ),
                           ),
-                          Expanded(child: Divider(color: Colors.grey[400])),
+                          Expanded(
+                            child: Divider(
+                              // Theme-aware divider color
+                              color: isDarkMode ? Colors.grey[700] : Colors.grey[400],
+                            ),
+                          ),
                         ],
                       ),
 
                       const SizedBox(height: 16),
 
-                      // Social login buttons - Facebook button removed
+                      // Social login buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -446,11 +542,13 @@ class _RegisterFormState extends State<RegisterForm> {
                               width: 50,
                               height: 50,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: isDarkMode ? Colors.grey[800] : Colors.white,
                                 shape: BoxShape.circle,
-                                boxShadow: const [
+                                boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black12,
+                                    color: isDarkMode
+                                        ? Colors.black26
+                                        : Colors.black12,
                                     blurRadius: 5,
                                     spreadRadius: 2,
                                   ),
@@ -468,13 +566,16 @@ class _RegisterFormState extends State<RegisterForm> {
 
                       const SizedBox(height: 20),
 
-                      // Login link
+                      // Login link with dark mode support
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'Already have an account?',
-                            style: AppTypography.textTheme.bodyMedium,
+                            style: AppTypography.textTheme.bodyMedium?.copyWith(
+                              // Theme-aware text color
+                              color: isDarkMode ? Colors.white70 : Colors.black87,
+                            ),
                           ),
                           TextButton(
                             onPressed: () {
@@ -488,9 +589,7 @@ class _RegisterFormState extends State<RegisterForm> {
                               'Login',
                               style: AppTypography.textTheme.labelMedium
                                   ?.copyWith(
-                                color: Theme
-                                    .of(context)
-                                    .primaryColor,
+                                color: Colors.blue,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

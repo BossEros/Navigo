@@ -1,12 +1,8 @@
-import 'dart:collection';
 import 'dart:convert';
-import 'dart:math';
-import 'package:flutter/material.dart';
 import 'package:project_navigo/config/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class GoogleApiServices {
   // Replace with your actual API key

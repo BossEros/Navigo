@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography
+import 'package:project_navigo/themes/app_typography.dart';
+import 'package:provider/provider.dart'; // Added for ThemeProvider
+import 'package:project_navigo/themes/theme_provider.dart'; // Added for ThemeProvider
 
 class FAQScreen extends StatefulWidget {
   @override
@@ -40,16 +42,28 @@ class _FAQScreenState extends State<FAQScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to check if dark mode is enabled
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply background color based on theme
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(
           "Frequently Asked Questions",
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
+            // Apply text color based on theme
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
+        // Apply AppBar theming based on dark/light mode
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+        foregroundColor: isDarkMode ? Colors.white : Colors.black,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -62,7 +76,8 @@ class _FAQScreenState extends State<FAQScreen> {
               // Category header with improved styling
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  // Apply background color based on theme
+                  color: isDarkMode ? Colors.grey[850] : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 margin: const EdgeInsets.only(bottom: 8),
@@ -71,7 +86,8 @@ class _FAQScreenState extends State<FAQScreen> {
                     category,
                     style: AppTypography.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      // Apply text color based on theme
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                   ),
                   trailing: Icon(
@@ -100,12 +116,18 @@ class _FAQScreenState extends State<FAQScreen> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8, left: 8, right: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        // Apply background color based on theme
+                        color: isDarkMode ? Colors.grey[800] : Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(
+                          // Apply border color based on theme
+                            color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade200
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.05),
+                            color: isDarkMode
+                                ? Colors.black.withOpacity(0.2)
+                                : Colors.grey.withOpacity(0.05),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           ),
@@ -116,12 +138,18 @@ class _FAQScreenState extends State<FAQScreen> {
                           question,
                           style: AppTypography.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w500,
-                            color: Colors.black87,
+                            // Apply text color based on theme
+                            color: isDarkMode ? Colors.white : Colors.black87,
                           ),
                         ),
-                        onTap: () => _showAnswerDialog(context, question, answer),
+                        onTap: () => _showAnswerDialog(context, question, answer, isDarkMode),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        trailing: Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          // Apply icon color based on theme
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                        ),
                       ),
                     );
                   }).toList(),
@@ -140,7 +168,7 @@ class _FAQScreenState extends State<FAQScreen> {
     );
   }
 
-  void _showAnswerDialog(BuildContext context, String question, String answer) {
+  void _showAnswerDialog(BuildContext context, String question, String answer, bool isDarkMode) {
     showDialog(
       context: context,
       builder: (context) {
@@ -148,17 +176,23 @@ class _FAQScreenState extends State<FAQScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          // Apply background color based on theme
+          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
           title: Text(
             question,
             style: AppTypography.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              // Apply text color based on theme
+              color: isDarkMode ? Colors.white : Colors.black87,
             ),
           ),
           content: SingleChildScrollView(
             child: Text(
               answer,
-              style: AppTypography.textTheme.bodyMedium,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                // Apply text color based on theme
+                color: isDarkMode ? Colors.white.withOpacity(0.9) : null,
+              ),
             ),
           ),
           actions: [

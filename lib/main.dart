@@ -1,13 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:project_navigo/screens/login_screen.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
-import 'package:project_navigo/services/onboarding_service.dart';
-import 'package:project_navigo/themes/app_theme.dart';
+
+import 'package:project_navigo/themes/theme_provider.dart';
+import 'package:provider/provider.dart';
 import 'screens/landing_page.dart';
-import 'services/firebase_options.dart';
 import 'services/service_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -25,8 +21,11 @@ void main() async {
   );
 
   runApp(
-    ServiceProvider(
-      child: NaviGoApp(),
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: ServiceProvider(
+        child: NaviGoApp(),
+      ),
     ),
   );
 }
@@ -36,10 +35,13 @@ class NaviGoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme from the provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       title: 'NaviGo',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: themeProvider.themeData,
       home: IntroScreen(),
     );
   }

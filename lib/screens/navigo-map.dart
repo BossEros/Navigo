@@ -1,11 +1,8 @@
-import 'dart:math';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -23,68 +20,29 @@ import '../services/route_history_service.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/app_constants.dart';
-
 import '../services/user_provider.dart';
+import '../themes/app_theme.dart';
 import '../themes/app_typography.dart';
+import '../themes/theme_provider.dart';
+import 'hamburger_menu_screens/all_shortcuts_screen.dart';
 import 'login_screen.dart';
+import 'package:project_navigo/services/quick_access_shortcut_service.dart';
+
+import 'package:project_navigo/models/map_models/navigation_state.dart';
+import 'package:project_navigo/models/map_models/map_style.dart';
+import 'package:project_navigo/models/map_models/pulsating_marker_painter.dart';
+import 'package:project_navigo/models/map_models/quick_access_shortcut.dart';
+import 'package:project_navigo/models/map_models/route_info.dart';
+import 'package:project_navigo/utils/map_utilities/location_utils.dart';
+import 'package:project_navigo/utils/map_utilities/camera_utils.dart';
+import 'package:project_navigo/utils/map_utilities/format_utils.dart';
+import 'package:project_navigo/utils/map_utilities/map_utils.dart';
+import 'package:project_navigo/utils/map_utilities/ui_constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const MyApp());
-}
-
-enum NavigationState {
-  idle,           // Initial state, no destination selected
-  placeSelected,  // A destination is selected, showing place details
-  routePreview,   // Showing route options before starting navigation
-  activeNavigation // Actively navigating
-}
-
-class PulsatingMarkerPainter extends CustomPainter {
-  final double radius;
-  final Color color;
-  final AnimationController controller;
-
-  PulsatingMarkerPainter({
-    required this.radius,
-    required this.color,
-    required this.controller,
-  }) : super(repaint: controller);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(1 - controller.value)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      radius * (1 + controller.value),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class QuickAccessShortcut {
-  final String id;
-  final String iconPath;
-  final String label;
-  final LatLng location;
-  final String address;
-  final String? placeId;
-
-  QuickAccessShortcut({
-    required this.id,
-    required this.iconPath,
-    required this.label,
-    required this.location,
-    required this.address,
-    this.placeId,
-  });
 }
 
 class MyApp extends StatelessWidget {
@@ -157,103 +115,11 @@ class NavigoMapScreen extends StatefulWidget {
 }
 
 // A state variable to control traffic visibility
-bool _trafficEnabled = true;
+bool _trafficEnabled = false;
 String? _currentMapStyle;
 
-final String? dayMapStyle = null; // Use null for default Google styling with traffic
-final String navigationMapStyle = '''
-[
-  {
-    "featureType": "poi",
-    "elementType": "labels",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "labels",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "weight": 3
-      }
-    ]
-  }
-]
-''';
-final String nightMapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#242f3e"
-      }
-    ]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#746855"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#38414e"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "color": "#212a37"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#9ca5b3"
-      }
-    ]
-  }
-]
-''';
-final String trafficOffMapStyle = '''
-[
-  {
-    "featureType": "road",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "weight": 2.5
-      }
-    ]
-  }
-]
-''';
-
 class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
+  String? _currentAppliedStyle;
 
   // Controllers
   GoogleMapController? _mapController;
@@ -322,19 +188,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   List<QuickAccessShortcut> _quickAccessShortcuts = [];
   final ScrollController _shortcutsScrollController = ScrollController();
 
+  // For quick access button
+  QuickAccessShortcutService? _shortcutService;
+  bool _isLoadingShortcuts = false;
+
   @override
   void initState() {
     super.initState();
 
-    // Set status bar to black with light (white) icons for contrast
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-      statusBarColor: Colors.black, // Black status bar
-      statusBarIconBrightness: Brightness.light, // Light (white) icons for dark background
-    ));
-
     _initLocationService();
-    _trafficEnabled = true;
-    _currentMapStyle = null;
+    _trafficEnabled = false;
+    _currentMapStyle = MapStyles.trafficOffMapStyle;
 
     _pulseController = AnimationController(
       vsync: this,
@@ -372,55 +236,257 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     super.dispose();
   }
 
-  // Add this method to initialize the quick access shortcuts
+  // method to initialize the quick access shortcuts
   void _initQuickAccessShortcuts() {
-    // Load shortcuts from shared preferences or other storage in a real app
-    // For now, we'll just initialize with empty list - Home and Work are handled separately
-    _quickAccessShortcuts = [];
+    setState(() {
+      _isLoadingShortcuts = true;
+      // Initialize with empty list
+      _quickAccessShortcuts = [];
+    });
 
-    // Optional: Add some example shortcuts for testing
-    // _quickAccessShortcuts.add(
-    //   QuickAccessShortcut(
-    //     id: 'favorite1',
-    //     iconPath: 'assets/icons/star_icon.png',
-    //     label: 'Favorite',
-    //     location: LatLng(10.3157, 123.8854),
-    //     address: 'Cebu IT Park, Cebu City',
-    //   ),
-    // );
+    // Get the service from the provider on the next frame
+    Future.microtask(() async {
+      try {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+
+        // Check if user is logged in
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          if (mounted) {
+            setState(() {
+              _isLoadingShortcuts = false;
+            });
+          }
+          return; // Early return if no user
+        }
+
+        // Load shortcuts from Firebase
+        final shortcuts = await _shortcutService!.getUserShortcuts();
+
+        // Convert to UI shortcuts
+        if (mounted) {
+          setState(() {
+            _quickAccessShortcuts = shortcuts.map((model) => QuickAccessShortcut(
+              id: model.id,
+              iconPath: model.iconPath,
+              label: model.label,
+              location: model.location,
+              address: model.address,
+              placeId: model.placeId,
+            )).toList();
+            _isLoadingShortcuts = false;
+          });
+        }
+      } catch (e) {
+        print('Error loading quick access shortcuts: $e');
+        if (mounted) {
+          setState(() {
+            _isLoadingShortcuts = false;
+          });
+        }
+      }
+    });
   }
 
   // Add this method to handle the "New" button tap in the Quick acces button section
-  void _handleNewButtonTap() async {
-    // Show a dialog to create a new shortcut
-    final result = await _showAddShortcutDialog();
+  Future<dynamic> _handleNewButtonTap() async {
+    try {
+      // Show dialog to create a new shortcut
+      final result = await _showAddShortcutDialog();
 
-    if (result != null) {
-      setState(() {
-        _quickAccessShortcuts.add(result);
-      });
+      if (result != null) {
+        try {
+          // Check if user is logged in
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) {
+            _showLoginPrompt();
+            return null;
+          }
 
-      // Optional: Save shortcuts to persistent storage
-      _saveQuickAccessShortcuts();
+          // Get service if needed
+          if (_shortcutService == null) {
+            _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+          }
 
-      // Scroll to the end to show the new shortcut
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_shortcutsScrollController.hasClients) {
-          _shortcutsScrollController.animateTo(
-            _shortcutsScrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
+          // First add to UI for immediate feedback
+          setState(() {
+            _quickAccessShortcuts.add(result);
+          });
+
+          // Scroll to show the new item
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (_shortcutsScrollController.hasClients) {
+              _shortcutsScrollController.animateTo(
+                _shortcutsScrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+
+          // Save to Firebase
+          final newId = await _shortcutService!.addShortcut(
+            iconPath: result.iconPath,
+            label: result.label,
+            lat: result.location.latitude,
+            lng: result.location.longitude,
+            address: result.address,
+            placeId: result.placeId,
           );
+
+          // Create updated shortcut with the new ID
+          QuickAccessShortcut? updatedShortcut;
+
+          if (mounted) {
+            final index = _quickAccessShortcuts.indexWhere((s) => s.id == result.id);
+            if (index >= 0) {
+              // Create updated shortcut outside of setState
+              updatedShortcut = QuickAccessShortcut(
+                id: newId,  // Replace temporary ID with Firebase ID
+                iconPath: result.iconPath,
+                label: result.label,
+                location: result.location,
+                address: result.address,
+                placeId: result.placeId,
+              );
+
+              // Update state
+              setState(() {
+                _quickAccessShortcuts[index] = updatedShortcut!;
+              });
+            }
+          }
+
+          // Return either the updated shortcut or the original
+          return updatedShortcut ?? result;
+        } catch (e) {
+          print('Error adding shortcut: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error adding shortcut: $e')),
+            );
+          }
+          return null;
         }
-      });
+      }
+      return null;
+    } catch (e) {
+      print('Error in _handleNewButtonTap: $e');
+      return null;
     }
   }
 
+  //==== ADD THIS METHOD FOR SHORTCUT DELETION ====
+  void _deleteShortcut(String shortcutId) async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginPrompt();
+        return;
+      }
+
+      // Get service if needed
+      if (_shortcutService == null) {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+      }
+
+      // First update UI
+      setState(() {
+        _quickAccessShortcuts.removeWhere((shortcut) => shortcut.id == shortcutId);
+      });
+
+      // Then delete from Firebase
+      await _shortcutService!.deleteShortcut(shortcutId);
+    } catch (e) {
+      print('Error deleting shortcut: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting shortcut: $e')),
+        );
+      }
+    }
+  }
+
+  //==== METHODS FOR LONG-PRESS ACTIONS ====
+  void _showShortcutOptions(QuickAccessShortcut shortcut) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              shortcut.label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.navigation, color: Colors.blue),
+              title: Text('Navigate Now'),
+              onTap: () {
+                Navigator.pop(context);
+                _handleCustomShortcutTap(shortcut);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete, color: Colors.red),
+              title: Text('Delete Shortcut', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteConfirmation(shortcut);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  void _showDeleteConfirmation(QuickAccessShortcut shortcut) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Shortcut?'),
+        content: Text('Are you sure you want to delete "${shortcut.label}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteShortcut(shortcut.id);
+            },
+            child: Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   // Method to show dialog for adding a new shortcut
-  Future<QuickAccessShortcut?> _showAddShortcutDialog() async {
+  Future<QuickAccessShortcut?> _showAddShortcutDialog({
+    bool editMode = false,
+    QuickAccessShortcut? existingShortcut
+  }) async {
+    // Get the current theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final TextEditingController labelController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
-    String? selectedIcon = 'assets/icons/star_icon.png'; // Default icon
+    String? selectedIcon;
     final formKey = GlobalKey<FormState>();
 
     // Location variables
@@ -428,429 +494,466 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     String selectedAddress = '';
     String? selectedPlaceId;
 
+    // Pre-populate fields if in edit mode
+    if (editMode && existingShortcut != null) {
+      labelController.text = existingShortcut.label;
+      locationController.text = existingShortcut.label; // Show name in location field
+      selectedIcon = existingShortcut.iconPath;
+      selectedLocation = existingShortcut.location;
+      selectedAddress = existingShortcut.address ?? '';
+      selectedPlaceId = existingShortcut.placeId;
+    } else {
+      // Default icon for new shortcuts
+      selectedIcon = 'assets/icons/star_icon.png';
+    }
+
     return showDialog<QuickAccessShortcut>(
         context: context,
         builder: (BuildContext context) {
           return StatefulBuilder(
-            builder: (context, setState) {
-              // Function to handle location selection
-              Future<void> _selectLocation() async {
-                final result = await Navigator.push<api.Place>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        LocationSearchScreen(
-                          title: 'Select Location',
-                          searchHint: 'Search for a location',
-                        ),
-                  ),
-                );
+              builder: (context, setState) {
+                // Function to handle location selection
+                Future<void> _selectLocation() async {
+                  final result = await Navigator.push<api.Place>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LocationSearchScreen(
+                        title: 'Select Location',
+                        searchHint: 'Search for a location',
+                      ),
+                    ),
+                  );
 
-                if (result != null) {
-                  setState(() {
-                    selectedLocation = result.latLng;
-                    selectedAddress = result.address;
-                    selectedPlaceId = result.id;
-                    locationController.text = result.name;
-                  });
+                  if (result != null) {
+                    setState(() {
+                      selectedLocation = result.latLng;
+                      selectedAddress = result.address;
+                      selectedPlaceId = result.id;
+                      locationController.text = result.name;
+                    });
+                  }
                 }
-              }
 
-              return Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                elevation: 8,
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Header with title
-                          Center(
-                            child: Text(
-                              'Add Quick Access',
-                              style: AppTypography.textTheme.headlineMedium
-                                  ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                return Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  elevation: 8,
+                  // Theme-aware background color
+                  backgroundColor: isDarkMode
+                      ? AppTheme.darkTheme.dialogBackgroundColor
+                      : Colors.white,
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Header with title - changes based on mode
+                            Center(
+                              child: Text(
+                                editMode ? 'Edit Shortcut' : 'Add Quick Access',
+                                style: AppTypography.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  // Theme-aware text color
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // Shortcut name input
-                          Text(
-                            'Name',
-                            style: AppTypography.textTheme.titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
+                            // Shortcut name input
+                            Text(
+                              'Name',
+                              style: AppTypography.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: labelController,
-                            decoration: InputDecoration(
-                              hintText: 'Enter shortcut name',
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: Colors.grey[300]!),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: labelController,
+                              decoration: InputDecoration(
+                                hintText: 'Enter shortcut name',
+                                filled: true,
+                                // Theme-aware fill color
+                                fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    // Theme-aware border color
+                                    color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    // Theme-aware border color
+                                    color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.blue, width: 2),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                  vertical: 16.0,
+                                ),
+                                counterText: '${labelController.text.length}/15',
+                                // Theme-aware hint text and counter
+                                hintStyle: TextStyle(
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                                ),
+                                counterStyle: TextStyle(
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                ),
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: Colors.grey[300]!),
+                              // Theme-aware text style
+                              style: AppTypography.textTheme.bodyLarge?.copyWith(
+                                color: isDarkMode ? Colors.white : Colors.black87,
                               ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                    color: Colors.blue, width: 2),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 16.0,
-                              ),
-                              counterText: '${labelController.text.length}/15',
+                              maxLength: 15,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a name';
+                                }
+                                return null;
+                              },
                             ),
-                            style: AppTypography.textTheme.bodyLarge,
-                            maxLength: 15,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                          // Location selection
-                          Text(
-                            'Location',
-                            style: AppTypography.textTheme.titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: selectedLocation != null
-                                    ? Colors.blue
-                                    : Colors.grey[300]!,
-                                width: selectedLocation != null ? 2 : 1,
+                            // Location selection
+                            Text(
+                              'Location',
+                              style: AppTypography.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
                               ),
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _selectLocation,
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                // Theme-aware background color
+                                color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
                                 borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
+                                border: Border.all(
+                                  color: selectedLocation != null
+                                      ? Colors.blue
+                                      : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                                  width: selectedLocation != null ? 2 : 1,
+                                ),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _selectLocation,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          color: selectedLocation != null
+                                              ? Colors.blue
+                                              : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                selectedLocation != null
+                                                    ? locationController.text
+                                                    : 'Select location',
+                                                style: AppTypography.textTheme.bodyLarge?.copyWith(
+                                                  color: selectedLocation != null
+                                                      ? (isDarkMode ? Colors.white : Colors.black87)
+                                                      : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                                                  fontWeight: selectedLocation != null
+                                                      ? FontWeight.w500
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                              if (selectedLocation != null) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  selectedAddress,
+                                                  style: AppTypography.textTheme.bodySmall?.copyWith(
+                                                    // Theme-aware text color
+                                                    color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 16,
+                                          // Theme-aware icon color
+                                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (selectedLocation != null) ...[
+                              const SizedBox(height: 16),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    // Theme-aware border color
+                                    border: Border.all(
+                                      color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Stack(
                                     children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        color: selectedLocation != null
-                                            ? Colors.blue
-                                            : Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment
-                                              .start,
-                                          children: [
-                                            Text(
-                                              selectedLocation != null
-                                                  ? locationController.text
-                                                  : 'Select location',
-                                              style: AppTypography.textTheme
-                                                  .bodyLarge?.copyWith(
-                                                color: selectedLocation != null
-                                                    ? Colors.black87
-                                                    : Colors.grey[600],
-                                                fontWeight: selectedLocation !=
-                                                    null
-                                                    ? FontWeight.w500
-                                                    : FontWeight.normal,
+                                      // Static Google Maps image
+                                      Image.network(
+                                        'https://maps.googleapis.com/maps/api/staticmap?center=${selectedLocation!.latitude},${selectedLocation!.longitude}&zoom=15&size=400x200&markers=color:red%7C${selectedLocation!.latitude},${selectedLocation!.longitude}&key=${AppConfig.apiKey}',
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          // Fallback if map image fails to load - theme-aware
+                                          return Container(
+                                            // Theme-aware background color
+                                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                                            child: Center(
+                                              child: Icon(
+                                                Icons.map,
+                                                size: 40,
+                                                // Theme-aware icon color
+                                                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
                                               ),
                                             ),
-                                            if (selectedLocation != null) ...[
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                selectedAddress,
-                                                style: AppTypography.textTheme
-                                                    .bodySmall?.copyWith(
-                                                  color: Colors.grey[600],
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ],
-                                        ),
+                                          );
+                                        },
                                       ),
-                                      Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 16,
-                                        color: Colors.grey[600],
+                                      // Location pin overlay
+                                      Center(
+                                        child: Icon(
+                                          Icons.location_pin,
+                                          color: Colors.red,
+                                          size: 36,
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
+                            ],
+                            const SizedBox(height: 24),
+
+                            // Icon selection
+                            Text(
+                              'Choose an Icon',
+                              style: AppTypography.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                // Theme-aware text color
+                                color: isDarkMode ? Colors.white : Colors.grey[800],
+                              ),
                             ),
-                          ),
-                          if (selectedLocation != null) ...[
-                            const SizedBox(height: 16),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey[300]!),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    // Static Google Maps image
-                                    Image.network(
-                                      'https://maps.googleapis.com/maps/api/staticmap?center=${selectedLocation!
-                                          .latitude},${selectedLocation!
-                                          .longitude}&zoom=15&size=400x200&markers=color:red%7C${selectedLocation!
-                                          .latitude},${selectedLocation!
-                                          .longitude}&key=${AppConfig.apiKey}',
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      errorBuilder: (context, error,
-                                          stackTrace) {
-                                        // Fallback if map image fails to load
-                                        return Container(
-                                          color: Colors.grey[200],
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.map,
-                                              size: 40,
-                                              color: Colors.grey[400],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    // Location pin overlay
-                                    Center(
-                                      child: Icon(
-                                        Icons.location_pin,
-                                        color: Colors.red,
-                                        size: 36,
-                                      ),
-                                    ),
-                                  ],
+                            const SizedBox(height: 12),
+                            Container(
+                              height: 100,
+                              decoration: BoxDecoration(
+                                // Theme-aware background color
+                                color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                                // Theme-aware border color
+                                border: Border.all(
+                                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
                                 ),
                               ),
+                              child: GridView.builder(
+                                padding: const EdgeInsets.all(8),
+                                scrollDirection: Axis.horizontal,
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 1,
+                                  mainAxisSpacing: 8,
+                                  crossAxisSpacing: 8,
+                                  childAspectRatio: 1,
+                                ),
+                                itemCount: 8,
+                                // More icons
+                                itemBuilder: (context, index) {
+                                  List<String> icons = [
+                                    'assets/icons/home_icon.png',
+                                    'assets/icons/work_icon.png',
+                                    'assets/icons/restaurant_icon.png',
+                                    'assets/icons/fastfood_icon.png',
+                                    'assets/icons/hotel_icon.png',
+                                    'assets/icons/shopping_icon.png',
+                                    'assets/icons/gym_icon.png',
+                                    'assets/icons/school_icon.png',
+                                    'assets/icons/cafe_icon.png',
+                                    'assets/icons/star_icon.png',
+                                  ];
+                                  String iconPath = index < icons.length
+                                      ? icons[index]
+                                      : 'assets/icons/star_icon.png';
+
+                                  bool isSelected = iconPath == selectedIcon;
+
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          selectedIcon = iconPath;
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 200),
+                                        decoration: BoxDecoration(
+                                          // Theme-aware background color for selected items
+                                          color: isSelected
+                                              ? (isDarkMode
+                                              ? Colors.blue.withOpacity(0.2)
+                                              : Colors.blue.withOpacity(0.1))
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? Colors.blue
+                                                : Colors.transparent,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Image.asset(
+                                            iconPath,
+                                            width: 32,
+                                            height: 32,
+                                            // Apply color filter in dark mode to brighten icons
+                                            errorBuilder: (context, error, stackTrace) {
+                                              // Fallback for missing assets - theme-aware
+                                              return Icon(
+                                                Icons.star,
+                                                color: isSelected
+                                                    ? Colors.blue
+                                                    : (isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                                                size: 32,
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+
+                            // Action buttons - theme-aware
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Cancel button
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      // Theme-aware text color
+                                      foregroundColor: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                                    ),
+                                    child: Text(
+                                      'Cancel',
+                                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                                        // Theme-aware text color
+                                        color: isDarkMode ? Colors.white : Colors.grey[700],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Add/Save button
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      if (formKey.currentState?.validate() == true) {
+                                        if (selectedLocation == null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Please select a location'),
+                                              // Theme-aware background
+                                              backgroundColor: isDarkMode ? Colors.grey[800] : null,
+                                            ),
+                                          );
+                                          return;
+                                        }
+
+                                        // Create new or updated shortcut
+                                        final shortcut = QuickAccessShortcut(
+                                          // Keep the original ID if editing
+                                          id: editMode && existingShortcut != null
+                                              ? existingShortcut.id
+                                              : 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                                          iconPath: selectedIcon!,
+                                          label: labelController.text.trim(),
+                                          location: selectedLocation!,
+                                          address: selectedAddress,
+                                          placeId: selectedPlaceId,
+                                        );
+
+                                        Navigator.of(context).pop(shortcut);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      // Theme-aware button colors
+                                      backgroundColor: isDarkMode
+                                          ? AppTheme.darkTheme.colorScheme.primary
+                                          : Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      editMode ? 'Save Changes' : 'Add Shortcut',
+                                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                          const SizedBox(height: 24),
-
-                          // Icon selection
-                          Text(
-                            'Choose an Icon',
-                            style: AppTypography.textTheme.titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
-                            child: GridView.builder(
-                              padding: const EdgeInsets.all(8),
-                              scrollDirection: Axis.horizontal,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 1,
-                                mainAxisSpacing: 8,
-                                crossAxisSpacing: 8,
-                                childAspectRatio: 1,
-                              ),
-                              itemCount: 8,
-                              // More icons
-                              itemBuilder: (context, index) {
-                                // Icons array - in a real app, you'd have more icons
-                                List<String> icons = [
-                                  'assets/icons/star_icon.png',
-                                  'assets/icons/home_icon.png',
-                                  'assets/icons/work_icon.png',
-                                  'assets/icons/restaurant_icon.png',
-                                  'assets/icons/shopping_icon.png',
-                                  'assets/icons/gym_icon.png',
-                                  'assets/icons/school_icon.png',
-                                  'assets/icons/cafe_icon.png',
-                                ];
-                                String iconPath = index < icons.length
-                                    ? icons[index]
-                                    : 'assets/icons/star_icon.png';
-
-                                bool isSelected = iconPath == selectedIcon;
-
-                                return Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        selectedIcon = iconPath;
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                          milliseconds: 200),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? Colors.blue.withOpacity(0.1)
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? Colors.blue
-                                              : Colors.transparent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Image.asset(
-                                          iconPath,
-                                          width: 32,
-                                          height: 32,
-                                          errorBuilder: (context, error,
-                                              stackTrace) {
-                                            // Fallback for missing assets
-                                            return Icon(
-                                              Icons.star,
-                                              color: isSelected
-                                                  ? Colors.blue
-                                                  : Colors.grey[700],
-                                              size: 32,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-
-                          // Action buttons
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Cancel button
-                              Expanded(
-                                child: TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Cancel',
-                                    style: AppTypography.textTheme.labelLarge
-                                        ?.copyWith(
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              // Add button
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    if (formKey.currentState?.validate() ==
-                                        true) {
-                                      if (selectedLocation == null) {
-                                        ScaffoldMessenger
-                                            .of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                                'Please select a location'),
-                                          ),
-                                        );
-                                        return;
-                                      }
-
-                                      // Create new shortcut
-                                      final shortcut = QuickAccessShortcut(
-                                        id: 'custom_${DateTime
-                                            .now()
-                                            .millisecondsSinceEpoch}',
-                                        iconPath: selectedIcon!,
-                                        label: labelController.text.trim(),
-                                        location: selectedLocation!,
-                                        address: selectedAddress,
-                                        placeId: selectedPlaceId,
-                                      );
-
-                                      Navigator.of(context).pop(shortcut);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Add Shortcut',
-                                    style: AppTypography.textTheme.labelLarge
-                                        ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }
+                );
+              }
           );
         }
     );
@@ -890,62 +993,40 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // Add this method to check if we have the necessary assets for our example
-  bool _assetsExist() {
-    try {
-      // In a real app, you'd check if assets exist
-      // This is a simplified check
-      return true;
-    } catch (e) {
-      print('Assets check error: $e');
-      return false;
-    }
-  }
-
-  // Optional: Add a fallback for missing assets
-  String _getFallbackIconPath(String iconPath) {
-    // This would check if the specified path exists, and if not, return a fallback
-    // For simplicity, we'll just return the input path
-    return iconPath;
-  }
-
-  // If the user doesn't have the expected icons in assets,
-// you can use system icons instead:
-  Widget _buildIconOptionWithSystemIcon(StateSetter setState, IconData icon, String iconKey, String? selectedIcon) {
-    final bool isSelected = iconKey == selectedIcon;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedIcon = iconKey;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? Colors.blue : Colors.grey[700],
-          size: 24,
-        ),
-      ),
-    );
-  }
 
   // Method to save shortcuts to persistent storage (optional)
-  void _saveQuickAccessShortcuts() {
-    // In a real app, save to SharedPreferences or a database
-    // This is just a placeholder for future implementation
-    print('Saved ${_quickAccessShortcuts.length} shortcuts');
+  void _saveQuickAccessShortcuts() async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginPrompt();
+        return;
+      }
+
+      // Get the shortcut service if not already available
+      if (_shortcutService == null) {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+      }
+
+      // Save to Firebase (directly using the UI shortcuts)
+      await _shortcutService!.saveShortcuts(_quickAccessShortcuts);
+
+      // Optional: Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Your shortcuts have been saved')),
+        );
+      }
+    } catch (e) {
+      print('Error saving shortcuts: $e');
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving shortcuts: $e')),
+        );
+      }
+    }
   }
 
 
@@ -1030,7 +1111,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  // A method to ensure consistent state
   void _updateNavigationState(NavigationState newState) {
     // Only update if the state is actually changing
     if (_navigationState == newState) return;
@@ -1039,22 +1119,27 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _navigationState = newState;
 
       // Ensure other flags are synchronized with the navigation state
-      if (newState == NavigationState.placeSelected) {
-        _showingRouteAlternatives = false;
-        _isNavigating = false;
-        _isInNavigationMode = false;
-      } else if (newState == NavigationState.routePreview) {
-        _showingRouteAlternatives = true;
-        _isNavigating = false;
-        _isInNavigationMode = false;
-      } else if (newState == NavigationState.activeNavigation) {
-        _showingRouteAlternatives = false;
-        _isNavigating = true;
-        _isInNavigationMode = true;
-      } else if (newState == NavigationState.idle) {
-        _showingRouteAlternatives = false;
-        _isNavigating = false;
-        _isInNavigationMode = false;
+      switch (newState) {
+        case NavigationState.placeSelected:
+          _showingRouteAlternatives = false;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
+        case NavigationState.routePreview:
+          _showingRouteAlternatives = true;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
+        case NavigationState.activeNavigation:
+          _showingRouteAlternatives = false;
+          _isNavigating = true;
+          _isInNavigationMode = true;
+          break;
+        case NavigationState.idle:
+          _showingRouteAlternatives = false;
+          _isNavigating = false;
+          _isInNavigationMode = false;
+          break;
       }
     });
 
@@ -1108,41 +1193,49 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildSelectedPlaceCard() {
     if (_navigationState != NavigationState.placeSelected) return const SizedBox.shrink();
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Theme-aware background
+          color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              // Darker shadow in dark mode
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.1),
               blurRadius: 10,
               spreadRadius: 2,
             ),
           ],
         ),
-        child: SingleChildScrollView(  // Make the card scrollable to handle keyboard overlap
+        child: SingleChildScrollView(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle
+              // Drag handle with theme-aware color
               Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   width: 40,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
 
-              // Location name and address
+              // Location name and address with theme-aware text
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -1150,21 +1243,26 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   children: [
                     Text(
                       _destinationPlace!.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 24,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                        Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             _destinationPlace!.address,
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               fontSize: 14,
                             ),
                             maxLines: 2,
@@ -1179,7 +1277,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
               const SizedBox(height: 16),
 
-              /// Actions row - Save and Navigate buttons
+              // Actions row - Save and Navigate buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -1189,66 +1287,82 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     label: _isLocationSaved ? 'Saved' : 'Save',
                     onPressed: _saveOrUnsaveLocation,
                     isLoading: _isLoadingLocationSave,
+                    isDarkMode: isDarkMode,
                   ),
 
-                  // Keep the existing Navigate button unchanged
+                  // Navigate button
                   _buildActionButton(
                     icon: Icons.navigation,
                     label: 'Navigate',
                     onPressed: _startNavigation,
                     isPrimary: true,
+                    isDarkMode: isDarkMode,
                   ),
                 ],
               ),
 
               const SizedBox(height: 16),
 
-              // Photos section - only show place images, no add photo option
+              // Photos section with theme-aware styling
               Container(
                 height: 120,
                 padding: const EdgeInsets.only(left: 16),
                 child: _destinationPlace!.photoUrls.isEmpty && _isLoadingPhotos
                     ? Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        isDarkMode ? Colors.white : Colors.blue
+                    ),
+                  ),
                 )
                     : _destinationPlace!.photoUrls.isEmpty
                     ? Center(
                   child: Text(
                     'No photos available',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                    ),
                   ),
                 )
                     : ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _destinationPlace!.photoUrls.length,
                   itemBuilder: (context, index) {
-                    return _buildPhotoItem(_destinationPlace!.photoUrls[index]);
+                    return _buildPhotoItem(
+                        _destinationPlace!.photoUrls[index],
+                        isDarkMode: isDarkMode
+                    );
                   },
                 ),
               ),
 
-              // Information section
+              // Information section with theme-aware styling
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Information',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                        Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Operating hours may vary',
                           style: TextStyle(
-                            color: Colors.grey[800],
+                            color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                             fontSize: 14,
                           ),
                         ),
@@ -1259,12 +1373,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     if (_destinationPlace!.types.isNotEmpty)
                       Row(
                         children: [
-                          Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                          Icon(
+                              Icons.category,
+                              size: 16,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             _getFormattedType(_destinationPlace!.types.first),
                             style: TextStyle(
-                              color: Colors.grey[800],
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                               fontSize: 14,
                             ),
                           ),
@@ -1281,6 +1399,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
     );
   }
+
 
   // Method to show a saved location on the map
   void showSavedLocation(String placeId, LatLng coordinates, String name) {
@@ -1329,6 +1448,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     required VoidCallback onPressed,
     bool isPrimary = false,
     bool isLoading = false,
+    bool isDarkMode = false,
   }) {
     return GestureDetector(
       onTap: isLoading ? null : onPressed,
@@ -1338,7 +1458,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: isPrimary ? Colors.blue : Colors.grey[200],
+              // Theme-aware colors
+              color: isPrimary
+                  ? Colors.blue
+                  : (isDarkMode ? Colors.grey[800] : Colors.grey[200]),
               shape: BoxShape.circle,
             ),
             child: isLoading
@@ -1350,6 +1473,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             )
                 : Icon(
               icon,
+              // Keep blue for contrast in dark mode
               color: isPrimary ? Colors.white : Colors.blue,
             ),
           ),
@@ -1357,7 +1481,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           Text(
             label,
             style: TextStyle(
-              color: isPrimary ? Colors.blue : Colors.black,
+              // Blue stays for primary, but text color changes based on theme
+              color: isPrimary ? Colors.blue : (isDarkMode ? Colors.white : Colors.black),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1422,14 +1547,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-
-  Widget _buildPhotoItem(String imageUrl) {
+  Widget _buildPhotoItem(String imageUrl, {bool isDarkMode = false}) {
     return Container(
       width: 120,
       height: 120,
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
+        // Add subtle border in dark mode
+        border: isDarkMode
+            ? Border.all(color: Colors.grey[800]!, width: 1)
+            : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -1443,12 +1571,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Container(
-              color: Colors.grey[200],
+              // Darker background in dark mode
+              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
               child: Center(
                 child: CircularProgressIndicator(
                   value: loadingProgress.expectedTotalBytes != null
                       ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
                       : null,
+                  // White in dark mode for contrast
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      isDarkMode ? Colors.white : Colors.blue
+                  ),
                 ),
               ),
             );
@@ -1456,9 +1589,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           errorBuilder: (context, error, stackTrace) {
             print('Error loading image: $error');
             return Container(
-              color: Colors.grey[200],
+              // Darker background in dark mode
+              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
               child: Center(
-                child: Icon(Icons.broken_image, color: Colors.grey[400]),
+                child: Icon(
+                    Icons.broken_image,
+                    color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+                ),
               ),
             );
           },
@@ -2043,8 +2180,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ? LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!)
         : _defaultLocation;
 
-    // This provides a tighter zoom when places are close
-    _fitBounds([currentLocation, place.latLng], padding: 100);
+    final LatLngBounds bounds = CameraUtils.calculateBoundsFromPoints(
+        [currentLocation, place.latLng]
+    );
+
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, UiConstants.standardPadding * 3),
+    );
   }
 
 
@@ -2296,7 +2438,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     // Find a good position for the marker (around 40% along the route)
     // This helps ensure the marker is visible but not too close to either end
-    final markerPosition = _findPositionAlongRoute(points, 0.4);
+    final markerPosition = LocationUtils.findPositionAlongRoute(points, 0.4);
 
     // Create marker ID
     final markerId = MarkerId('route_duration_$routeIndex');
@@ -2332,18 +2474,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  // Helper to find a position along the route at a certain percentage
-  LatLng _findPositionAlongRoute(List<LatLng> points, double percentage) {
-    if (points.isEmpty) return const LatLng(0, 0);
-    if (points.length == 1) return points[0];
-
-    // For a simple implementation, just pick a point at roughly the desired percentage
-    int index = (points.length * percentage).toInt();
-    // Ensure index is within bounds
-    index = index.clamp(0, points.length - 1);
-
-    return points[index];
-  }
 
   // Clear all route info markers before creating new ones
   void _clearRouteInfoMarkers() {
@@ -2352,72 +2482,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         markerId.value.startsWith('route_duration_'));
   }
 
-  // Create a custom map style that enhances route visibility
-  void _applyOptimizedMapStyle() {
-    if (_mapController == null) return;
-
-    // Apply a map style that reduces visual noise and enhances route visibility
-    // This is optional but can improve the user experience
-    final String optimizedMapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "transit",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.fill",
-      "stylers": [
-        {
-          "weight": 2
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(optimizedMapStyle);
-  }
-
   void _stopNavigation() {
     _completeNavigationReset();
-  }
-
-  void _fitBounds(List<LatLng> points, {double padding = 50}) {
-    if (points.isEmpty || _mapController == null) return;
-
-    double minLat = points.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    double maxLat = points.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    double minLng = points.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    double maxLng = points.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    // Add some buffer for a smoother look
-    final span = maxLat - minLat;
-    final buffer = span * 0.1; // 10% buffer
-
-    _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat - buffer, minLng - buffer),
-          northeast: LatLng(maxLat + buffer, maxLng + buffer),
-        ),
-        padding,
-      ),
-    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -2428,9 +2494,42 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  void _applyMapStyleIfNeeded(String? newStyle) {
+    // Only apply if controller exists and style is different
+    print("The style is $newStyle");
+
+    if (_mapController != null && newStyle != _currentAppliedStyle) {
+      print("Applying new map style: ${newStyle == null ? 'Default' : 'Custom'}");
+
+      _mapController!.setMapStyle(newStyle).then((_) {
+        // Update current style on success
+        _currentAppliedStyle = newStyle;
+      }).catchError((e) {
+        print("Error setting map style: $e");
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    _trafficEnabled = themeProvider.isTrafficEnabled;
+
+    // Determine map style
+    String? mapStyleString;
+    if (isDarkMode) {
+      mapStyleString = MapStyles.nightMapStyle;
+    } else if (!_trafficEnabled) {
+      mapStyleString = MapStyles.trafficOffMapStyle;
+    } else {
+      mapStyleString = null;
+    }
+
+    _applyMapStyleIfNeeded(mapStyleString);
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -2442,6 +2541,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
                   _updateCurrentLocationMarker();
+
+                  // --- Apply Initial Style on Creation ---
+                  // Apply the style determined during the *initial* build immediately
+                  // after the controller is available.
+                  print("Map Created. Applying initial style: ${mapStyleString == null ? 'Default' : 'Custom'}");
+                  _mapController!.setMapStyle(mapStyleString).catchError((e) {
+                    print("Error setting initial map style: $e");
+                  });
                 },
                 markers: _markers,
                 polylines: _polylines,
@@ -2452,7 +2559,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 compassEnabled: true,
                 // Disable user gestures during navigation to prevent accidental map movement
                 trafficEnabled: _trafficEnabled,
-                style: _currentMapStyle,
                 scrollGesturesEnabled: !_isInNavigationMode,
                 zoomGesturesEnabled: !_isInNavigationMode,
                 tiltGesturesEnabled: !_isInNavigationMode,
@@ -2471,8 +2577,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 });
               },
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color! : Colors.white,
               panel: _buildSearchPanel(),
-              body: _buildMapView(),
+              body: _buildUIOverlays(),
             ),
 
             // Conditionally show the route selection panel
@@ -2491,68 +2598,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         ),
       ),
     );
-  }
-
-  void _startLocationSimulation() {
-    if (_routeDetails == null || _routeDetails!.routes.isEmpty) return;
-
-    final route = _routeDetails!.routes[0];
-    final points = route.polylinePoints;
-
-    if (points.isEmpty) return;
-
-    int pointIndex = 0;
-
-    _locationSimulationTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (pointIndex >= points.length) {
-        timer.cancel();
-        return;
-      }
-
-      final point = points[pointIndex];
-
-      // Calculate bearing to next point for realistic simulation
-      double bearing = 0;
-      if (pointIndex < points.length - 1) {
-        bearing = _calculateBearing(
-          points[pointIndex],
-          points[pointIndex + 1],
-        );
-      }
-
-      // Simulate a LocationData object
-      final locationData = LocationData.fromMap({
-        'latitude': point.latitude,
-        'longitude': point.longitude,
-        'heading': bearing,
-        'accuracy': 5.0,
-        'altitude': 0.0,
-        'speed': 15.0, // simulate ~50 km/h
-        'speed_accuracy': 1.0,
-        'time': DateTime.now().millisecondsSinceEpoch,
-      });
-
-      _handleNavigationLocationUpdate(locationData);
-
-      pointIndex++;
-    });
-  }
-
-  // Calculate bearing between two points
-  double _calculateBearing(LatLng start, LatLng end) {
-    final double startLat = start.latitude * pi / 180;
-    final double startLng = start.longitude * pi / 180;
-    final double endLat = end.latitude * pi / 180;
-    final double endLng = end.longitude * pi / 180;
-
-    final double dLng = endLng - startLng;
-
-    final double y = sin(dLng) * cos(endLat);
-    final double x = cos(startLat) * sin(endLat) -
-        sin(startLat) * cos(endLat) * cos(dLng);
-
-    final double bearing = atan2(y, x) * 180 / pi;
-    return (bearing + 360) % 360; // Normalize to 0-360
   }
 
   Widget _buildRouteSelectionPanel() {
@@ -2622,7 +2667,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-// Add this method to handle saving/unsaving locations
+  // Add this method to handle saving/unsaving locations
   Future<void> _saveOrUnsaveLocation() async {
     if (_destinationPlace == null || _savedMapService == null) {
       return;
@@ -2709,7 +2754,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-// Helper method to show login prompt
+  // Helper method to show login prompt
   void _showLoginPrompt() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2728,7 +2773,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-// Helper method to show category selection dialog
+  // Helper method to show category selection dialog
   Future<String?> _showCategorySelectionDialog() async {
     String category = 'favorite'; // Default category
 
@@ -2801,16 +2846,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   Widget _buildCollapsedRoutePanel() {
     if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final route = _routeAlternatives[0].routes[_selectedRouteIndex];
     final leg = route.legs[0];
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Theme-aware background
+        color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            // Darker shadow in dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -2818,20 +2871,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
       child: Column(
         children: [
-          // Drag handle
+          // Drag handle with theme-aware color
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 8),
               width: 40,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
 
-          // Route summary - concise information
+          // Route summary with theme-aware text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -2844,27 +2897,33 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     const SizedBox(width: 8),
                     Text(
                       leg.duration.text,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
+                        color: isDarkMode ? Colors.white : Colors.black87,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       leg.distance.text,
                       style: TextStyle(
-                        color: Colors.grey[700],
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                       ),
                     ),
                   ],
                 ),
 
-                // Go button
+                // Go button with theme-aware styling
                 ElevatedButton(
                   onPressed: () {
                     _startActiveNavigation();
                   },
                   style: ElevatedButton.styleFrom(
+                    // Use theme colors
+                    backgroundColor: isDarkMode
+                        ? AppTheme.darkTheme.colorScheme.primary
+                        : AppTheme.lightTheme.colorScheme.primary,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -2880,29 +2939,35 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
+
   Widget _buildFullRoutePanel() {
     if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
+
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
 
     final routes = _routeAlternatives[0].routes;
 
     return Container(
-      color: Colors.white,
+      // Theme-aware background
+      color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
       child: Column(
         children: [
-          // Drag handle
+          // Drag handle with theme-aware color
           Center(
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 8),
               width: 40,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
           ),
 
-          // Route info header
+          // Route info header with theme-aware text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -2912,10 +2977,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
+                    color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.arrow_forward, size: 16),
+                Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -2924,6 +2994,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                       overflow: TextOverflow.ellipsis,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                   ),
                 ),
@@ -2933,7 +3004,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
           const SizedBox(height: 16),
 
-          // Routes list
+          // Routes list with theme-aware styling
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2953,13 +3024,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
+                      // Theme-aware background with selection highlight
                       color: _selectedRouteIndex == index
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.white,
+                          ? (isDarkMode
+                          ? Colors.blue.withOpacity(0.15)
+                          : Colors.blue.withOpacity(0.1))
+                          : (isDarkMode ? Colors.grey[850] : Colors.white),
                       border: Border.all(
                         color: _selectedRouteIndex == index
                             ? Colors.blue
-                            : Colors.grey[300]!,
+                            : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(8),
@@ -2975,9 +3049,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                               children: [
                                 Text(
                                   leg.duration.text,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 20,
+                                    color: isDarkMode ? Colors.white : Colors.black87,
                                   ),
                                 ),
                                 if (isBest) ...[
@@ -2988,14 +3063,19 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.green[50],
+                                      // Keep green for best route even in dark mode
+                                      color: isDarkMode
+                                          ? Colors.green[900]
+                                          : Colors.green[50],
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: Colors.green),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'Best',
                                       style: TextStyle(
-                                        color: Colors.green,
+                                        color: isDarkMode
+                                            ? Colors.green[300]
+                                            : Colors.green,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                       ),
@@ -3007,7 +3087,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             Text(
                               leg.distance.text,
                               style: TextStyle(
-                                color: Colors.grey[700],
+                                color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                                 fontSize: 16,
                               ),
                             ),
@@ -3020,7 +3100,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Via ${_getRouteDescription(route)}',
                           style: TextStyle(
-                            color: Colors.grey[800],
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[800],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -3032,7 +3112,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Typical traffic',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: isDarkMode ? Colors.grey[500] : Colors.grey[600],
                             fontSize: 13,
                           ),
                         ),
@@ -3044,14 +3124,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             ),
           ),
 
-          // Bottom buttons
+          // Bottom buttons with theme-aware styling
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Theme-aware background
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  // Darker shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
                   blurRadius: 6,
                   offset: const Offset(0, -3),
                 ),
@@ -3064,6 +3148,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   onPressed: () {
                     _showLeaveLaterDialog();
                   },
+                  // Use theme-aware text color
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDarkMode ? Colors.blue[300] : Colors.blue,
+                  ),
                   child: const Text('Leave later'),
                 ),
                 ElevatedButton(
@@ -3071,7 +3159,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     _startActiveNavigation();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    // Use theme-specific colors
+                    backgroundColor: isDarkMode
+                        ? AppTheme.darkTheme.colorScheme.primary
+                        : AppTheme.lightTheme.colorScheme.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(150, 48),
                     shape: RoundedRectangleBorder(
@@ -3081,174 +3172,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   child: const Text('Go now'),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRoutesPanel() {
-    if (_routeAlternatives.isEmpty) return const SizedBox.shrink();
-
-    final routes = _routeAlternatives[0].routes;
-
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-
-          // Route info header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(
-                  'Your location',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.arrow_forward, size: 16),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    _destinationPlace?.name ?? 'Destination',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Routes list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: routes.length,
-              itemBuilder: (context, index) {
-                final route = routes[index];
-                final leg = route.legs[0];
-
-                // Determine if it's the best route
-                final isBest = index == 0;
-
-                return GestureDetector(
-                  onTap: () {
-                    _updateDisplayedRoute(index);
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _selectedRouteIndex == index
-                          ? Colors.blue.withOpacity(0.1)
-                          : Colors.white,
-                      border: Border.all(
-                        color: _selectedRouteIndex == index
-                            ? Colors.blue
-                            : Colors.grey[300]!,
-                        width: 1,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Time and distance row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  leg.duration.text,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                                if (isBest) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.green),
-                                    ),
-                                    child: const Text(
-                                      'Best',
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            Text(
-                              leg.distance.text,
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Route details
-                        Text(
-                          'Via ${_getRouteDescription(route)}',
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Traffic info
-                        Text(
-                          'Typical traffic',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ],
@@ -3272,22 +3195,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           longestStep = step;
         }
       }
-      return extractRoadName(longestStep.instruction);
+      return FormatUtils.extractRoadName(longestStep.instruction);
     }
 
     return "Unknown route";
-  }
-
-  String extractRoadName(String instruction) {
-    // Simple algorithm to extract road names from instructions
-    // This is a placeholder that should be improved for a real app
-    if (instruction.contains(" onto ")) {
-      return instruction.split(" onto ")[1].split("<")[0].trim();
-    }
-    if (instruction.contains(" on ")) {
-      return instruction.split(" on ")[1].split("<")[0].trim();
-    }
-    return instruction.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 
   void _startActiveNavigation() {
@@ -3340,67 +3251,32 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-
   void _centerCameraOnLocation({
     required LatLng location,
     double zoom = 16.0,
     double tilt = 30.0,
-    double bearing = 0.0,
-    bool animate = true,
   }) {
     if (_mapController == null) return;
 
-    // Calculate the vertical offset based on screen size
-    // This moves the target point upward so marker isn't covered by details card
+    // Calculate vertical offset for UI elements
     final screenHeight = MediaQuery.of(context).size.height;
     final detailsCardHeight = screenHeight * 0.35; // Approximate height of details card
 
-    // Calculate a vertical offset in screen coordinates (pixels)
-    final verticalOffsetPixels = detailsCardHeight * 0.5; // Half the height of the card
-
-    // Convert pixel offset to LatLng offset
-    // This calculation depends on the current zoom level and latitude
-    final latitudeOffset = _calculateLatitudeOffset(
-        verticalOffsetPixels,
-        location.latitude,
+    final LatLng offsetTarget = CameraUtils.calculateOffsetTarget(
+        location,
+        detailsCardHeight / 2,
         zoom
     );
 
-    // Create a new target with the offset applied
-    final offsetTarget = LatLng(
-        location.latitude - latitudeOffset, // Move south (down in screen coordinates)
-        location.longitude
-    );
-
-    // Create the camera update
-    final cameraUpdate = CameraUpdate.newCameraPosition(
-      CameraPosition(
-        target: offsetTarget,
-        zoom: zoom,
-        tilt: tilt,
-        bearing: bearing,
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: offsetTarget,
+          zoom: zoom,
+          tilt: tilt,
+        ),
       ),
     );
-
-    // Apply the camera update
-    if (animate) {
-      _mapController!.animateCamera(cameraUpdate);
-    } else {
-      _mapController!.moveCamera(cameraUpdate);
-    }
-  }
-
-  /// Calculates latitude offset based on vertical pixel offset, current latitude, and zoom level.
-  /// This converts screen pixels to geographic coordinates.
-  double _calculateLatitudeOffset(double pixelOffset, double latitude, double zoom) {
-    // The number of pixels per degree varies based on latitude and zoom level
-    // This is an approximation based on the Mercator projection
-    final metersPerPixel = 156543.03392 * cos(latitude * pi / 180) / pow(2, zoom);
-    final metersOffset = pixelOffset * metersPerPixel;
-
-    // Convert meters to degrees (approximate)
-    // 111,111 meters per degree of latitude (roughly)
-    return metersOffset / 111111;
   }
 
   void _completeNavigationReset() {
@@ -3516,6 +3392,148 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  void _handleShortcutTapFromAllScreen(dynamic shortcut) {
+    // Cast the dynamic parameter to the expected type
+    _handleCustomShortcutTap(shortcut as QuickAccessShortcut);
+  }
+
+  void _handleReorderShortcuts(List<dynamic> reorderedShortcuts) {
+    setState(() {
+      _quickAccessShortcuts = reorderedShortcuts.cast<QuickAccessShortcut>();
+    });
+
+    // Save with error handling
+    try {
+      _saveQuickAccessShortcuts();
+    } catch (e) {
+      print('Error saving reordered shortcuts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving shortcut order. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // Add this method to navigate to the All Shortcuts screen
+  void _navigateToAllShortcuts() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AllShortcutsScreen(
+          shortcuts: _quickAccessShortcuts,
+          onShortcutTap: _handleShortcutTapFromAllScreen,
+          onAddNewShortcut: _handleNewButtonTap,
+          onDeleteShortcut: _deleteShortcut,
+          onReorderShortcuts: _handleShortcutsReorder,
+        ),
+      ),
+    );
+
+    // Process the result if it's an edit request
+    if (result != null && result is Map && result['action'] == 'edit') {
+      final shortcut = result['shortcut'];
+      if (shortcut != null) {
+        _editExistingShortcut(shortcut);
+      }
+    }
+  }
+
+  Future<void> _editExistingShortcut(QuickAccessShortcut shortcut) async {
+    try {
+      // Use the existing dialog but in edit mode
+      final updatedShortcut = await _showAddShortcutDialog(
+          editMode: true,
+          existingShortcut: shortcut
+      );
+
+      if (updatedShortcut != null) {
+        setState(() {
+          // Find and replace the shortcut in the list
+          final index = _quickAccessShortcuts.indexWhere((s) => s.id == shortcut.id);
+          if (index >= 0) {
+            _quickAccessShortcuts[index] = updatedShortcut;
+          }
+        });
+
+        // Save to Firebase
+        await _saveReorderedShortcuts();
+
+        // Show confirmation
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Shortcut updated successfully'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error editing shortcut: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating shortcut: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleShortcutsReorder(List<dynamic> reorderedShortcuts) async {
+    // Update local shortcuts list
+    setState(() {
+      _quickAccessShortcuts = List<QuickAccessShortcut>.from(reorderedShortcuts);
+    });
+
+    // Persist the new order to Firebase
+    await _saveReorderedShortcuts();
+  }
+
+  // Method to save reordered shortcuts to Firebase
+  Future<void> _saveReorderedShortcuts() async {
+    try {
+      // Check if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        _showLoginPrompt();
+        return;
+      }
+
+      // Get service if needed
+      if (_shortcutService == null) {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+      }
+
+      // Save to Firebase
+      await _shortcutService!.saveShortcuts(_quickAccessShortcuts);
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Shortcut order updated'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error saving reordered shortcuts: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving shortcut order: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   // Setup more frequent location updates for navigation
   void _startNavigationLocationTracking() {
     // Cancel existing subscription if any
@@ -3597,10 +3615,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     if (_routeDetails != null &&
         _currentStepIndex < _routeDetails!.routes[0].legs[0].steps.length) {
       final currentStep = _routeDetails!.routes[0].legs[0].steps[_currentStepIndex];
-      final distanceToNextTurn = _calculateDistance2(
-          _lastKnownLocation!,
-          currentStep.endLocation
-      );
+      final distanceToNextTurn = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
 
       // If approaching a turn, zoom in more
       if (distanceToNextTurn < 100) {
@@ -3641,10 +3656,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     final currentStep = leg.steps[_currentStepIndex];
 
     // Calculate distance to the end of current step
-    final distanceToStepEnd = _calculateDistance2(
-        currentLocation,
-        currentStep.endLocation
-    );
+    final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(currentLocation, currentStep.endLocation);
 
     // If we're close to the end of the current step, move to the next one
     // Use a threshold based on GPS accuracy - typically 20-50 meters
@@ -3655,10 +3667,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         });
       } else {
         // We've reached the last step, check if we're close to destination
-        final distToDestination = _calculateDistance2(
-            currentLocation,
-            leg.endLocation
-        );
+        final distToDestination = LocationUtils.calculateDistanceInMeters(currentLocation, leg.endLocation);
 
         if (distToDestination < 30) {
           _handleArrival();
@@ -3669,26 +3678,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   void _logNavigationEvent(String event, [dynamic data]) {
     print("NAVIGATION: $event ${data != null ? '- $data' : ''}");
-  }
-
-  // Calculate straight-line distance between two points (in meters)
-  double _calculateDistance2(LatLng point1, LatLng point2) {
-    // Haversine formula for calculating distance between two coordinates
-    const double earthRadius = 6371000; // meters
-    final double lat1 = point1.latitude * pi / 180;
-    final double lat2 = point2.latitude * pi / 180;
-    final double lon1 = point1.longitude * pi / 180;
-    final double lon2 = point2.longitude * pi / 180;
-
-    final double dLat = lat2 - lat1;
-    final double dLon = lon2 - lon1;
-
-    final double a = sin(dLat/2) * sin(dLat/2) +
-        cos(lat1) * cos(lat2) *
-            sin(dLon/2) * sin(dLon/2);
-    final double c = 2 * atan2(sqrt(a), sqrt(1-a));
-
-    return earthRadius * c;
   }
 
   // Handle arrival at destination
@@ -3830,28 +3819,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  Widget _buildMapView() {
+  Widget _buildUIOverlays() {
     return Stack(
       children: [
-        // Map
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: _defaultLocation,
-            zoom: 15,
-          ),
-          onMapCreated: (GoogleMapController controller) {
-            _mapController = controller;
-            _updateCurrentLocationMarker();
-          },
-          markers: _markers,
-          polylines: _polylines,
-          mapType: _currentMapType,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          compassEnabled: true,
-          trafficEnabled: _trafficEnabled,
-        ),
 
         // Top menu buttons only in idle state
         if (_navigationState == NavigationState.idle)
@@ -3887,43 +3857,97 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   void _showLeaveLaterDialog() {
-    // Implementation for departure time selection
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       enableDrag: true,
       isDismissible: true,
+      // Theme-aware background color
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) => Container(
         height: 300,
         child: Column(
           children: [
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+
+            // Options with theme-aware styling
             ListTile(
-              title: const Text('Leave now'),
-              leading: const Icon(Icons.directions_car),
+              title: Text(
+                'Leave now',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.directions_car,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _startActiveNavigation();
               },
             ),
             ListTile(
-              title: const Text('Leave in 30 minutes'),
-              leading: const Icon(Icons.access_time),
+              title: Text(
+                'Leave in 30 minutes',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.access_time,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // You would implement delayed routing here
               },
             ),
             ListTile(
-              title: const Text('Leave in 1 hour'),
-              leading: const Icon(Icons.access_time),
+              title: Text(
+                'Leave in 1 hour',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.access_time,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // You would implement delayed routing here
               },
             ),
             ListTile(
-              title: const Text('Choose departure time'),
-              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                'Choose departure time',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+              leading: Icon(
+                Icons.calendar_today,
+                color: isDarkMode ? Colors.blue[300] : Colors.blue,
+              ),
               onTap: () {
                 Navigator.pop(context);
                 // Show date/time picker
@@ -3980,15 +4004,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     required VoidCallback onPressed,
     Color? color,
   }) {
+    // Get dark mode state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: color ?? Colors.white,
+        // Theme-aware background color
+        color: color ?? (isDarkMode ? Colors.grey[800] : Colors.white),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            // Darker shadow for dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.25)
+                : Colors.black.withOpacity(0.15),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -3996,7 +4028,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       ),
       child: IconButton(
         icon: Icon(icon, size: 28),
-        color: color != null ? Colors.white : null,
+        // Theme-aware icon color
+        color: color != null
+            ? Colors.white
+            : (isDarkMode ? Colors.white : Colors.black87),
         onPressed: onPressed,
         padding: EdgeInsets.zero,
         constraints: BoxConstraints(),
@@ -4006,20 +4041,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   // Toggle function
   void _toggleTrafficLayer() {
+    // Get the provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Update the provider state
+    themeProvider.setTrafficEnabled(!themeProvider.isTrafficEnabled);
+
+    // No need to call setMapStyle manually - setState will trigger a rebuild
+    // which will pass the new style via the style parameter
     setState(() {
-      _trafficEnabled = !_trafficEnabled;
-
-      // When traffic is disabled, use a style that maintains POI visibility
-      // When traffic is enabled, use default Google style (null)
-      _currentMapStyle = _trafficEnabled ? null : trafficOffMapStyle;
-
-      // Apply the map style if controller exists
-      if (_mapController != null) {
-        _mapController!.setMapStyle(_currentMapStyle);
-      }
-
-      print("Traffic Enabled: $_trafficEnabled");
-      print("Current Map Style: " + (_currentMapStyle == null ? "NULL (Default Google)" : "Minimal Style"));
+      _trafficEnabled = themeProvider.isTrafficEnabled;
     });
   }
 
@@ -4032,21 +4064,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Enhanced traffic toggle button
-            FloatingActionButton(
-              heroTag: "trafficToggle",
-              mini: true,
-              backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-              elevation: 4.0,
-              child: Icon(
-                Icons.traffic,
-                color: _trafficEnabled ? Colors.white : Colors.grey[600],
-                size: 20,
-              ),
-              onPressed: () {
-                _toggleTrafficLayer();
-              },
-            ),
+            // Remove traffic toggle button
             SizedBox(height: 8),
 
             FloatingActionButton(
@@ -4065,34 +4083,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       );
     }
 
-    // For standard mode, update the existing button
-    return Positioned(
-      bottom: 200,
-      right: 16,
-      child: Column(
-        children: [
-          FloatingActionButton(
-            heroTag: "toggleTraffic",
-            mini: true,
-            backgroundColor: _trafficEnabled ? Colors.blue : Colors.white,
-            onPressed: () {
-              _toggleTrafficLayer();
-            },
-            child: Icon(
-              Icons.traffic,
-              color: _trafficEnabled ? Colors.white : Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          _buildCircularButton(
-            icon: _isNavigating ? Icons.close : Icons.navigation,
-            color: _isNavigating ? Colors.red : null,
-            onPressed: _isNavigating ? _stopNavigation : _startNavigation,
-          ),
-        ],
-      ),
-    );
+    // For standard mode, remove traffic toggle completely
+    return const SizedBox.shrink();
   }
 
   Widget _buildReportButton() {
@@ -4136,6 +4128,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       return const SizedBox.shrink();
     }
 
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final route = _routeDetails!.routes[0];
     final leg = route.legs[0];
 
@@ -4148,11 +4144,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Calculate distance to next maneuver
     String distanceText = currentStep.distance.text;
     if (_lastKnownLocation != null) {
-      final distanceToStepEnd = _calculateDistance2(
-          _lastKnownLocation!,
-          currentStep.endLocation
-      );
-      distanceText = _formatDistance(distanceToStepEnd.toInt());
+      final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(
+          _lastKnownLocation!, currentStep.endLocation);
+      distanceText = FormatUtils.formatDistance(distanceToStepEnd.toInt());
     }
 
     // Calculate ETA
@@ -4162,15 +4156,19 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Main instruction panel
+          // Main instruction panel with theme-aware styling
           Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              // Theme-aware background
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  // Darker shadow in dark mode
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -4183,7 +4181,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
+                    // Darker background for top bar in dark mode
+                    color: isDarkMode ? Colors.grey[900] : Colors.grey[50],
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   ),
                   child: Row(
@@ -4192,12 +4191,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       // Distance to destination
                       Row(
                         children: [
-                          const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                          Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             leg.distance.text,
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -4206,12 +4209,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       // ETA
                       Row(
                         children: [
-                          const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                          Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             eta,
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -4226,7 +4233,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      // Maneuver icon
+                      // Maneuver icon - don't change color based on theme
                       _buildManeuverIcon(currentStep.instruction),
                       const SizedBox(width: 16),
 
@@ -4236,10 +4243,11 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _cleanInstruction(currentStep.instruction),
-                              style: const TextStyle(
+                              FormatUtils.cleanInstruction(currentStep.instruction),
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
+                                color: isDarkMode ? Colors.white : Colors.black87,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -4248,6 +4256,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                             Text(
                               'In $distanceText',
                               style: TextStyle(
+                                // Keep blue for visibility in both themes
                                 color: Colors.blue[700],
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
@@ -4259,7 +4268,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
                       // Options button
                       IconButton(
-                        icon: const Icon(Icons.more_vert),
+                        icon: Icon(
+                          Icons.more_vert,
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
                         onPressed: () {
                           _showNavigationOptions();
                         },
@@ -4278,21 +4290,22 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: Colors.grey[200],
+                            // Darker circle in dark mode
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.arrow_forward,
                             size: 16,
-                            color: Colors.grey,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey,
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            'Then ${_cleanInstruction(leg.steps[_currentStepIndex + 1].instruction)}',
+                            'Then ${FormatUtils.cleanInstruction(leg.steps[_currentStepIndex + 1].instruction)}',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                               fontSize: 14,
                             ),
                             maxLines: 1,
@@ -4347,18 +4360,6 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // Helper to clean HTML from instructions
-  String _cleanInstruction(String instruction) {
-    // Remove HTML tags
-    String cleaned = instruction.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    // Simplify common phrases
-    cleaned = cleaned
-        .replaceAll('Proceed to', 'Go to')
-        .replaceAll('Continue onto', 'Continue on');
-
-    return cleaned;
-  }
 
   // Calculate estimated arrival time
   String _calculateETA() {
@@ -4389,14 +4390,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       // If we're in the middle of a step, adjust for progress
       if (_currentStepIndex < leg.steps.length && _lastKnownLocation != null) {
         final currentStep = leg.steps[_currentStepIndex];
-        final distanceToStepEnd = _calculateDistance2(
-            _lastKnownLocation!,
-            currentStep.endLocation
-        );
-        final totalStepDistance = _calculateDistance2(
-            currentStep.startLocation,
-            currentStep.endLocation
-        );
+        final distanceToStepEnd = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
+        final totalStepDistance = LocationUtils.calculateDistanceInMeters(currentStep.startLocation, currentStep.endLocation);
 
         if (totalStepDistance > 0) {
           // Calculate how far through the current step we are (0 to 1)
@@ -4435,6 +4430,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   // Show a dialog with navigation options
   void _showNavigationOptions() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     // Ensure keyboard is hidden before showing options
     _ensureKeyboardHidden(context);
 
@@ -4443,6 +4442,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     showModalBottomSheet(
       context: context,
+      // Theme-aware background
+      backgroundColor: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -4451,36 +4452,62 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           mainAxisSize: MainAxisSize.min,
           children: [
             // Drag handle
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
 
-            // Options
+            // Options with theme-aware styling
             ListTile(
-              leading: const Icon(Icons.list_alt),
-              title: const Text('Show all steps'),
+              leading: Icon(
+                Icons.list_alt,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              title: Text(
+                'Show all steps',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showAllSteps();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.map),
-              title: const Text('Overview map'),
+              leading: Icon(
+                Icons.map,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              title: Text(
+                'Overview map',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showRouteOverview();
               },
             ),
             ListTile(
-              leading: const Icon(Icons.stop_circle),
-              title: const Text('End navigation'),
+              leading: Icon(
+                Icons.stop_circle,
+                color: isDarkMode ? Colors.red[300] : Colors.red,
+              ),
+              title: Text(
+                'End navigation',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _showEndNavigationDialog();
@@ -4576,7 +4603,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                       child: ListTile(
                         leading: _buildManeuverIcon(step.instruction),
                         title: Text(
-                          _cleanInstruction(step.instruction),
+                          FormatUtils.cleanInstruction(step.instruction),
                           style: TextStyle(
                             fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                           ),
@@ -4661,128 +4688,39 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     });
   }
 
-  // 2. Map styles for navigation mode
-
-// Function to set a night mode map style for better visibility at night
-  void _setNightModeMapStyle() {
-    if (_mapController == null) return;
-
-    // This is a simplified example - you would typically load this from a JSON file
-    const String nightMapStyle = '''
-  [
-    {
-      "elementType": "geometry",
-      "stylers": [
-        {
-          "color": "#242f3e"
-        }
-      ]
-    },
-    {
-      "elementType": "labels.text.fill",
-      "stylers": [
-        {
-          "color": "#746855"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry",
-      "stylers": [
-        {
-          "color": "#38414e"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.stroke",
-      "stylers": [
-        {
-          "color": "#212a37"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "labels.text.fill",
-      "stylers": [
-        {
-          "color": "#9ca5b3"
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(nightMapStyle);
-  }
-
-  // Function to set a simplified map style for navigation
-  void _setNavigationMapStyle() {
-    if (_mapController == null) return;
-
-    // This is a simplified example - you would typically load this from a JSON file
-    const String navigationMapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "transit",
-      "elementType": "labels",
-      "stylers": [
-        {
-          "visibility": "off"
-        }
-      ]
-    },
-    {
-      "featureType": "road",
-      "elementType": "geometry.fill",
-      "stylers": [
-        {
-          "weight": 3
-        }
-      ]
-    }
-  ]
-  ''';
-
-    _mapController!.setMapStyle(navigationMapStyle);
-  }
-
-
-
-  // Helper method to format distances from meters
-  String _formatDistance(int meters) {
-    if (meters < 1000) {
-      return '$meters m';
-    } else {
-      final km = meters / 1000.0;
-      return '${km.toStringAsFixed(1)} km';
-    }
-  }
 
   // Show a confirmation dialog before ending navigation
   void _showEndNavigationDialog() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End Navigation'),
-        content: const Text('Are you sure you want to end navigation?'),
+        // Theme-aware background
+        backgroundColor: isDarkMode ? AppTheme.darkTheme.dialogBackgroundColor : Colors.white,
+        title: Text(
+          'End Navigation',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to end navigation?',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
             },
+            // Use theme-aware text color
+            style: TextButton.styleFrom(
+              foregroundColor: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+            ),
             child: const Text('Cancel'),
           ),
           TextButton(
@@ -4790,6 +4728,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               Navigator.of(context).pop();
               _completeNavigationReset();
             },
+            style: TextButton.styleFrom(
+              foregroundColor: isDarkMode ? Colors.red[300] : Colors.red,
+            ),
             child: const Text('End'),
           ),
         ],
@@ -4798,13 +4739,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   Widget _buildSearchPanel() {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Apply theme-aware background color
+        color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            // Soften shadow in dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -4813,50 +4762,56 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle
-          _buildDragHandle(),
+          // Drag handle with theme-aware color
+          _buildDragHandle(isDarkMode),
 
-          // Search bar
-          _buildSearchBar(),
+          // Search bar with theme awareness
+          _buildSearchBar(isDarkMode),
 
           // Content area - changes based on search state
           Expanded(
             child: _searchController.text.isEmpty
-                ? _buildDefaultContent()
-                : _buildSearchResults(),
+                ? _buildDefaultContent(isDarkMode)
+                : _buildSearchResults(isDarkMode),
           )
         ],
       ),
     );
   }
 
-  Widget _buildDragHandle() {
+  Widget _buildDragHandle(bool isDarkMode) {
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         width: 40,
         height: 5,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          // Lighter gray in dark mode
+          color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
           borderRadius: BorderRadius.circular(3),
         ),
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          // Dark gray background in dark mode
+          color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(Icons.search, color: Colors.grey[600]),
+              child: Icon(
+                  Icons.search,
+                  // Lighter icon in dark mode
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+              ),
             ),
             Expanded(
               child: TextField(
@@ -4864,13 +4819,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.search,
                 onEditingComplete: () {
-                  // Handle search completion and explicitly hide keyboard
                   _ensureKeyboardHidden(context);
                 },
+                // Apply theme-aware text styles
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Where to?',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  hintStyle: TextStyle(
+                      color: isDarkMode ? Colors.grey[500] : Colors.grey[600]
+                  ),
                 ),
                 onChanged: _onSearchChanged,
                 onTap: () {
@@ -4890,7 +4850,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else if (_searchController.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.clear),
-                color: Colors.grey[600],
+                // Theme-aware icon color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   setState(() {
                     _searchController.clear();
@@ -4901,7 +4862,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             else
               IconButton(
                 icon: const Icon(Icons.mic),
-                color: Colors.grey[600],
+                // Theme-aware icon color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 onPressed: () {
                   // Voice search functionality
                 },
@@ -4912,17 +4874,24 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildDefaultContent() {
+
+  Widget _buildDefaultContent(bool isDarkMode) {
+    // Calculate shortcuts to show as before
+    final int maxCustomShortcutsToShow = 2;
+    final displayShortcuts = _quickAccessShortcuts.take(maxCustomShortcutsToShow).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Quick access buttons with improved spacing
+        // Quick access buttons section
         Container(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 28),
+          // Theme-aware background
+          color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section title
+              // Section title with theme-aware text
               Padding(
                 padding: const EdgeInsets.only(bottom: 16.0, left: 4.0),
                 child: Text(
@@ -4930,59 +4899,88 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[800],
+                    // Theme-aware text color
+                    color: isDarkMode ? Colors.white : Colors.grey[800],
                     letterSpacing: -0.3,
                   ),
                 ),
               ),
 
-              // Replace the Row with a horizontally scrollable ListView
+              // Scrollable container for buttons
               Container(
-                height: 100, // Height for the scrollable container
+                height: 100,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   controller: _shortcutsScrollController,
                   physics: const BouncingScrollPhysics(),
                   children: [
-                    // Standard Home button
+                    // Pass isDarkMode to each button
+                    // Home button
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: _buildQuickAccessButton(
                         'assets/icons/home_icon.png',
                         'Home',
                         _handleHomeButtonTap,
+                        isDarkMode: isDarkMode,
                       ),
                     ),
 
-                    // Standard Work button
+                    // Work button
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: _buildQuickAccessButton(
                         'assets/icons/work_icon.png',
                         'Work',
                         _handleWorkButtonTap,
+                        isDarkMode: isDarkMode,
                       ),
                     ),
 
-                    // Custom shortcuts
-                    ..._quickAccessShortcuts.map((shortcut) =>
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: _buildQuickAccessButton(
-                            shortcut.iconPath,
-                            shortcut.label,
-                                () => _handleCustomShortcutTap(shortcut),
+                    // Custom shortcuts with dark mode
+                    ...displayShortcuts.map((shortcut) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _buildQuickAccessButton(
+                        shortcut.iconPath,
+                        shortcut.label,
+                            () => _handleCustomShortcutTap(shortcut),
+                        isDarkMode: isDarkMode,
+                      ),
+                    )),
+
+                    // Loading indicator with dark mode support
+                    if (_isLoadingShortcuts)
+                      Container(
+                        width: 80,
+                        height: 80,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          // Darker background in dark mode
+                          color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              // Lighter color in dark mode
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[400],
+                            ),
                           ),
                         ),
-                    ).toList(),
+                      ),
 
-                    // New button always at the end
+                    // "See All" button with dark mode
                     Padding(
                       padding: const EdgeInsets.only(left: 8),
                       child: _buildQuickAccessButton(
                         'assets/icons/plus_icon.png',
-                        'New',
-                        _handleNewButtonTap,
+                        'See All',
+                        _navigateToAllShortcuts,
+                        isDarkMode: isDarkMode,
+                        errorIconData: Icons.manage_search,
                       ),
                     ),
                   ],
@@ -4995,14 +4993,16 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         // Visual divider between sections
         Container(
           height: 8,
-          color: Colors.grey[100],
+          // Darker divider in dark mode
+          color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
         ),
 
-        // Recent locations section - improved spacing and removed "See All"
+        // Recent locations section
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Section title with theme-aware text
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Text(
@@ -5011,12 +5011,13 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     fontWeight: FontWeight.w600,
                     fontSize: 18,
                     letterSpacing: -0.3,
-                    color: Colors.black87,
+                    // Theme-aware text color
+                    color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
 
-              // Loading indicator while fetching recents
+              // Loading state
               if (_isLoadingRecentLocations)
                 const Center(
                   child: Padding(
@@ -5024,7 +5025,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     child: CircularProgressIndicator(),
                   ),
                 )
-              // Empty state message if no recents
+              // Empty state with dark mode support
               else if (_recentLocations.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -5036,16 +5037,23 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                           width: 64,
                           height: 64,
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            // Darker background in dark mode
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.history, size: 32, color: Colors.grey[400]),
+                          child: Icon(
+                              Icons.history,
+                              size: 32,
+                              // Lighter icon in dark mode
+                              color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No recent locations',
                           style: GoogleFonts.poppins(
-                            color: Colors.black87,
+                            // Theme-aware text color
+                            color: isDarkMode ? Colors.white : Colors.black87,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.2,
@@ -5055,7 +5063,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         Text(
                           'Places you search for will appear here',
                           style: GoogleFonts.poppins(
-                            color: Colors.grey[500],
+                            // Lighter text in dark mode
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
@@ -5065,7 +5074,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                     ),
                   ),
                 )
-              // List of recent locations
+              // List with dark mode support
               else
                 Expanded(
                   child: ListView.builder(
@@ -5077,7 +5086,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         location.name,
                         location.address,
                             () => _selectRecentLocation(location),
-                        getIconForType(location.iconType),
+                        MapUtils.getIconForPlaceType(location.iconType),
+                        isDarkMode,
                       );
                     },
                   ),
@@ -5089,68 +5099,32 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  // Helper method to determine icon based on location type
-  IconData getIconForType(String? type) {
-    if (type == null) return Icons.location_on_outlined;
-
-    switch (type) {
-      case 'restaurant':
-      case 'food':
-      case 'cafe':
-        return Icons.restaurant;
-      case 'store':
-      case 'shopping_mall':
-      case 'supermarket':
-        return Icons.shopping_bag;
-      case 'school':
-      case 'university':
-        return Icons.school;
-      case 'hospital':
-      case 'doctor':
-      case 'pharmacy':
-        return Icons.local_hospital;
-      case 'airport':
-      case 'bus_station':
-      case 'train_station':
-        return Icons.directions_transit;
-      case 'hotel':
-      case 'lodging':
-        return Icons.hotel;
-      case 'park':
-      case 'tourist_attraction':
-        return Icons.park;
-      case 'gym':
-      case 'fitness_center':
-        return Icons.fitness_center;
-      case 'bar':
-      case 'night_club':
-        return Icons.nightlife;
-      case 'gas_station':
-        return Icons.local_gas_station;
-      case 'bank':
-      case 'atm':
-        return Icons.account_balance;
-      default:
-        return Icons.location_on_outlined;
-    }
-  }
-
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(bool isDarkMode) {
     if (_isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Searching places...'),
+            CircularProgressIndicator(
+              // Use theme-aware color
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  isDarkMode ? Colors.white : Colors.blue
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Searching places...',
+              style: TextStyle(
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
           ],
         ),
       );
     }
 
     if (_searchController.text.isEmpty) {
-      return _buildDefaultContent();
+      return _buildDefaultContent(isDarkMode);
     }
 
     if (_placeSuggestions.isEmpty) {
@@ -5158,22 +5132,39 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+            Icon(
+                Icons.search_off,
+                size: 48,
+                color: isDarkMode ? Colors.grey[600] : Colors.grey[400]
+            ),
             const SizedBox(height: 16),
             Text(
               'No places found for "${_searchController.text}"',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              style: TextStyle(
+                  fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.grey[600]
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Try a different search term or check your internet connection',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 _onSearchChanged(_searchController.text);
               },
+              // Use theme colors from AppTheme
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDarkMode
+                    ? AppTheme.darkTheme.colorScheme.primary
+                    : AppTheme.lightTheme.colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Try Again'),
             ),
           ],
@@ -5187,19 +5178,30 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       itemBuilder: (context, index) {
         final suggestion = _placeSuggestions[index];
         return ListTile(
-          leading: Icon(Icons.location_on, color: Colors.grey[600]),
-          title: Text(suggestion.mainText),
+          leading: Icon(
+              Icons.location_on,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+          ),
+          title: Text(
+            suggestion.mainText,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
           subtitle: Text(
             suggestion.secondaryText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
           ),
           trailing: Text(
-            _calculateDistance(suggestion) == "-"
+            _getFormattedDistanceForSuggestion(suggestion) == "-"
                 ? "-"
-                : "${_calculateDistance(suggestion)} km",
+                : "${_getFormattedDistanceForSuggestion(suggestion)} km",
             style: TextStyle(
-              color: Colors.grey[600],
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               fontSize: 14,
             ),
           ),
@@ -5209,7 +5211,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     );
   }
 
-  String _calculateDistance(api.PlaceSuggestion suggestion) {
+  String _getFormattedDistanceForSuggestion(api.PlaceSuggestion suggestion) {
     // Return cached distance if available
     if (_suggestionDistances.containsKey(suggestion.placeId)) {
       return _suggestionDistances[suggestion.placeId]!;
@@ -5224,19 +5226,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     return "-";
   }
 
+  // Updated async calculation:
   Future<void> _calculateDistanceAsync(api.PlaceSuggestion suggestion) async {
     try {
       // Get place details to access its coordinates
       final place = await api.GoogleApiServices.getPlaceDetails(suggestion.placeId);
 
       if (place != null && _currentLocation != null && mounted) {
-        // Calculate distance using the Haversine formula
-        final distanceInMeters = _calculateDistance2(
+        // Use LocationUtils for calculation
+        final distanceInMeters = LocationUtils.calculateDistanceInMeters(
             LatLng(_currentLocation!.latitude!, _currentLocation!.longitude!),
             place.latLng
         );
 
-        // Format the distance appropriately
+        // Use FormatUtils for formatting
         String formattedDistance;
         if (distanceInMeters < 1000) {
           formattedDistance = "${distanceInMeters.toInt()} m";
@@ -5264,50 +5267,73 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
-  Widget _buildQuickAccessButton(String iconPath, String label, VoidCallback onTap) {
+  // This method stays exactly as it is in your original code
+  Widget _buildQuickAccessButton(
+      String iconPath,
+      String label,
+      VoidCallback onTap, {
+        IconData errorIconData = Icons.star,
+        bool isDarkMode = false,
+      }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         height: 80,
-        width: 80, // Fixed width for consistent sizing in horizontal scroll
+        width: 80,
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Theme-aware background
+          color: isDarkMode ? Colors.grey[850] : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              // Darker shadow in dark mode
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: 4,
               spreadRadius: 1,
               offset: const Offset(0, 2),
             ),
           ],
           border: Border.all(
-            color: Colors.grey[200]!,
+            // Darker border in dark mode
+            color: isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
             width: 1,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon
+            // Icon with theme support
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Image.asset(
                 iconPath,
                 width: 32,
                 height: 32,
+                // Apply color filter in dark mode to make icons lighter if needed
+                //color: isDarkMode ? Colors.white : null,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    errorIconData,
+                    // Lighter icon in dark mode
+                    color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                    size: 32,
+                  );
+                },
               ),
             ),
             const SizedBox(height: 4),
-            // Label
+            // Label with theme support
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                // Theme-aware text color
+                color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
                 letterSpacing: -0.2,
               ),
               maxLines: 1,
@@ -5443,17 +5469,21 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       String title,
       String subtitle,
       VoidCallback onTap,
-      [IconData icon = Icons.location_on_outlined]
+      [IconData icon = Icons.location_on_outlined,
+        bool isDarkMode = false]
       ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-        // Subtler shadow for better depth perception
+        // Theme-aware background
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            // Adjusted shadow for dark mode
+            color: isDarkMode
+                ? Colors.black.withOpacity(0.15)
+                : Colors.black.withOpacity(0.03),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -5464,11 +5494,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            // Darker blue background in dark mode
+            color: isDarkMode
+                ? Colors.blue.withOpacity(0.2)
+                : Colors.blue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
             icon,
+            // Same blue color in both modes for contrast
             color: Colors.blue,
             size: 20,
           ),
@@ -5481,7 +5515,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
             fontWeight: FontWeight.w600,
             fontSize: 15,
             letterSpacing: -0.2,
-            color: Colors.black87,
+            // Theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
         subtitle: Text(
@@ -5491,7 +5526,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w400,
             fontSize: 13,
-            color: Colors.grey[600],
+            // Lighter text in dark mode
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             letterSpacing: -0.1,
           ),
         ),
@@ -5500,17 +5536,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
           borderRadius: BorderRadius.circular(12),
         ),
         onTap: onTap,
-        // Long press to show options like delete
         onLongPress: () {
-          // Only show if item is a RecentLocation, not a quick access button
           if (title != 'Home' && title != 'Work' && title != 'New') {
-            _showRecentLocationOptions(title, subtitle, onTap);
+            _showRecentLocationOptions(title, subtitle, onTap, isDarkMode);
           }
         },
-        // Clearer visual indication that item is tappable
         trailing: Icon(
           Icons.chevron_right,
-          color: Colors.grey[400],
+          // Lighter icon in dark mode
+          color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
           size: 20,
         ),
       ),
@@ -5518,7 +5552,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   // Method to show options when long pressing a recent location
-  void _showRecentLocationOptions(String title, String subtitle, VoidCallback onSelect) {
+  // Update method signature
+  void _showRecentLocationOptions(String title, String subtitle, VoidCallback onSelect, [bool isDarkMode = false]) {
     // Find the location in our list
     final location = _recentLocations.firstWhere(
           (loc) => loc.name == title && loc.address == subtitle,
@@ -5538,7 +5573,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -5547,18 +5582,18 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
+            // Drag handle - theming
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
 
-            // Location name header
+            // Location name header - theming
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
               child: Text(
@@ -5566,20 +5601,20 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
 
-            // Address
+            // Address - theming
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
                 subtitle,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -5589,13 +5624,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
             const SizedBox(height: 24),
 
-            // Navigate option
+            // Navigate option - theming
             ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: isDarkMode
+                      ? Colors.blue.withOpacity(0.2)
+                      : Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(Icons.navigation, color: Colors.blue, size: 20),
@@ -5605,6 +5642,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               onTap: () {
@@ -5613,13 +5651,15 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
               },
             ),
 
-            // Remove option
+            // Remove option - theming
             ListTile(
               leading: Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: isDarkMode
+                      ? Colors.red.withOpacity(0.2)
+                      : Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(Icons.delete_outline, color: Colors.red, size: 20),
@@ -5629,6 +5669,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
               onTap: () async {
@@ -5643,6 +5684,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         'Removed from recent locations',
                         style: GoogleFonts.poppins(),
                       ),
+                      backgroundColor: isDarkMode ? Colors.grey[800] : null,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -5654,6 +5696,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
                         'Error removing location',
                         style: GoogleFonts.poppins(),
                       ),
+                      backgroundColor: isDarkMode ? Colors.grey[800] : null,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
