@@ -8,7 +8,7 @@ class MapIds {
   static const String defaultMapId = "4c9bea5033a43e50";
 
   /// Dark theme for night navigation
-  static const String nightMapId = "4c9bea5033a43e50";
+  static const String nightMapId = "7ed2de601ba3dfc7";
 
   /// Navigation-focused style with reduced POI clutter
   static const String navigationMapId = "4c9bea5033a43e50";

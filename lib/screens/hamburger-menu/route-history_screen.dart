@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:project_navigo/screens/hamburger_menu_screens/route-detail_screen.dart';
+import 'package:project_navigo/screens/hamburger-menu/route-detail_screen.dart';
 import 'package:project_navigo/models/route_history.dart';
 import 'package:project_navigo/models/route_history_filter.dart';
 import 'package:project_navigo/services/route_history_service.dart';

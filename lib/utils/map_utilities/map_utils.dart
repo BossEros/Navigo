@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/map_models/map_style.dart';
 
 class MapUtils {
   /// Get icon data for instruction step
@@ -36,27 +35,6 @@ class MapUtils {
       default:
         return Colors.grey;
     }
-  }
-
-  /// Get appropriate map style for current state
-  static String? getMapStyleForState({
-    required bool isInNavigationMode,
-    required bool trafficEnabled,
-    required bool isNightMode,
-  }) {
-    if (!trafficEnabled) {
-      return MapStyles.trafficOffMapStyle;
-    }
-
-    if (isNightMode) {
-      return MapStyles.nightMapStyle;
-    }
-
-    if (isInNavigationMode) {
-      return MapStyles.navigationMapStyle;
-    }
-
-    return null; // Default Google style
   }
 
   /// Get icon for place type

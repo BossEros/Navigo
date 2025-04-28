@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:project_navigo/screens/hamburger_menu_screens/search-history_screen.dart';
+import 'package:project_navigo/screens/hamburger-menu/search-history_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:project_navigo/screens/hamburger_menu_screens/route-history_screen.dart';
-import 'package:project_navigo/screens/hamburger_menu_screens/saved-location_screen.dart';
+import 'package:project_navigo/screens/hamburger-menu/route-history_screen.dart';
+import 'package:project_navigo/screens/hamburger-menu/saved-location_screen.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/theme_provider.dart'; // Import the ThemeProvider
 import '../../widgets/profile_image.dart';
@@ -11,8 +11,8 @@ import 'profile.dart';
 import 'settings.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/services/auth_service.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
-import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/screens/map/navigo-map.dart';
+import 'package:project_navigo/screens/authentication/login_screen.dart';
 
 // Utility class for creating consistent menu icons
 class MenuIcon {

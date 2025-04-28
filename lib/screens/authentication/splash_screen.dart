@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
+import 'package:project_navigo/screens/map/navigo-map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:project_navigo/screens/landing_page.dart';
-import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/screens/authentication/landing_page.dart';
+import 'package:project_navigo/screens/authentication/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);

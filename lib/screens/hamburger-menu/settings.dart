@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
 import '../../themes/theme_provider.dart';
-import '../login_screen.dart';
+import '../authentication/login_screen.dart';
 import 'faq_screen.dart';
 import 'terms_of_service.dart';
 import 'package:provider/provider.dart';

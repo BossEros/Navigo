@@ -7,7 +7,7 @@ import 'package:project_navigo/services/recent_locations_service.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/themes/theme_provider.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
+import 'package:project_navigo/screens/map/navigo-map.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
