@@ -405,15 +405,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                         });
                       },
                     )
-                  else
-                    IconButton(
-                      icon: const Icon(Icons.mic),
-                      // Theme-aware icon color
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      onPressed: () {
-                        // Voice search functionality
-                      },
-                    ),
+                  // The microphone button has been removed
                 ],
               ),
             ),

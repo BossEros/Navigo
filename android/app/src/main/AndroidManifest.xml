@@ -1,7 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Internet Permission -->
-    <uses-permission android:name="android.permission.INTERNET"/>   
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:label="Navigo"
@@ -18,7 +20,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAh29E6eO0XG7fci43OUpx1pw2dt1jWtKw"/>
+            android:value="AIzaSyCmt_Vre52Lw-p5YoDnoDaw4Js8A6ZiMuM"/>
 
         <!-- Facebook Login Activity -->
         <activity android:name="com.facebook.FacebookActivity"

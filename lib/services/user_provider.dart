@@ -1,21 +1,42 @@
-// lib/providers/user_provider.dart
 import 'package:flutter/material.dart';
 import 'package:project_navigo/models/user_profile.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class UserProvider extends ChangeNotifier {
   UserProfile? _userProfile;
   final UserService _userService = UserService();
   bool _isLoading = false;
   String? _error;
+  StreamSubscription<User?>? _authStateSubscription;
+  bool _isInitialized = false;
+
+  UserProvider() {
+    // Set up auth state listener in constructor
+    _authStateSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null) {
+        // User is logged in, load their data if not already loaded
+        if (!_isInitialized) {
+          loadUserData();
+        }
+      } else {
+        // User is logged out, clear their data
+        clearUserData();
+      }
+    });
+  }
 
   UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Load user data from Firestore
   Future<void> loadUserData() async {
+    // Skip if already loading or if data is already loaded
+    if (_isLoading || (_userProfile != null && _isInitialized)) {
+      return;
+    }
+
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       _error = "No user logged in";
@@ -30,6 +51,7 @@ class UserProvider extends ChangeNotifier {
     try {
       _userProfile = await _userService.getUserProfile(currentUser.uid);
       _error = null;
+      _isInitialized = true;  // Mark as initialized after successful load
     } catch (e) {
       _error = "Failed to load user data: $e";
       print(_error);
@@ -39,17 +61,17 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Clear user data on logout
   void clearUserData() {
     _userProfile = null;
+    _isInitialized = false;
     notifyListeners();
   }
 
   Future<void> refreshUserData() async {
+    _isInitialized = false;
     return loadUserData();
   }
 
-  // Add a method to update profile image
   Future<void> updateProfileImage(String imageUrl, String imagePath) async {
     if (_userProfile == null) return;
 
@@ -80,4 +102,9 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    super.dispose();
+  }
 }

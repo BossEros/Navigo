@@ -1,6 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:project_navigo/models/route_history.dart';
+import 'package:project_navigo/models/route_history_filter.dart';
 import 'package:project_navigo/utils/firebase_utils.dart';
+
+import '../models/route_history_filter.dart';
+import '../utils/firebase_utils.dart';
 
 class RouteHistoryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -33,38 +38,105 @@ class RouteHistoryService {
     }, 'saveCompletedRoute');
   }
 
-  // Get user's route history with pagination
+  // Get user's route history with pagination and filtering
   Future<List<RouteHistory>> getUserRouteHistory({
     required String userId,
     int limit = 20,
     DocumentSnapshot? startAfterDocument,
+    RouteHistoryFilter? filter,
   }) async {
     return _firebaseUtils.safeOperation(() async {
       print('Fetching route history for user: $userId, limit: $limit');
+      print('Applying filters: ${filter?.hasActiveFilters ?? false}');
 
       // IMPORTANT: Use snake_case for the field name to match your Firestore structure
       const String createdAtField = 'created_at';  // Changed from 'createdAt' to 'created_at'
 
-      print('Using field name for ordering: $createdAtField');
-
+      // Start with the base query
       Query query = _firestore
           .collection('users')
           .doc(userId)
           .collection('route_history')
-          .orderBy(createdAtField, descending: true)
-          .limit(limit);
+          .orderBy(createdAtField, descending: true);
 
+      // Apply filters if provided
+      if (filter != null) {
+        // Date range filter
+        if (filter.dateRange != null) {
+          final start = Timestamp.fromDate(filter.dateRange!.start);
+          // End date needs to be set to the end of the day for inclusive filtering
+          final end = Timestamp.fromDate(DateTime(
+            filter.dateRange!.end.year,
+            filter.dateRange!.end.month,
+            filter.dateRange!.end.day,
+            23, 59, 59, 999,
+          ));
+
+          query = query.where(createdAtField, isGreaterThanOrEqualTo: start)
+              .where(createdAtField, isLessThanOrEqualTo: end);
+        }
+
+        // Travel mode filter
+        if (filter.travelModes != null && filter.travelModes!.isNotEmpty) {
+          // If there's only one travel mode, we can use a simple where clause
+          if (filter.travelModes!.length == 1) {
+            query = query.where('travel_mode', isEqualTo: filter.travelModes!.first);
+          } else {
+            // For multiple values, we need to use 'in' operator
+            query = query.where('travel_mode', whereIn: filter.travelModes);
+          }
+        }
+
+        // Traffic conditions filter
+        if (filter.trafficConditions != null && filter.trafficConditions!.isNotEmpty) {
+          // If there's only one condition, we can use a simple where clause
+          if (filter.trafficConditions!.length == 1) {
+            query = query.where('traffic_conditions', isEqualTo: filter.trafficConditions!.first);
+          } else {
+            // For multiple values, we need to use 'in' operator
+            query = query.where('traffic_conditions', whereIn: filter.trafficConditions);
+          }
+        }
+
+        // Note: Distance and duration filters need to be applied after fetching
+        // because Firestore doesn't support range queries on multiple fields
+      }
+
+      // Apply pagination
+      query = query.limit(limit);
       if (startAfterDocument != null) {
         query = query.startAfterDocument(startAfterDocument);
       }
 
+      // Execute the query
       final querySnapshot = await query.get();
       print('Found ${querySnapshot.docs.length} route documents');
 
+      // Process the results
       List<RouteHistory> routes = [];
       for (var doc in querySnapshot.docs) {
         try {
-          routes.add(RouteHistory.fromFirestore(doc));
+          final route = RouteHistory.fromFirestore(doc);
+
+          // Apply distance filter if needed
+          if (filter?.distanceRange != null) {
+            final distance = route.distance.value.toDouble();
+            if (distance < filter!.distanceRange!.start ||
+                distance > filter.distanceRange!.end) {
+              continue; // Skip this route
+            }
+          }
+
+          // Apply duration filter if needed
+          if (filter?.durationRange != null) {
+            final duration = route.duration.value.toDouble();
+            if (duration < filter!.durationRange!.start ||
+                duration > filter.durationRange!.end) {
+              continue; // Skip this route
+            }
+          }
+
+          routes.add(route);
         } catch (e) {
           print('Error parsing route document ${doc.id}: $e');
           // Continue to next document rather than failing the whole operation

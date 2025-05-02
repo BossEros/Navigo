@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
+import 'package:project_navigo/screens/map/navigo-map.dart';
 import 'package:project_navigo/services/onboarding_service.dart';
 
 import '../../services/user_provider.dart';

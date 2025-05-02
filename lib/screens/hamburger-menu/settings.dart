@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/user_service.dart';
 import '../../themes/theme_provider.dart';
-import '../login_screen.dart';
+import '../authentication/login_screen.dart';
 import 'faq_screen.dart';
 import 'terms_of_service.dart';
 import 'package:provider/provider.dart';
@@ -56,13 +56,7 @@ class SettingsPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            // Apply theme-aware icon color
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
       body: SafeArea(
         top: false, // Don't add padding at the top since AppBar already handles it
@@ -300,7 +294,6 @@ Future<void> _performAccountDeletion(BuildContext context) async {
   final isDarkMode = themeProvider.isDarkMode;
 
   // This will help us navigate even after the user is signed out
-  final navigatorKey = GlobalKey<NavigatorState>();
   BuildContext? dialogContext;
 
   // Show a loading dialog and save its context
@@ -650,12 +643,7 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
 
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
@@ -833,13 +821,7 @@ class PrivacyPolicyPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            // Apply theme-aware icon color
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20.0),

@@ -3,10 +3,9 @@ import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/quick_access_shortcut_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' show lerpDouble;
-import 'dart:ui' as ui; // For BackdropFilter
+import 'dart:ui' as ui;
 import 'package:project_navigo/themes/theme_provider.dart';
 
 class AllShortcutsScreen extends StatefulWidget {
@@ -433,87 +432,6 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
     );
   }
 
-  void _onReorder(int oldIndex, int newIndex, bool isDarkMode) {
-    setState(() {
-      // ReorderableListView's behavior: when you drag an item down,
-      // the index of the insertion point is shifted
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
-
-      // Update the order in our local list
-      final item = _shortcuts.removeAt(oldIndex);
-      _shortcuts.insert(newIndex, item);
-    });
-
-    // Notify parent about the reordered list
-    widget.onReorderShortcuts!(_shortcuts);
-
-    // Show confirmation with theme-aware styling
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Shortcut order updated',
-          style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.white),
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 1),
-        // Theme-aware background
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
-      ),
-    );
-  }
-
-  // Helper method to safely load icons with fallbacks
-  Widget _buildSafeIcon(String iconPath, bool isDarkMode) {
-    // Map of standard icons to use as fallbacks
-    final Map<String, IconData> fallbackIcons = {
-      'home': Icons.home,
-      'work': Icons.work,
-      'star': Icons.star,
-      'favorite': Icons.favorite,
-      'restaurant': Icons.restaurant,
-      'shopping': Icons.shopping_bag,
-      'school': Icons.school,
-      'gym': Icons.fitness_center,
-      'more': Icons.more_horiz,
-      'plus': Icons.add,
-      // Add more mappings as needed
-    };
-
-    // Determine which icon to use based on the path
-    IconData? iconData;
-    for (final entry in fallbackIcons.entries) {
-      if (iconPath.toLowerCase().contains(entry.key)) {
-        iconData = entry.value;
-        break;
-      }
-    }
-
-    // Default fallback
-    iconData ??= Icons.star;
-
-    // Try to load the asset, with the icon as fallback
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.asset(
-        iconPath,
-        width: 28,
-        height: 28,
-        // Apply a color filter in dark mode to make icons more visible
-        color: isDarkMode ? Colors.white : null,
-        errorBuilder: (context, error, stackTrace) {
-          // On error, use the icon
-          return Icon(
-            iconData,
-            // Use blue in both modes for visibility
-            color: Colors.blue,
-            size: 24,
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildAddButton([double bottomPadding = 0, bool isDarkMode = false]) {
     return Container(
@@ -817,137 +735,6 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
       'action': 'edit',
       'shortcut': shortcut
     });
-  }
-
-  Widget _buildOptionTile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? textColor,
-    Color? iconColor,
-    bool isDarkMode = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          // Darker background in dark mode
-          color: isDarkMode ? Colors.grey[850] : Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: iconColor ?? Colors.blue,
-              size: 20,
-            ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: AppTypography.textTheme.titleMedium?.copyWith(
-                color: textColor ?? (isDarkMode ? Colors.white : Colors.black87),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showRenameDialog(dynamic shortcut, bool isDarkMode) {
-    final TextEditingController controller = TextEditingController(text: shortcut.label);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        // Theme-aware background
-        backgroundColor: isDarkMode ? AppTheme.darkTheme.dialogBackgroundColor : Colors.white,
-        title: Text(
-          'Rename Shortcut',
-          style: AppTypography.textTheme.titleLarge?.copyWith(
-            // White text in dark mode
-            color: isDarkMode ? Colors.white : null,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: 'Shortcut Name',
-            // Theme-aware border and text colors
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.blue, width: 2),
-            ),
-            // Theme-aware text styles
-            labelStyle: TextStyle(
-              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
-            ),
-          ),
-          style: TextStyle(
-            // White text in dark mode
-            color: isDarkMode ? Colors.white : Colors.black87,
-          ),
-          maxLength: 15,
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CANCEL',
-              style: AppTypography.textTheme.labelLarge?.copyWith(
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
-              ),
-            ),
-          ),
-          ElevatedButton(
-            // Theme-aware button styling
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDarkMode
-                  ? AppTheme.darkTheme.colorScheme.primary
-                  : Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              // In a real implementation, you would update the shortcut name
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Rename functionality will be implemented soon'),
-                  // Theme-aware background
-                  backgroundColor: isDarkMode ? Colors.grey[800] : null,
-                ),
-              );
-            },
-            child: Text(
-              'SAVE',
-              style: AppTypography.textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-    );
   }
 
   void _showDeleteConfirmation(dynamic shortcut, bool isDarkMode) {

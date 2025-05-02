@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/screens/authentication/login_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:project_navigo/themes/app_typography.dart';
+import 'package:project_navigo/themes/app_theme.dart'; // Import AppTheme
 
 void main() {
   runApp(NaviGoApp());
@@ -24,14 +25,20 @@ class NaviGoApp extends StatelessWidget {
 }
 
 class IntroScreen extends StatefulWidget {
-  const IntroScreen({super.key});
+  // Add parameter to allow starting at location page
+  final bool startAtLocationPage;
+
+  const IntroScreen({
+    super.key,
+    this.startAtLocationPage = false,
+  });
 
   @override
   _IntroScreenState createState() => _IntroScreenState();
 }
 
 class _IntroScreenState extends State<IntroScreen> {
-  final PageController _controller = PageController();
+  late final PageController _controller;
   int _currentPage = 0;
   bool _isRequestingPermission = false;
   bool _locationPermissionGranted = false;
@@ -72,6 +79,36 @@ class _IntroScreenState extends State<IntroScreen> {
       "buttonText": "Start Exploring",
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize controller with initial page based on startAtLocationPage
+    if (widget.startAtLocationPage) {
+      // Find the index of the location access page
+      int locationPageIndex = 4; // Default to the 5th page (index 4)
+
+      for (int i = 0; i < introData.length; i++) {
+        if (introData[i]['isLocationAccessPage'] == "true") {
+          locationPageIndex = i;
+          break;
+        }
+      }
+
+      _controller = PageController(initialPage: locationPageIndex);
+      _currentPage = locationPageIndex;
+    } else {
+      _controller = PageController();
+      _currentPage = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _nextPage() {
     if (_currentPage < introData.length - 1) {
@@ -168,62 +205,66 @@ class _IntroScreenState extends State<IntroScreen> {
             _isRequestingPermission = false;
           });
 
+          // Wrap the dialog with a Theme widget using light theme
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (BuildContext context) => AlertDialog(
-              title: Text(
-                'Location Services Disabled',
-                style: TextStyle(color: Colors.black87),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Please enable location services to use navigation features.',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Without location services, Navigo won\'t be able to:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+            builder: (BuildContext context) => Theme(
+              data: AppTheme.lightTheme, // Always use light theme
+              child: AlertDialog(
+                title: Text(
+                  'Location Services Disabled',
+                  style: TextStyle(color: Colors.black87),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Please enable location services to use navigation features.',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Without location services, Navigo won\'t be able to:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _buildFeatureItem(Icons.navigation, 'Provide turn-by-turn navigation'),
+                    _buildFeatureItem(Icons.route, 'Calculate optimal routes'),
+                    _buildFeatureItem(Icons.traffic, 'Alert you about traffic conditions'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _nextPage(); // Still allow to continue without location
+                    },
+                    child: Text(
+                      'CONTINUE ANYWAY',
+                      style: TextStyle(color: Colors.blue),
                     ),
                   ),
-                  SizedBox(height: 8),
-                  _buildFeatureItem(Icons.navigation, 'Provide turn-by-turn navigation'),
-                  _buildFeatureItem(Icons.route, 'Calculate optimal routes'),
-                  _buildFeatureItem(Icons.traffic, 'Alert you about traffic conditions'),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      // Open location settings if possible
+                      if (!kIsWeb) {
+                        Geolocator.openLocationSettings();
+                      }
+                      // We don't move to next page here since user needs to enable location first
+                    },
+                    child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _nextPage(); // Still allow to continue without location
-                  },
-                  child: Text(
-                    'CONTINUE ANYWAY',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    // Open location settings if possible
-                    if (!kIsWeb) {
-                      Geolocator.openLocationSettings();
-                    }
-                    // We don't move to next page here since user needs to enable location first
-                  },
-                  child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
-                ),
-              ],
             ),
           );
         }
@@ -270,61 +311,65 @@ class _IntroScreenState extends State<IntroScreen> {
             _isRequestingPermission = false;
           });
 
+          // Wrap the dialog with a Theme widget using light theme
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (BuildContext context) => AlertDialog(
-              title: Text(
-                'Location Permission Required',
-                style: TextStyle(color: Colors.black87),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Location permissions are permanently denied. Please enable them in device settings to use all navigation features.',
-                    style: TextStyle(color: Colors.black87),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Navigation features that require location:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+            builder: (BuildContext context) => Theme(
+              data: AppTheme.lightTheme, // Always use light theme
+              child: AlertDialog(
+                title: Text(
+                  'Location Permission Required',
+                  style: TextStyle(color: Colors.black87),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Location permissions are permanently denied. Please enable them in device settings to use all navigation features.',
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Navigation features that require location:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
+                    _buildFeatureItem(Icons.directions, 'Turn-by-turn directions'),
+                    _buildFeatureItem(Icons.alt_route, 'Route recalculation'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _nextPage(); // Still allow to continue without location
+                    },
+                    child: Text(
+                      'CONTINUE ANYWAY',
+                      style: TextStyle(color: Colors.blue),
                     ),
                   ),
-                  SizedBox(height: 8),
-                  _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
-                  _buildFeatureItem(Icons.directions, 'Turn-by-turn directions'),
-                  _buildFeatureItem(Icons.alt_route, 'Route recalculation'),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      if (!kIsWeb) {
+                        Geolocator.openAppSettings();
+                      }
+                      // We don't move to next page since user needs to change settings first
+                    },
+                    child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _nextPage(); // Still allow to continue without location
-                  },
-                  child: Text(
-                    'CONTINUE ANYWAY',
-                    style: TextStyle(color: Colors.blue),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    if (!kIsWeb) {
-                      Geolocator.openAppSettings();
-                    }
-                    // We don't move to next page since user needs to change settings first
-                  },
-                  child: Text('OPEN SETTINGS', style: TextStyle(color: Colors.white)),
-                ),
-              ],
             ),
           );
         }
@@ -489,73 +534,77 @@ class _IntroScreenState extends State<IntroScreen> {
 
   // Enhanced dialog shown when user denies location permission
   void _showLocationImportanceDialog() {
+    // Wrap the dialog with a Theme widget using light theme
     showDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Wrap( // Use Wrap instead of Row to handle overflow
-          alignment: WrapAlignment.start,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8, // Add spacing between items
-          children: [
-            Icon(Icons.info_outline, color: Colors.blue),
-            Text(
-              'Location Enhances Navigation',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.black87, // Always black
+      builder: (BuildContext context) => Theme(
+        data: AppTheme.lightTheme, // Always use light theme
+        child: AlertDialog(
+          title: Wrap( // Use Wrap instead of Row to handle overflow
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8, // Add spacing between items
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue),
+              Text(
+                'Location Enhances Navigation',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.black87, // Always black
+                ),
               ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Navigo works best with location access. Without it, you\'ll miss out on:',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87, // Always black
+                ),
+              ),
+              SizedBox(height: 16),
+              _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
+              _buildFeatureItem(Icons.navigation, 'Turn-by-turn directions'),
+              _buildFeatureItem(Icons.traffic, 'Live traffic updates'),
+              _buildFeatureItem(Icons.electric_car, 'Suggested routes based on road conditions'),
+              SizedBox(height: 12),
+              Text(
+                'You can always enable location permissions later in Settings.',
+                style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  fontSize: 14,
+                  color: Colors.grey[700], // Slightly lighter but still dark
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _nextPage(); // Continue anyway
+              },
+              child: Text(
+                'Continue Without Location',
+                style: TextStyle(color: Colors.blue),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _requestLocationPermission(); // Try again
+              },
+              child: Text('Grant Permission', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Navigo works best with location access. Without it, you\'ll miss out on:',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black87, // Always black
-              ),
-            ),
-            SizedBox(height: 16),
-            _buildFeatureItem(Icons.my_location, 'Real-time position tracking'),
-            _buildFeatureItem(Icons.navigation, 'Turn-by-turn directions'),
-            _buildFeatureItem(Icons.traffic, 'Live traffic updates'),
-            _buildFeatureItem(Icons.electric_car, 'Suggested routes based on road conditions'),
-            SizedBox(height: 12),
-            Text(
-              'You can always enable location permissions later in Settings.',
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                fontSize: 14,
-                color: Colors.grey[700], // Slightly lighter but still dark
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _nextPage(); // Continue anyway
-            },
-            child: Text(
-              'Continue Without Location',
-              style: TextStyle(color: Colors.blue),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-            ),
-            onPressed: () {
-              Navigator.of(context).pop();
-              _requestLocationPermission(); // Try again
-            },
-            child: Text('Grant Permission', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
@@ -801,32 +850,6 @@ class IntroContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Register",
-          style: TextStyle(color: Colors.black), // Always black
-        ),
-      ),
-      backgroundColor: Colors.white, // Keep background white
-      body: Center(
-        child: Text(
-          "Registration Page",
-          style: TextStyle(
-            fontSize: 24,
-            color: Colors.black, // Always black
-          ),
-        ),
-      ),
     );
   }
 }

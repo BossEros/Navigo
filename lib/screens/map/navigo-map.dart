@@ -1,0 +1,674 @@
+library navigo_map;
+
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:project_navigo/models/recent_location.dart';
+import 'package:project_navigo/services/recent_locations_service.dart';
+import 'dart:async';
+import '../../component/reusable-location-search_screen.dart';
+import '../../config/config.dart';
+import '../../models/map_models/map_ids.dart';
+import '../../models/map_models/map_styles.dart';
+import '../../models/map_models/report_type.dart';
+import '../../models/route_history.dart';
+import '../../models/user_profile.dart';
+import '../../services/google-api-services.dart' as api;
+import 'package:project_navigo/screens/hamburger-menu/hamburger-menu.dart';
+import '../../services/route_history_service.dart';
+import 'package:project_navigo/services/saved-map_services.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/services/app_constants.dart';
+import '../../services/user_provider.dart';
+import '../../themes/app_theme.dart';
+import '../../themes/app_typography.dart';
+import '../../themes/theme_provider.dart';
+import '../../widgets/report_panel.dart';
+import '../hamburger-menu/all_shortcuts_screen.dart';
+import '../authentication/login_screen.dart';
+import 'package:project_navigo/services/quick_access_shortcut_service.dart';
+
+import 'package:project_navigo/models/map_models/navigation_state.dart';
+import 'package:project_navigo/models/map_models/quick_access_shortcut.dart';
+import 'package:project_navigo/utils/map_utilities/location_utils.dart';
+import 'package:project_navigo/utils/map_utilities/camera_utils.dart';
+import 'package:project_navigo/utils/map_utilities/format_utils.dart';
+import 'package:project_navigo/utils/map_utilities/map_utils.dart';
+
+part 'navigo_map_shortcuts.dart';
+part 'navigo_map_navigation.dart';
+part 'navigo_map_search.dart';
+part 'navigo_map_ui_builder.dart';
+part 'navigo_map_reporting.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  final String? savedPlaceId;
+  final LatLng? savedCoordinates;
+  final String? savedName;
+  final bool startNavigation;
+
+  const MyApp({
+    Key? key,
+    this.savedPlaceId,
+    this.savedCoordinates,
+    this.savedName,
+    this.startNavigation = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Navigo',
+      theme: ThemeData(
+        primaryColor: Colors.white,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          primary: Colors.blue,
+          secondary: Colors.amber,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      ),
+      home: NavigoMapScreen(
+        savedPlaceId: savedPlaceId,
+        savedCoordinates: savedCoordinates,
+        savedName: savedName,
+        startNavigation: startNavigation,
+      ),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class NavigoMapScreen extends StatefulWidget {
+  final String? savedPlaceId;
+  final LatLng? savedCoordinates;
+  final String? savedName;
+  final bool startNavigation;
+
+  const NavigoMapScreen({
+    Key? key,
+    this.savedPlaceId,
+    this.savedCoordinates,
+    this.savedName,
+    this.startNavigation = false,
+  }) : super(key: key);
+
+  @override
+  State<NavigoMapScreen> createState() => _NavigoMapScreenState();
+}
+
+// A state variable to control traffic visibility
+bool _trafficEnabled = false;
+String? _currentMapStyle;
+
+class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderStateMixin {
+  // Controllers
+  GoogleMapController? _mapController;
+  final PanelController _panelController = PanelController();
+  final TextEditingController _searchController = TextEditingController();
+  final Location _location = Location();
+
+  // Location tracking
+  LocationData? _currentLocation;
+  final LatLng _defaultLocation = const LatLng(10.3157, 123.8854); // Cebu coordinates
+  StreamSubscription<LocationData>? _locationSubscription;
+
+  // Map elements
+  final Map<MarkerId, Marker> _markersMap = {};
+  final Map<PolylineId, Polyline> _polylinesMap = {};
+  MapType _currentMapType = MapType.normal;
+  bool _isLoadingPhotos = false;
+
+  // Search state
+  List<api.PlaceSuggestion> _placeSuggestions = [];
+  bool _isSearching = false;
+  Timer? _debounce;
+  Map<String, String> _suggestionDistances = {};
+
+  // Add this for recent locations
+  final RecentLocationsService _recentLocationsService = RecentLocationsService();
+  List<RecentLocation> _recentLocations = [];
+  bool _isLoadingRecentLocations = false;
+
+  // Panel state
+  double _panelPosition = 0.0;
+  bool _isFullyExpanded = false;
+
+  // Navigation state
+  api.Place? _destinationPlace;
+  bool _isNavigating = false;
+  api.RouteDetails? _routeDetails;
+  bool _isNavigationInProgress = false;
+  DateTime _navigationStartTime = DateTime.now();
+
+  bool _showingRouteAlternatives = false;
+  int _selectedRouteIndex = 0;
+  List<api.RouteDetails> _routeAlternatives = [];
+
+  final PanelController _routePanelController = PanelController();
+  bool _isRoutePanelExpanded = false;
+
+  bool _isLocationSaved = false;
+  bool _isLoadingLocationSave = false;
+  SavedMapService? _savedMapService;
+  Map<String, bool> _savedLocationCache = {};
+
+  // Navigation state tracking
+  bool _isInNavigationMode = false;
+  int _currentStepIndex = 0;
+  LatLng? _lastKnownLocation;
+  double _navigationZoom = 17.5;
+  double _navigationTilt = 45.0;
+  double _navigationBearing = 0.0;
+  Timer? _locationSimulationTimer; // For testing or demo purposes
+  StreamSubscription<LocationData>? _navigationLocationSubscription;
+
+  NavigationState _navigationState = NavigationState.idle;
+  late AnimationController _pulseController;
+
+  List<QuickAccessShortcut> _quickAccessShortcuts = [];
+  final ScrollController _shortcutsScrollController = ScrollController();
+
+  // For quick access button
+  QuickAccessShortcutService? _shortcutService;
+  bool _isLoadingShortcuts = false;
+
+  ///--------------------------------Lifecycle and Initialization--------------------------------------------------------///
+
+  @override
+  @override
+  void initState() {
+    super.initState();
+
+    _initLocationService();
+    _trafficEnabled = false;
+
+    // Add this part to listen for theme changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Set initial status bar style
+      _updateStatusBarStyle();
+
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      themeProvider.addListener(() {
+        // Update status bar when theme changes
+        _updateStatusBarStyle();
+
+        // Handle theme changes for map
+        if (_mapController != null) {
+          _updateMapOnThemeChange();
+        }
+      });
+    });
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+
+    // Add this line to fetch recent locations
+    _fetchRecentLocations();
+
+    // Initialize quick access shortcuts
+    _initQuickAccessShortcuts();
+
+    // Load user data if user is logged in from a persisted session
+    _loadUserDataIfLoggedIn();
+
+    // Get saved map service
+    Future.microtask(() {
+      _savedMapService = Provider.of<SavedMapService>(context, listen: false);
+
+      // Check if we should display a saved location
+      if (widget.savedPlaceId != null && widget.savedCoordinates != null) {
+        _showSavedLocationOnMap();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Restore system UI to default when leaving the screen
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+
+    _pulseController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
+    _mapController?.dispose();
+    _locationSubscription?.cancel();
+    _navigationLocationSubscription?.cancel();
+    _locationSimulationTimer?.cancel();
+    _dummyFocusNode.dispose();
+    _shortcutsScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUserDataIfLoggedIn() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Get user provider and load data if needed
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (userProvider.userProfile == null) {
+        await userProvider.loadUserData();
+      }
+    }
+  }
+
+  void _initQuickAccessShortcuts() {
+    setState(() {
+      _isLoadingShortcuts = true;
+      // Initialize with empty list
+      _quickAccessShortcuts = [];
+    });
+
+    // Get the service from the provider on the next frame
+    Future.microtask(() async {
+      try {
+        _shortcutService = Provider.of<QuickAccessShortcutService>(context, listen: false);
+
+        // Check if user is logged in
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) {
+          if (mounted) {
+            setState(() {
+              _isLoadingShortcuts = false;
+            });
+          }
+          return; // Early return if no user
+        }
+
+        // Load shortcuts from Firebase
+        final shortcuts = await _shortcutService!.getUserShortcuts();
+
+        // Convert to UI shortcuts
+        if (mounted) {
+          setState(() {
+            _quickAccessShortcuts = shortcuts.map((model) => QuickAccessShortcut(
+              id: model.id,
+              iconPath: model.iconPath,
+              label: model.label,
+              location: model.location,
+              address: model.address,
+              placeId: model.placeId,
+            )).toList();
+            _isLoadingShortcuts = false;
+          });
+        }
+      } catch (e) {
+        print('Error loading quick access shortcuts: $e');
+        if (mounted) {
+          setState(() {
+            _isLoadingShortcuts = false;
+          });
+        }
+      }
+    });
+  }
+
+  Future<void> _initLocationService() async {
+    try {
+      bool serviceEnabled = await _location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) {
+          _showErrorSnackBar('Location services are disabled');
+          return;
+        }
+      }
+
+      PermissionStatus permissionGranted = await _location.hasPermission();
+      if (permissionGranted == PermissionStatus.denied) {
+        permissionGranted = await _location.requestPermission();
+        if (permissionGranted != PermissionStatus.granted) {
+          _showErrorSnackBar('Location permission denied');
+          return;
+        }
+      }
+
+      // Configure location settings for better battery performance
+      await _location.changeSettings(
+        accuracy: LocationAccuracy.high,
+        interval: 10000, // 10 seconds
+        distanceFilter: 10, // 10 meters
+      );
+
+      _locationSubscription = _location.onLocationChanged.listen(_updateCurrentLocation);
+    } catch (e) {
+      _showErrorSnackBar('Error initializing location: $e');
+    }
+  }
+
+
+  ///--------------------------------End of Lifecycle and Initialization--------------------------------------------------------///
+
+  final FocusNode _dummyFocusNode = FocusNode();
+
+  // Get markers as a Set from the Map for the GoogleMap widget
+  Set<Marker> get _markers => Set.of(_markersMap.values);
+
+  // Get polylines as a Set from the Map for the GoogleMap widget
+  Set<Polyline> get _polylines => Set.of(_polylinesMap.values);
+
+  ///--------------------------------------------Map and Location Management---------------------------------------------///
+
+  void _updateCurrentLocation(LocationData locationData) {
+    setState(() {
+      _currentLocation = locationData;
+      _updateCurrentLocationMarker();
+    });
+  }
+
+  void _updateCurrentLocationMarker() {
+    if (_currentLocation != null) {
+      final LatLng position = LatLng(
+        _currentLocation!.latitude ?? _defaultLocation.latitude,
+        _currentLocation!.longitude ?? _defaultLocation.longitude,
+      );
+
+      final markerId = const MarkerId('currentLocation');
+
+      final marker = Marker(
+        markerId: markerId,
+        position: position,
+        infoWindow: const InfoWindow(title: 'Current Location'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      );
+
+      setState(() {
+        _markersMap[markerId] = marker;
+
+        if (!_isNavigating && _mapController != null) {
+          // When centering on current location, we don't need the vertical offset
+          // since we don't show the details card for the current location
+          _mapController!.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: position,
+                zoom: 15,
+              ),
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  void _centerCameraOnLocation({
+    required LatLng location,
+    double zoom = 16.0,
+    double tilt = 30.0,
+  }) {
+    if (_mapController == null) return;
+
+    // Calculate vertical offset for UI elements
+    final screenHeight = MediaQuery.of(context).size.height;
+    final detailsCardHeight = screenHeight * 0.35; // Approximate height of details card
+
+    final LatLng offsetTarget = CameraUtils.calculateOffsetTarget(
+        location,
+        detailsCardHeight / 2,
+        zoom
+    );
+
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: offsetTarget,
+          zoom: zoom,
+          tilt: tilt,
+        ),
+      ),
+    );
+  }
+
+  String _getCurrentMapId() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // For dark mode, we'll use JSON styling instead
+    if (isDarkMode) {
+      return MapIds.defaultMapId; // This will be overridden by JSON styling
+    } else if (_isInNavigationMode) {
+      return MapIds.navigationMapId;
+    } else if (!_trafficEnabled) {
+      return MapIds.trafficOffMapId;
+    } else {
+      return MapIds.defaultMapId;
+    }
+  }
+
+  void _toggleTrafficLayer() {
+    // Get the provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    // Update the provider state
+    themeProvider.setTrafficEnabled(!themeProvider.isTrafficEnabled);
+
+    // Update local state
+    setState(() {
+      _trafficEnabled = themeProvider.isTrafficEnabled;
+      // The rebuild will now use the updated cloudMapId based on the traffic state
+    });
+
+    // Note: No need to manually call setMapStyle anymore - it's handled by cloudMapId
+    print("Traffic toggled: $_trafficEnabled. Using Cloud Map ID: ${_getCurrentMapId()}");
+  }
+
+  void _addDestinationMarker(api.Place place) {
+    final markerId = const MarkerId('destination');
+
+    final marker = Marker(
+      markerId: markerId,
+      position: place.latLng,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      zIndex: 2,
+    );
+
+    // Add a bounce effect
+    if (_mapController != null) {
+      final markerId = const MarkerId('destination');
+
+      // You could implement a simple bounce animation here
+      // For a proper bouncing effect, you'd need to create a custom marker
+      // with animation capabilities
+    }
+
+    setState(() {
+      _markersMap[markerId] = marker;
+    });
+  }
+
+  void _clearRouteInfoMarkers() {
+    // Remove any markers with IDs starting with 'route_duration_'
+    _markersMap.removeWhere((markerId, marker) =>
+        markerId.value.startsWith('route_duration_'));
+  }
+
+  void _updateStatusBarStyle() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent, // Transparent to allow our custom background to show
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    ));
+  }
+
+
+  ///--------------------------------------------End of Map and Location Management---------------------------------------------///
+
+
+  ///----------------------------------------------------UI Building Methods-----------------------------------------------///
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+    _trafficEnabled = themeProvider.isTrafficEnabled;
+
+    // Get status bar height
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
+    return Scaffold(
+      // ONLY change to prevent the UI from moving up when keyboard appears
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // First level: SafeArea with map and panels (original structure)
+          SafeArea(
+            child: Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _defaultLocation,
+                    zoom: 15,
+                  ),
+                  onMapCreated: _onMapCreated,
+                  markers: _markers,
+                  polylines: _polylines,
+                  mapType: _currentMapType,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: true,
+                  trafficEnabled: _trafficEnabled,
+                  // Allow all gestures even during navigation mode
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
+                  tiltGesturesEnabled: true,
+                  rotateGesturesEnabled: true,
+                ),
+
+                // SlidingUpPanel with original structure (unchanged)
+                SlidingUpPanel(
+                  controller: _panelController,
+                  minHeight: (_destinationPlace != null || _showingRouteAlternatives) ? 0 : 100,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  onPanelSlide: (position) {
+                    setState(() {
+                      _panelPosition = position;
+                      _isFullyExpanded = position > 0.8;
+                    });
+                  },
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  color: isDarkMode ? AppTheme.darkTheme.cardTheme.color! : Colors.white,
+                  panel: _buildSearchPanel(),
+                  body: _buildUIOverlays(),
+                ),
+
+                // Other UI components (unchanged)
+                if (_showingRouteAlternatives && _routeAlternatives.isNotEmpty)
+                  _buildRouteSelectionPanel(),
+
+                if (_isInNavigationMode)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _buildNavigationInfoPanel(),
+                  ),
+              ],
+            ),
+          ),
+
+          // Second level: Status bar overlay
+          // This sits above the map but below other UI elements to provide the status bar background
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: statusBarHeight,
+            child: Container(
+              color: isDarkMode ? Colors.black : Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    _updateCurrentLocationMarker();
+    print("Map Created with Cloud Map ID: ${_getCurrentMapId()}");
+
+    // Add the dark mode style application here if needed
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    if (themeProvider.isDarkMode) {
+      _applyDarkMapStyle();
+    }
+  }
+
+  // Apply dark style using JSON
+  void _applyDarkMapStyle() {
+    if (_mapController == null) return;
+    _mapController!.setMapStyle(MapStyles.dark);
+  }
+
+// Clear custom styling to return to Map ID styling
+  void _clearCustomMapStyle() {
+    if (_mapController == null) return;
+    _mapController!.setMapStyle(null);
+  }
+
+// Update map when theme changes
+  void _updateMapOnThemeChange() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    if (themeProvider.isDarkMode) {
+      _applyDarkMapStyle();
+    } else {
+      _clearCustomMapStyle();
+    }
+  }
+
+  ///----------------------------------------------------End of UI Building Methods-----------------------------------------------///
+
+  ///----------------------------------------------------Helper and Utility Methods-----------------------------------------------///
+
+  void _showErrorSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message))
+      );
+    }
+  }
+
+  void _ensureKeyboardHidden(BuildContext context) {
+    // Hide keyboard by removing focus from any text field
+    FocusScope.of(context).unfocus();
+
+    // Additional safety - force native keyboard to dismiss using platform channel
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
+
+  ///----------------------------------------------------End of Helper and Utility Methods-----------------------------------------------///
+
+}

@@ -2,13 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:project_navigo/services/user_service.dart';
-import 'package:project_navigo/screens/login_screen.dart';
+import 'package:project_navigo/screens/authentication/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
-import '../services/auth_service.dart';
-import '../services/onboarding_service.dart';
-import 'navigo-map.dart';
+import '../../services/auth_service.dart';
+import '../../services/onboarding_service.dart';
+import '../map/navigo-map.dart';
 
 class RegisterForm extends StatefulWidget {
   const RegisterForm({Key? key}) : super(key: key);

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:project_navigo/screens/navigo-map.dart';
-import 'package:project_navigo/screens/register_form.dart';
-import 'package:project_navigo/screens/forgotPasswordScreen.dart';
+import 'package:project_navigo/screens/map/navigo-map.dart';
+import 'package:project_navigo/screens/authentication/register_form.dart';
+import 'package:project_navigo/screens/authentication/forgotPasswordScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
-import '../services/auth_service.dart';
-import '../services/onboarding_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/onboarding_service.dart';
 import 'package:project_navigo/screens/onboarding/onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {

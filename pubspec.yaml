@@ -34,8 +34,9 @@ dependencies:
   font_awesome_flutter: ^10.1.0
   flutter_animate: ^4.5.0  # Latest version at time of writing
   smooth_page_indicator: ^1.1.0  # Latest version at time of writing
-  permission_handler: ^11.4.0
+  permission_handler: ^12.0.0+1
   geolocator_web: ^4.1.1
+
 
    # Firebase packages
   firebase_core: ^3.12.1
@@ -57,7 +58,7 @@ dependencies:
   google_maps_flutter: ^2.3.0
   location: ^8.0.0
   flutter_polyline_points: ^2.1.0
-  geolocator: ^13.0.2
+  geolocator: ^14.0.0
   geocoding: ^3.0.0
   http: 1.3.0
 
@@ -80,7 +81,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.13.1  # Add this line
+  flutter_launcher_icons: ^0.14.3  # Add this line
   
   # For data models
   build_runner: ^2.4.6
@@ -124,6 +125,15 @@ flutter:
     - assets/icons/fastfood_icon.png
     - assets/icons/hotel_icon.png
     - assets/icons/shopping_icon.png
+    - assets/icons/warning_icon.png
+
+    # Warning Function Icons
+    - assets/icons/bad-weather_icon.png  
+    - assets/icons/police-car_icon.png
+    - assets/icons/road-closure_icon.png
+    - assets/icons/crash_icon.png
+    - assets/icons/traffic_icon.png
+    - assets/icons/blocked-lane_icon.png
        
     
  

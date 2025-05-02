@@ -1,9 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-
 import 'package:project_navigo/themes/theme_provider.dart';
 import 'package:provider/provider.dart';
-import 'screens/landing_page.dart';
+import 'screens/authentication/splash_screen.dart';
 import 'services/service_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -37,7 +36,9 @@ class NaviGoApp extends StatelessWidget {
       title: 'NaviGo',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.themeData,
-      home: IntroScreen(),
+      // Set the SplashScreen as the initial route
+      home: const SplashScreen(),
+      navigatorKey: navigatorKey,
     );
   }
 }
