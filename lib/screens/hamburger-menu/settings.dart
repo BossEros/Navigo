@@ -56,13 +56,7 @@ class SettingsPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            // Apply theme-aware icon color
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
       body: SafeArea(
         top: false, // Don't add padding at the top since AppBar already handles it
@@ -649,12 +643,7 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
 
       backgroundColor: isDarkMode ? Colors.black : Colors.white,
@@ -832,13 +821,7 @@ class PrivacyPolicyPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            // Apply theme-aware icon color
-            icon: Icon(Icons.close, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        // X button removed from here
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20.0),
