@@ -1,0 +1,208 @@
+[33mcommit ec184f9cd8b0979a9d68f88dd2a4e4cf5bd91401[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdevelopment/April-11-Checkpoint[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Thu Apr 17 09:19:58 2025 +0800
+
+    This is the commit before refactoring Navigo map
+
+[33mcommit 9b9a7d4a1fea453bd7f812490ad2e3eb006fad08[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Apr 16 15:22:14 2025 +0800
+
+    Add edit and delete function for Quick Access Buttons
+
+[33mcommit 249d5b90f496c48c420c6e5a967a8c81782e7ccf[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Apr 16 14:43:52 2025 +0800
+
+    Added drag & drop feature to reorder shortcut buttons in All Shortcuts screen
+
+[33mcommit 8dbda72a6dbf6fdfbea7ed0383db6610f9b9126b[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Tue Apr 15 23:04:56 2025 +0800
+
+    Added functionality to save quick access buttons to Firebase
+
+[33mcommit c026383e1b970b19d08620be9fabb1a8becad456[m[33m ([m[1;31morigin/development/April-11-Checkpoint[m[33m, [m[1;32mdevelopment/saved-locations[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 17:08:43 2025 +0800
+
+    Update icons in profile.dart and enhanced the UI/UX
+
+[33mcommit 35f41a18805fd9d897a5836b5ab95e295f7d22d1[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 16:53:55 2025 +0800
+
+    Updated the icons in the hamburger menu
+
+[33mcommit f9381579d8f23c9f70847a561009f4142f81d4c3[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 16:30:36 2025 +0800
+
+    Updated fonts used in settings.dart, faq_screen.dart, and terms_of_service.dart. Also made some UI/UX enhancement and deleted Profile View in Settings
+
+[33mcommit a0ee91c509209ca573a62facf93e7cddc9454503[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 12:39:36 2025 +0800
+
+    Updated fonts in saved-location_screen.dart
+
+[33mcommit 15e48860b5b2a72e0eb336246763f10a5fe69b02[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 12:33:40 2025 +0800
+
+    Updated fonts in route-detail_screen.dart and route-history_screen.dart
+
+[33mcommit 308c7d39182490ef7d4a8c25791afc0c2fe4dc74[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 12:21:33 2025 +0800
+
+    Changed fonts in hamburger-menu.dart and profile.dart
+
+[33mcommit d7ff86d90eceaed185cfdfe736d026db89f6da1a[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 11:58:38 2025 +0800
+
+    Improved adding quick access button functionality with improved UI/UX
+
+[33mcommit b810e1e6cccccfb87e0a6f6e481a172a00ef5b8e[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Fri Apr 11 11:04:57 2025 +0800
+
+    Updated fonts in login, registration, forgot password, and landing page
+
+[33mcommit b642ccd2d8f615470d83be26a932989a6dda7344[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Thu Apr 10 16:02:39 2025 +0800
+
+    Quick access button v1
+
+[33mcommit f5e250d256d66e09ab7ad8f9855eb3e7a4727fd3[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Apr 9 15:26:43 2025 +0800
+
+    Added polylines color indicating traffic level in the road
+
+[33mcommit 265116a88349d58de4fceef2912e499019e79971[m[33m ([m[1;31morigin/development/saved-locations[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Apr 9 03:35:38 2025 +0800
+
+    Added quick access button in Search bar and changed its icons
+
+[33mcommit 3f74d370dd87ef53a1e8d5e10a8d09c1ecb001cf[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Tue Apr 8 23:26:36 2025 +0800
+
+    Fixed bugs in Recents section and updated some UI stuff
+
+[33mcommit 859afb0d2814eaeda6e656d0db4ba05ea73236d7[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Mon Apr 7 00:05:10 2025 +0800
+
+    added new categories for saving places and fix issue where place is being covered by the location details card
+
+[33mcommit 2b1b9af92040ee49061dc1d914fe565bb187dc02[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Mon Apr 7 00:04:46 2025 +0800
+
+    added new categories for saving places and fix issue where place is being covered by the location details card
+
+[33mcommit 0e2a0c0de2b98665bf8ad6b3a947b6c9e398e70e[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Sun Apr 6 22:56:15 2025 +0800
+
+    Added functions to save locations and added a Saved locations page
+
+[33mcommit febb54a929811c37331e9751cfe5665b35862abd[m[33m ([m[1;31morigin/development/adding-route-history[m[33m, [m[1;32mdevelopment/adding-route-history[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Sat Apr 5 14:17:04 2025 +0800
+
+    added recent locations in search scroll bar
+
+[33mcommit 5565c790f4fbe32c140499831caabf583e285045[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Sat Apr 5 13:32:07 2025 +0800
+
+    Commit to save progress before adding additional features
+
+[33mcommit ab0eb48d78379d6227c49bb536d137530eb1899b[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Thu Apr 3 14:07:30 2025 +0800
+
+    Added ability to store Route history in Firebase
+
+[33mcommit 8f6ed822728c28c207fcb0fa399393329c049ec4[m[33m ([m[1;32mdevelopment/fix_image_slow-loading[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Apr 2 00:43:29 2025 +0800
+
+    Added back button in route selection process
+
+[33mcommit c370c4f81733913214ab53420cd153ba714b97b9[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Tue Apr 1 14:05:12 2025 +0800
+
+    Fix slow image loading
+
+[33mcommit 4a67476db8b812cae48401a2412c6859808faf4c[m[33m ([m[1;31morigin/development/location-details-card[m[33m, [m[1;32mdevelopment/user-CRUD[m[33m, [m[1;32mdevelopment/location-details-card[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Thu Mar 27 06:06:11 2025 +0800
+
+    Added Image in the Location details card and Change the location of Icons in the Main UI
+
+[33mcommit a5497bb45d95e734423ea4a4e9924114a998ea73[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Mon Mar 24 13:07:55 2025 +0800
+
+    Fixing bug
+
+[33mcommit d766202348f17a4a5f9cfb4664499c1af503223c[m[33m ([m[1;31morigin/development/user-CRUD[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Thu Mar 20 13:09:44 2025 +0800
+
+    Added function to update and retrieve user profile picture
+
+[33mcommit c41ed9bafe4b4dad027e32f74fd3be2b0381d213[m[33m ([m[1;32mdevelopment/map-explorer[m[33m, [m[1;32mall[m[33m)[m
+Merge: 8c918c9 69f2901
+Author: Christian Dave Vilan <136943421+BossEros@users.noreply.github.com>
+Date:   Wed Mar 19 22:54:07 2025 +0800
+
+    Merge pull request #5 from BossEros/development/map-explorer
+    
+    Current Version of Navigo (19-03-2025)
+
+[33mcommit 69f290148c08ea0270f798bc7065893663864072[m[33m ([m[1;31morigin/development/map-explorer[m[33m)[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Wed Mar 19 22:36:25 2025 +0800
+
+    Added the onboarding screens and the functionalities
+
+[33mcommit ecdba857a187bcbdb7b7c7c7a49e3881e84d8d0b[m
+Author: Dave <itschristiandavevilanofficial@gmail.com>
+Date:   Tue Mar 18 22:33:34 2025 +0800
+
+    Just a commit to save progress
+
+[33mcommit 8c918c96596b65ec41d4c810d4a80e8fa90ec29b[m
+Author: Christian Dave Vilan <136943421+BossEros@users.noreply.github.com>
+Date:   Fri Mar 7 10:39:37 2025 +0800
+
+    Update README.md
+
+[33mcommit 1e0dabe10387ef75e7c9229f2d48f2b4b55f498e[m
+Author: Christian Dave Vilan <136943421+BossEros@users.noreply.github.com>
+Date:   Fri Mar 7 10:38:06 2025 +0800
+
+    Update README.md
+
+[33mcommit 36f1c5f8d442bf5fcdd436b049e0d7e384883718[m
+Author: Christian Dave Vilan <136943421+BossEros@users.noreply.github.com>
+Date:   Fri Mar 7 10:34:51 2025 +0800
+
+    Update .gitignore
+
+[33mcommit 144ac90489000298bd033e815b387bf55d281d85[m
+Author: Christian Dave Vilan <136943421+BossEros@users.noreply.github.com>
+Date:   Fri Mar 7 10:31:11 2025 +0800
+
+    Update .gitignore
+
+[33mcommit d40b2778cf574bfaba3a8ded21eec5346c49ce5

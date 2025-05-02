@@ -37,7 +37,6 @@ dependencies:
   permission_handler: ^11.4.0
   geolocator_web: ^4.1.1
 
-
    # Firebase packages
   firebase_core: ^3.12.1
   firebase_auth: ^5.5.0
@@ -118,6 +117,15 @@ flutter:
     - assets/icons/home_icon.png
     - assets/icons/work_icon.png
     - assets/icons/plus_icon.png
+    - assets/icons/cafe_icon.png
+    - assets/icons/restaurant_icon.png
+    - assets/icons/school_icon.png  
+    - assets/icons/gym_icon.png
+    - assets/icons/fastfood_icon.png
+    - assets/icons/hotel_icon.png
+    - assets/icons/shopping_icon.png
+       
+    
  
   # To add assets to your application, add an assets section, like this:
   # assets:

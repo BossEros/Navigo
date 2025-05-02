@@ -13,22 +13,54 @@ import 'package:project_navigo/services/storage_service.dart';
 import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
 
 /// A utility class for profile screen icons to maintain consistency
 class ProfileIcons {
   // Standard constants
   static const double size = 20.0;
-  static const Color color = Colors.black87;
 
-  // Icon methods
-  static Widget username() => FaIcon(FontAwesomeIcons.idBadge, size: size, color: color);
-  static Widget email() => FaIcon(FontAwesomeIcons.envelope, size: size, color: color);
-  static Widget home() => FaIcon(FontAwesomeIcons.house, size: size, color: color);
-  static Widget work() => FaIcon(FontAwesomeIcons.briefcase, size: size, color: color);
-  static Widget edit() => FaIcon(FontAwesomeIcons.penToSquare, size: size, color: Colors.white);
-  static Widget save() => FaIcon(FontAwesomeIcons.floppyDisk, size: size, color: Colors.white);
-  static Widget search() => FaIcon(FontAwesomeIcons.magnifyingGlass, size: size, color: Colors.blue);
-  static Widget camera() => FaIcon(FontAwesomeIcons.camera, size: 16, color: Colors.white);
+  // Icon methods - Made theme-aware
+  static Widget username(bool isDarkMode) => FaIcon(
+    FontAwesomeIcons.idBadge,
+    size: size,
+    color: isDarkMode ? Colors.white70 : Colors.black87,
+  );
+  static Widget email(bool isDarkMode) => FaIcon(
+    FontAwesomeIcons.envelope,
+    size: size,
+    color: isDarkMode ? Colors.white70 : Colors.black87,
+  );
+  static Widget home(bool isDarkMode) => FaIcon(
+    FontAwesomeIcons.house,
+    size: size,
+    color: isDarkMode ? Colors.white70 : Colors.black87,
+  );
+  static Widget work(bool isDarkMode) => FaIcon(
+    FontAwesomeIcons.briefcase,
+    size: size,
+    color: isDarkMode ? Colors.white70 : Colors.black87,
+  );
+  static Widget edit() => FaIcon(
+    FontAwesomeIcons.penToSquare,
+    size: size,
+    color: Colors.white,
+  );
+  static Widget save() => FaIcon(
+    FontAwesomeIcons.floppyDisk,
+    size: size,
+    color: Colors.white,
+  );
+  static Widget search() => FaIcon(
+    FontAwesomeIcons.magnifyingGlass,
+    size: size,
+    color: Colors.blue,
+  );
+  static Widget camera() => FaIcon(
+    FontAwesomeIcons.camera,
+    size: 16,
+    color: Colors.white,
+  );
 }
 
 class ProfileScreen extends StatefulWidget {
@@ -387,8 +419,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Row(
               children: [
                 type == 'home'
-                    ? ProfileIcons.home()
-                    : ProfileIcons.work(),
+                    ? ProfileIcons.home(false)
+                    : ProfileIcons.work(false),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -439,10 +471,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to check for dark mode
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final userProvider = Provider.of<UserProvider>(context);
 
     if (_isLoading) {
       return Scaffold(
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
         body: Center(
           child: CircularProgressIndicator(),
         ),
@@ -462,18 +499,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userProfileData?['profileImageUrl'];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(
           'Profile',
           style: AppTypography.textTheme.headlineSmall?.copyWith(
-            color: Colors.black,
+            color: isDarkMode ? Colors.white : Colors.black,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.black),
+          icon: FaIcon(
+            FontAwesomeIcons.arrowLeft,
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -494,7 +534,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.lightBlue.shade300, Colors.blue],
+                            colors: isDarkMode
+                                ? [Colors.blue.shade700, Colors.blue.shade900]
+                                : [Colors.lightBlue.shade300, Colors.blue],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -520,11 +562,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(color: Colors.white, width: 4),
+                        color: isDarkMode ? Colors.grey[800] : Colors.white,
+                        border: Border.all(
+                            color: isDarkMode ? Colors.grey[800]! : Colors.white,
+                            width: 4
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),
@@ -553,7 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             return FaIcon(
                               FontAwesomeIcons.userLarge,
                               size: 60,
-                              color: Colors.grey[400],
+                              color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
                             );
                           },
                           cacheWidth: 240, // Set to double the display size for quality
@@ -562,7 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : FaIcon(
                           FontAwesomeIcons.userLarge,
                           size: 60,
-                          color: Colors.grey[400],
+                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
                         ),
                       ),
                     ),
@@ -574,7 +619,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(
                           color: Colors.blue,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(
+                              color: isDarkMode ? Colors.grey[800]! : Colors.white,
+                              width: 2
+                          ),
                         ),
                         child: ProfileIcons.camera(),
                       ),
@@ -611,36 +659,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   buildProfileItem(
                     title: 'Username',
                     value: username,
-                    icon: ProfileIcons.username(),
+                    icon: ProfileIcons.username(isDarkMode),
                     isEditable: false,
+                    isDarkMode: isDarkMode,
                   ),
-                  Divider(height: 1),
+                  Divider(
+                    height: 1,
+                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  ),
 
                   buildProfileItem(
                     title: 'Email',
                     value: email,
-                    icon: ProfileIcons.email(),
+                    icon: ProfileIcons.email(isDarkMode),
                     isEditable: false,
+                    isDarkMode: isDarkMode,
                   ),
-                  Divider(height: 1),
+                  Divider(
+                    height: 1,
+                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  ),
 
                   buildAddressItem(
                     title: 'Home Address',
                     address: _homeAddress,
-                    icon: ProfileIcons.home(),
+                    icon: ProfileIcons.home(isDarkMode),
                     isEditable: _isEditing,
                     onEditTap: () => _openLocationSearch('home'),
+                    isDarkMode: isDarkMode,
                   ),
-                  Divider(height: 1),
+                  Divider(
+                    height: 1,
+                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  ),
 
                   buildAddressItem(
                     title: 'Work Address',
                     address: _workAddress,
-                    icon: ProfileIcons.work(),
+                    icon: ProfileIcons.work(isDarkMode),
                     isEditable: _isEditing,
                     onEditTap: () => _openLocationSearch('work'),
+                    isDarkMode: isDarkMode,
                   ),
-                  Divider(height: 1),
+                  Divider(
+                    height: 1,
+                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                  ),
                 ],
               ),
             ),
@@ -652,7 +716,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SafeArea(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                child: buildEditButton(),
+                child: buildEditButton(isDarkMode),
               ),
             ),
           ],
@@ -667,6 +731,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String value,
     required Widget icon,
     required bool isEditable,
+    required bool isDarkMode,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
@@ -690,7 +755,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   title,
                   style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey,
                   ),
                 ),
                 SizedBox(height: 4),
@@ -698,6 +763,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   value.isEmpty ? ' ' : value,
                   style: AppTypography.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w500,
+                    color: isDarkMode ? Colors.white : null,
                   ),
                 ),
               ],
@@ -715,6 +781,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required Widget icon,
     required bool isEditable,
     required VoidCallback onEditTap,
+    required bool isDarkMode,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
@@ -738,7 +805,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   title,
                   style: AppTypography.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey,
                   ),
                 ),
                 SizedBox(height: 4),
@@ -749,7 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: onEditTap,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
+                        color: isDarkMode ? Colors.grey[800] : Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: Colors.blue.withOpacity(0.5),
@@ -767,8 +834,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: AppTypography.textTheme.bodyLarge?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 color: address.formattedAddress.isEmpty
-                                    ? Colors.grey.shade600
-                                    : Colors.black,
+                                    ? isDarkMode ? Colors.grey[400] : Colors.grey.shade600
+                                    : isDarkMode ? Colors.white : Colors.black,
                               ),
                             ),
                           ),
@@ -783,6 +850,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     address.formattedAddress.isEmpty ? 'Not set' : address.formattedAddress,
                     style: AppTypography.textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w500,
+                      color: isDarkMode ? Colors.white : null,
                     ),
                   ),
               ],
@@ -794,7 +862,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Improved edit button with animation and state changes
-  Widget buildEditButton() {
+  Widget buildEditButton(bool isDarkMode) {
     return Container(
       width: double.infinity,
       height: 50,
@@ -809,8 +877,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: _isEditing ? Colors.green : Colors.blue,
           foregroundColor: Colors.white,
-          elevation: 3,
-          shadowColor: Colors.black.withOpacity(0.3),
+          elevation: isDarkMode ? 2 : 3,
+          shadowColor: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

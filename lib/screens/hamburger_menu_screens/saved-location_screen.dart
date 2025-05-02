@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/navigo-map.dart';
 import 'package:project_navigo/models/saved_map.dart';
 import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/app_constants.dart';
-import 'package:project_navigo/themes/app_typography.dart'; // Import typography styles
+import 'package:project_navigo/themes/app_typography.dart';
+import 'package:provider/provider.dart'; // Added for ThemeProvider
+import 'package:project_navigo/themes/theme_provider.dart'; // Added for ThemeProvider
 
 class SavedLocationsScreen extends StatefulWidget {
   const SavedLocationsScreen({Key? key}) : super(key: key);
@@ -246,34 +247,53 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   // Main build method
   @override
   Widget build(BuildContext context) {
+    // Get the theme provider to access the current theme mode
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(
           'Saved Locations',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : Colors.black,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        // Apply theme-aware AppBar styling
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+        foregroundColor: isDarkMode ? Colors.white : Colors.black,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          // Icon color is handled by foregroundColor
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
+            // Icon color is handled by foregroundColor
             onPressed: _showFilterOptions,
           ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(isDarkMode),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(bool isDarkMode) {
     if (_isLoading && _savedLocations.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          // Apply theme-aware progress indicator color
+          valueColor: AlwaysStoppedAnimation<Color>(
+            isDarkMode ? Colors.white : Colors.blue,
+          ),
+        ),
+      );
     }
 
     if (_error != null && _savedLocations.isEmpty) {
@@ -281,15 +301,24 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              // Apply theme-aware icon color
+              color: isDarkMode ? Colors.grey[400] : Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               _error!,
-              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+              ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchSavedLocations,
+              // Button styling is defined in the theme
               child: Text(
                 'Try Again',
                 style: AppTypography.authButton,
@@ -305,13 +334,19 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
+            Icon(
+              Icons.bookmark_border,
+              size: 64,
+              // Apply theme-aware icon color
+              color: isDarkMode ? Colors.grey[400] : Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               'No saved locations',
               style: AppTypography.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
               ),
             ),
             const SizedBox(height: 8),
@@ -319,12 +354,16 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
               _selectedCategory != null
                   ? 'No locations saved in this category'
                   : 'Your saved locations will appear here',
-              style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : Colors.grey,
+              ),
             ),
             if (_selectedCategory != null) const SizedBox(height: 16),
             if (_selectedCategory != null)
               ElevatedButton(
                 onPressed: () => _filterByCategory(null),
+                // Button styling is defined in the theme
                 child: Text(
                   'Show All Locations',
                   style: AppTypography.authButton,
@@ -346,16 +385,24 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
 
     return RefreshIndicator(
       onRefresh: _fetchSavedLocations,
+      // Apply theme-aware refresh indicator color
+      color: isDarkMode ? Colors.white : Colors.blue,
+      backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(16),
         itemCount: groupedLocations.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == groupedLocations.length) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
+                padding: const EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(
+                  // Apply theme-aware progress indicator color
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDarkMode ? Colors.white : Colors.blue,
+                  ),
+                ),
               ),
             );
           }
@@ -370,10 +417,13 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   _getCategoryDisplayName(category),
-                  style: AppTypography.textTheme.headlineSmall,
+                  style: AppTypography.textTheme.headlineSmall?.copyWith(
+                    // Apply theme-aware text color
+                    color: isDarkMode ? Colors.white : null,
+                  ),
                 ),
               ),
-              ...categoryLocations.map((location) => _buildLocationCard(location)).toList(),
+              ...categoryLocations.map((location) => _buildLocationCard(location, isDarkMode)).toList(),
               const SizedBox(height: 16),
             ],
           );
@@ -427,16 +477,20 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     return getCategoryColor(category);
   }
 
-  Widget _buildLocationCard(SavedMap location) {
+  Widget _buildLocationCard(SavedMap location, bool isDarkMode) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
+      // Apply theme-aware card styling
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
         onTap: () => _handleLocationInteraction(location),
         borderRadius: BorderRadius.circular(12),
+        // Apply theme-aware splash color
+        splashColor: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -468,7 +522,10 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                       children: [
                         Text(
                           location.name,
-                          style: AppTypography.textTheme.titleMedium,
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            // Apply theme-aware text color
+                            color: isDarkMode ? Colors.white : null,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -476,7 +533,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         Text(
                           location.address,
                           style: AppTypography.textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                            // Apply theme-aware text color
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -485,7 +543,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         Text(
                           'Saved ${_formatDate(location.savedAt)}',
                           style: AppTypography.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[500],
+                            // Apply theme-aware text color
+                            color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
                           ),
                         ),
                       ],
@@ -494,10 +553,14 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
 
                   // Options menu
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                    icon: Icon(
+                      Icons.more_vert,
+                      // Apply theme-aware icon color
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey,
+                    ),
                     onSelected: (value) {
                       if (value == 'delete') {
-                        _showDeleteConfirmation(location);
+                        _showDeleteConfirmation(location, isDarkMode);
                       } else if (value == 'navigate') {
                         _navigateToLocation(location);
                       } else if (value == 'view') {
@@ -509,11 +572,15 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         value: 'view',
                         child: Row(
                           children: [
-                            const Icon(Icons.map, size: 18),
+                            // Apply theme-aware icon color
+                            Icon(Icons.map, size: 18, color: isDarkMode ? Colors.white : null),
                             const SizedBox(width: 8),
                             Text(
                               'View on Map',
-                              style: AppTypography.textTheme.bodyMedium,
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                // Apply theme-aware text color
+                                color: isDarkMode ? Colors.white : null,
+                              ),
                             ),
                           ],
                         ),
@@ -522,11 +589,15 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         value: 'navigate',
                         child: Row(
                           children: [
-                            const Icon(Icons.navigation, size: 18),
+                            // Apply theme-aware icon color
+                            Icon(Icons.navigation, size: 18, color: isDarkMode ? Colors.white : null),
                             const SizedBox(width: 8),
                             Text(
                               'Navigate',
-                              style: AppTypography.textTheme.bodyMedium,
+                              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                // Apply theme-aware text color
+                                color: isDarkMode ? Colors.white : null,
+                              ),
                             ),
                           ],
                         ),
@@ -547,6 +618,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                         ),
                       ),
                     ],
+                    // Apply theme-aware PopupMenu styling
+                    color: isDarkMode ? Colors.grey[800] : null,
                   ),
                 ],
               ),
@@ -558,23 +631,49 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
   }
 
   void _showFilterOptions() {
+    // Get the theme provider to access the current theme mode
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      // Apply theme-aware bottom sheet styling
+      backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
       builder: (context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Add a drag handle indicator
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[600] : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               ListTile(
                 title: Text(
                   'All Locations',
-                  style: AppTypography.textTheme.bodyLarge,
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    // Apply theme-aware text color
+                    color: isDarkMode ? Colors.white : null,
+                  ),
                 ),
-                leading: const Icon(Icons.list),
+                leading: Icon(
+                  Icons.list,
+                  // Apply theme-aware icon color
+                  color: isDarkMode ? Colors.white : null,
+                ),
                 selected: _selectedCategory == null,
+                // Apply theme-aware selected tile color
+                selectedTileColor: isDarkMode ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                selectedColor: Colors.blue,
                 onTap: () {
                   Navigator.pop(context);
                   _filterByCategory(null);
@@ -587,10 +686,16 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                 return ListTile(
                   title: Text(
                     data['displayName'],
-                    style: AppTypography.textTheme.bodyLarge,
+                    style: AppTypography.textTheme.bodyLarge?.copyWith(
+                      // Apply theme-aware text color
+                      color: isDarkMode ? Colors.white : null,
+                    ),
                   ),
                   leading: Icon(data['icon'], color: data['color']),
                   selected: _selectedCategory == key,
+                  // Apply theme-aware selected tile color
+                  selectedTileColor: isDarkMode ? Colors.blue.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                  selectedColor: Colors.blue,
                   onTap: () {
                     Navigator.pop(context);
                     _filterByCategory(key);
@@ -604,24 +709,38 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     );
   }
 
-  void _showDeleteConfirmation(SavedMap location) {
+  void _showDeleteConfirmation(SavedMap location, bool isDarkMode) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           'Delete Saved Location?',
-          style: AppTypography.textTheme.titleLarge,
+          style: AppTypography.textTheme.titleLarge?.copyWith(
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : null,
+          ),
         ),
         content: Text(
           'Are you sure you want to delete "${location.name}" from your saved locations?',
-          style: AppTypography.textTheme.bodyMedium,
+          style: AppTypography.textTheme.bodyMedium?.copyWith(
+            // Apply theme-aware text color
+            color: isDarkMode ? Colors.white : null,
+          ),
+        ),
+        // Apply theme-aware dialog styling
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'CANCEL',
-              style: AppTypography.textTheme.labelLarge,
+              style: AppTypography.textTheme.labelLarge?.copyWith(
+                // Apply theme-aware text color
+                color: isDarkMode ? Colors.grey[400] : null,
+              ),
             ),
           ),
           TextButton(

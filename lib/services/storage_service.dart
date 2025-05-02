@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as path;
-import 'package:project_navigo/services/utils/firebase_utils.dart';
+import 'package:project_navigo/utils/firebase_utils.dart';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
