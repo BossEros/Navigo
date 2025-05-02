@@ -836,7 +836,7 @@ extension NavigoMapUIBuilderExtension on _NavigoMapScreenState {
 
   Widget _buildTopMenuButtons() {
     return Positioned(
-      top: 15,
+      top: 15, // This is now relative to the map container, not the screen
       left: 16,
       right: 16,
       child: Row(

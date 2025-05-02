@@ -93,11 +93,6 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
         return;
       }
 
-      // Enable traffic layer when starting navigation if it's disabled
-      if (!_trafficEnabled) {
-        _toggleTrafficLayer();
-      }
-
       // Validate the response
       if (routeDetails == null) {
         _logNavigationEvent("Null route details received");

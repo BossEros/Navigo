@@ -1,6 +1,7 @@
 library navigo_map;
 
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,7 @@ import 'dart:async';
 import '../../component/reusable-location-search_screen.dart';
 import '../../config/config.dart';
 import '../../models/map_models/map_ids.dart';
+import '../../models/map_models/map_styles.dart';
 import '../../models/map_models/report_type.dart';
 import '../../models/route_history.dart';
 import '../../models/user_profile.dart';
@@ -200,11 +202,29 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   ///--------------------------------Lifecycle and Initialization--------------------------------------------------------///
 
   @override
+  @override
   void initState() {
     super.initState();
 
     _initLocationService();
     _trafficEnabled = false;
+
+    // Add this part to listen for theme changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Set initial status bar style
+      _updateStatusBarStyle();
+
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      themeProvider.addListener(() {
+        // Update status bar when theme changes
+        _updateStatusBarStyle();
+
+        // Handle theme changes for map
+        if (_mapController != null) {
+          _updateMapOnThemeChange();
+        }
+      });
+    });
 
     _pulseController = AnimationController(
       vsync: this,
@@ -233,6 +253,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
   @override
   void dispose() {
+    // Restore system UI to default when leaving the screen
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+
     _pulseController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
@@ -424,15 +447,14 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   }
 
   String _getCurrentMapId() {
-    // Get theme state from provider
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDarkMode = themeProvider.isDarkMode;
 
-    // Determine which Map ID to use based on app state
-    if (_isInNavigationMode) {
+    // For dark mode, we'll use JSON styling instead
+    if (isDarkMode) {
+      return MapIds.defaultMapId; // This will be overridden by JSON styling
+    } else if (_isInNavigationMode) {
       return MapIds.navigationMapId;
-    } else if (isDarkMode) {
-      return MapIds.nightMapId;
     } else if (!_trafficEnabled) {
       return MapIds.trafficOffMapId;
     } else {
@@ -487,6 +509,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
         markerId.value.startsWith('route_duration_'));
   }
 
+  void _updateStatusBarStyle() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent, // Transparent to allow our custom background to show
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+    ));
+  }
+
 
   ///--------------------------------------------End of Map and Location Management---------------------------------------------///
 
@@ -499,74 +532,122 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     final isDarkMode = themeProvider.isDarkMode;
     _trafficEnabled = themeProvider.isTrafficEnabled;
 
+    // Get status bar height
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
     return Scaffold(
       // ONLY change to prevent the UI from moving up when keyboard appears
       resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _defaultLocation,
-                zoom: 15,
-              ),
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                _updateCurrentLocationMarker();
-                print("Map Created with Cloud Map ID: ${_getCurrentMapId()}");
-              },
-              cloudMapId: _getCurrentMapId(),
-              markers: _markers,
-              polylines: _polylines,
-              mapType: _currentMapType,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              compassEnabled: true,
-              trafficEnabled: _trafficEnabled,
-              // Allow all gestures even during navigation mode
-              scrollGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-              tiltGesturesEnabled: true,
-              rotateGesturesEnabled: true,
+      body: Stack(
+        children: [
+          // First level: SafeArea with map and panels (original structure)
+          SafeArea(
+            child: Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _defaultLocation,
+                    zoom: 15,
+                  ),
+                  onMapCreated: _onMapCreated,
+                  markers: _markers,
+                  polylines: _polylines,
+                  mapType: _currentMapType,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: true,
+                  trafficEnabled: _trafficEnabled,
+                  // Allow all gestures even during navigation mode
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
+                  tiltGesturesEnabled: true,
+                  rotateGesturesEnabled: true,
+                ),
+
+                // SlidingUpPanel with original structure (unchanged)
+                SlidingUpPanel(
+                  controller: _panelController,
+                  minHeight: (_destinationPlace != null || _showingRouteAlternatives) ? 0 : 100,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  onPanelSlide: (position) {
+                    setState(() {
+                      _panelPosition = position;
+                      _isFullyExpanded = position > 0.8;
+                    });
+                  },
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  color: isDarkMode ? AppTheme.darkTheme.cardTheme.color! : Colors.white,
+                  panel: _buildSearchPanel(),
+                  body: _buildUIOverlays(),
+                ),
+
+                // Other UI components (unchanged)
+                if (_showingRouteAlternatives && _routeAlternatives.isNotEmpty)
+                  _buildRouteSelectionPanel(),
+
+                if (_isInNavigationMode)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _buildNavigationInfoPanel(),
+                  ),
+              ],
             ),
+          ),
 
-            // SlidingUpPanel with original structure
-            SlidingUpPanel(
-              controller: _panelController,
-              minHeight: (_destinationPlace != null || _showingRouteAlternatives) ? 0 : 100,
-              maxHeight: MediaQuery.of(context).size.height * 0.9,
-              onPanelSlide: (position) {
-                setState(() {
-                  _panelPosition = position;
-                  _isFullyExpanded = position > 0.8;
-                });
-              },
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color! : Colors.white,
-              panel: _buildSearchPanel(),
-              body: _buildUIOverlays(),
+          // Second level: Status bar overlay
+          // This sits above the map but below other UI elements to provide the status bar background
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: statusBarHeight,
+            child: Container(
+              color: isDarkMode ? Colors.black : Colors.white,
             ),
-
-            // Conditionally show the route selection panel
-            if (_showingRouteAlternatives && _routeAlternatives.isNotEmpty)
-              _buildRouteSelectionPanel(),
-
-            // Navigation info panel - positioned at top of screen
-            if (_isInNavigationMode)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _buildNavigationInfoPanel(),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    _updateCurrentLocationMarker();
+    print("Map Created with Cloud Map ID: ${_getCurrentMapId()}");
+
+    // Add the dark mode style application here if needed
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    if (themeProvider.isDarkMode) {
+      _applyDarkMapStyle();
+    }
+  }
+
+  // Apply dark style using JSON
+  void _applyDarkMapStyle() {
+    if (_mapController == null) return;
+    _mapController!.setMapStyle(MapStyles.dark);
+  }
+
+// Clear custom styling to return to Map ID styling
+  void _clearCustomMapStyle() {
+    if (_mapController == null) return;
+    _mapController!.setMapStyle(null);
+  }
+
+// Update map when theme changes
+  void _updateMapOnThemeChange() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    if (themeProvider.isDarkMode) {
+      _applyDarkMapStyle();
+    } else {
+      _clearCustomMapStyle();
+    }
+  }
 
   ///----------------------------------------------------End of UI Building Methods-----------------------------------------------///
 
