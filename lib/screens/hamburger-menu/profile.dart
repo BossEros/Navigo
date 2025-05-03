@@ -523,9 +523,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         key: _formKey,
         child: Column(
           children: [
-            // Shortened blue header with username and profile pic
+            // Shortened blue header with profile pic
             Container(
-              height: 160, // Reduced height for shorter gradient
+              height: 120, // Reduced height from 160 to 120
               width: double.infinity, // Ensure full width
               child: Stack(
                 children: [
@@ -552,7 +552,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Profile picture with improved positioning
             Transform.translate(
-              offset: Offset(0, -70),
+              offset: Offset(0, -60), // Changed from -70 to -60
               child: GestureDetector(
                 onTap: _pickProfileImage,
                 child: Stack(
@@ -596,76 +596,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Space to account for the overlapping profile picture (reduced since we use Transform)
-            SizedBox(height: 0),
+            // No padding here - removing vertical space
 
             // Profile details list
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Column(  // Changed from ListView to Column
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // User detail items remain the same
-                  buildProfileItem(
-                    title: 'Username',
-                    value: username,
-                    icon: ProfileIcons.username(isDarkMode),
-                    isEditable: false,
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: ListView(
+                  // Remove the physics property to use default scroll physics
+                  children: [
+                    // Username
+                    buildProfileItem(
+                      title: 'Username',
+                      value: username,
+                      icon: ProfileIcons.username(isDarkMode),
+                      isEditable: false,
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildProfileItem(
-                    title: 'Email',
-                    value: email,
-                    icon: ProfileIcons.email(isDarkMode),
-                    isEditable: false,
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+                    // Email
+                    buildProfileItem(
+                      title: 'Email',
+                      value: email,
+                      icon: ProfileIcons.email(isDarkMode),
+                      isEditable: false,
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildAddressItem(
-                    title: 'Home Address',
-                    address: _homeAddress,
-                    icon: ProfileIcons.home(isDarkMode),
-                    isEditable: _isEditing,
-                    onEditTap: () => _openLocationSearch('home'),
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+                    // Home Address
+                    buildAddressItem(
+                      title: 'Home Address',
+                      address: _homeAddress,
+                      icon: ProfileIcons.home(isDarkMode),
+                      isEditable: _isEditing,
+                      onEditTap: () => _openLocationSearch('home'),
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildAddressItem(
-                    title: 'Work Address',
-                    address: _workAddress,
-                    icon: ProfileIcons.work(isDarkMode),
-                    isEditable: _isEditing,
-                    onEditTap: () => _openLocationSearch('work'),
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
-                ],
+                    // Work Address
+                    buildAddressItem(
+                      title: 'Work Address',
+                      address: _workAddress,
+                      icon: ProfileIcons.work(isDarkMode),
+                      isEditable: _isEditing,
+                      onEditTap: () => _openLocationSearch('work'),
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
+
+                    // Add some bottom spacing for better appearance
+                    SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
 
-            // Add spacer to push button to bottom while maintaining layout
-            Spacer(),
-
-            // Edit/Save button
+            // Edit/Save button at the bottom
             SafeArea(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20), // Reduced vertical padding
                 child: buildEditButton(isDarkMode),
               ),
             ),
@@ -684,7 +688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool isDarkMode,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: 10), // Reduced from 12 to 10
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -734,7 +738,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool isDarkMode,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: 10), // Reduced from 12 to 10
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
