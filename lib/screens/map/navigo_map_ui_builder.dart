@@ -507,65 +507,99 @@ extension NavigoMapUIBuilderExtension on _NavigoMapScreenState {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
 
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          // Theme-aware background
-          color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          boxShadow: [
-            BoxShadow(
-              // Darker shadow in dark mode
-              color: isDarkMode
-                  ? Colors.black.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle with theme-aware color
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
+    // Calculate heights based on screen size
+    final screenHeight = MediaQuery.of(context).size.height;
+    final minHeight = 280 / screenHeight; // Initial collapsed height (adjust as needed)
+    final maxHeight = 0.9; // Maximum 90% of screen height
 
-              // Location name and address with theme-aware text
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _destinationPlace!.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                        color: isDarkMode ? Colors.white : Colors.black87,
+    return DraggableScrollableSheet(
+      initialChildSize: _placeCardMinHeight,
+      minChildSize: _placeCardMinHeight,
+      maxChildSize: maxHeight,
+      controller: _placeCardScrollController,
+      builder: (context, scrollController) {
+        return NotificationListener<DraggableScrollableNotification>(
+          onNotification: (notification) {
+            // Update expanded state based on size
+            final isExpanded = notification.extent > (minHeight + 0.1);
+            if (_isPlaceCardExpanded != isExpanded) {
+              setState(() {
+                _isPlaceCardExpanded = isExpanded;
+              });
+            }
+            return true;
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDarkMode ? AppTheme.darkTheme.cardTheme.color : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              boxShadow: [
+                BoxShadow(
+                  color: isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.only(bottom: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(3),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
+                  ),
+
+                  // Location name with pull indicator
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _destinationPlace!.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                              color: isDarkMode ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                        // Subtle pull indicator when not expanded
+                        if (!_isPlaceCardExpanded)
+                          Icon(
+                            Icons.keyboard_arrow_up,
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                            size: 20,
+                          )
+                      ],
+                    ),
+                  ),
+
+                  // Address
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                            Icons.location_on,
-                            size: 16,
-                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                          Icons.location_on,
+                          size: 16,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -581,131 +615,257 @@ extension NavigoMapUIBuilderExtension on _NavigoMapScreenState {
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Save button with updated functionality
-                  _buildActionButton(
-                    icon: _isLocationSaved ? Icons.bookmark : Icons.bookmark_border,
-                    label: _isLocationSaved ? 'Saved' : 'Save',
-                    onPressed: _saveOrUnsaveLocation,
-                    isLoading: _isLoadingLocationSave,
-                    isDarkMode: isDarkMode,
                   ),
 
-                  // Navigate button
-                  _buildActionButton(
-                    icon: Icons.navigation,
-                    label: 'Navigate',
-                    onPressed: _startNavigation,
-                    isPrimary: true,
-                    isDarkMode: isDarkMode,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Photos section with theme-aware styling
-              Container(
-                height: 120,
-                padding: const EdgeInsets.only(left: 16),
-                child: _destinationPlace!.photoUrls.isEmpty && _isLoadingPhotos
-                    ? Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        isDarkMode ? Colors.white : Colors.blue
-                    ),
-                  ),
-                )
-                    : _destinationPlace!.photoUrls.isEmpty
-                    ? Center(
-                  child: Text(
-                    'No photos available',
-                    style: TextStyle(
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
-                    ),
-                  ),
-                )
-                    : ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _destinationPlace!.photoUrls.length,
-                  itemBuilder: (context, index) {
-                    return _buildPhotoItem(
-                        _destinationPlace!.photoUrls[index],
-                        isDarkMode: isDarkMode
-                    );
-                  },
-                ),
-              ),
-
-              // Information section with theme-aware styling
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Information',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDarkMode ? Colors.white : Colors.black87,
+                  // Rating and Price - visible in both states
+                  if (_destinationPlace!.rating != null || _destinationPlace!.priceLevel != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          if (_destinationPlace!.rating != null) ...[
+                            _buildRatingStars(_destinationPlace!.rating),
+                            const SizedBox(width: 8),
+                            Text(
+                              _destinationPlace!.rating!.toStringAsFixed(1),
+                              style: TextStyle(
+                                color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                            const Spacer(),
+                          ],
+                          if (_destinationPlace!.priceLevel != null)
+                            _buildPriceLevel(_destinationPlace!.priceLevel, isDarkMode),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
+
+                  // Main action buttons - always visible
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Icon(
-                            Icons.access_time,
-                            size: 16,
-                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
+                        _buildActionButton(
+                          icon: _isLocationSaved ? Icons.bookmark : Icons.bookmark_border,
+                          label: _isLocationSaved ? 'Saved' : 'Save',
+                          onPressed: _saveOrUnsaveLocation,
+                          isLoading: _isLoadingLocationSave,
+                          isDarkMode: isDarkMode,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Operating hours may vary',
-                          style: TextStyle(
-                            color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
-                            fontSize: 14,
-                          ),
+                        _buildActionButton(
+                          icon: Icons.navigation,
+                          label: 'Navigate',
+                          onPressed: _startNavigation,
+                          isPrimary: true,
+                          isDarkMode: isDarkMode,
+                        ),
+                        _buildActionButton(
+                          icon: Icons.share,
+                          label: 'Share',
+                          onPressed: _sharePlace,
+                          isDarkMode: isDarkMode,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    // Display location type if available
-                    if (_destinationPlace!.types.isNotEmpty)
-                      Row(
-                        children: [
-                          Icon(
-                              Icons.category,
-                              size: 16,
-                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600]
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getFormattedType(_destinationPlace!.types.first),
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
-                              fontSize: 14,
+                  ),
+
+                  // Photos section
+                  Container(
+                    height: 120,
+                    width: double.infinity,
+                    padding: const EdgeInsets.only(left: 16),
+                    child: _destinationPlace!.photoUrls.isEmpty && _isLoadingPhotos
+                        ? Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            isDarkMode ? Colors.white : Colors.blue),
+                      ),
+                    )
+                        : _destinationPlace!.photoUrls.isEmpty
+                        ? Center(
+                      child: Text(
+                        'No photos available',
+                        style: TextStyle(
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                      ),
+                    )
+                        : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _destinationPlace!.photoUrls.length,
+                      itemBuilder: (context, index) {
+                        return _buildPhotoItem(
+                          _destinationPlace!.photoUrls[index],
+                          isDarkMode: isDarkMode,
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Divider when card is expanded
+                  if (_isPlaceCardExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      child: Divider(
+                        color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                        height: 1,
+                      ),
+                    ),
+
+                  // EXPANDED CONTENT - Only visible when expanded
+                  if (_isPlaceCardExpanded) ...[
+                    // Contact info section
+                    if (_destinationPlace!.phoneNumber != null || _destinationPlace!.websiteUri != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Contact',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+
+                            // Phone number with call button
+                            if (_destinationPlace!.phoneNumber != null)
+                              InkWell(
+                                onTap: () => _launchUrl('tel:${_destinationPlace!.phoneNumber}'),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.phone,
+                                          size: 20,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        _destinationPlace!.phoneNumber!,
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                            // Website link
+                            if (_destinationPlace!.websiteUri != null)
+                              InkWell(
+                                onTap: () => _launchUrl(_destinationPlace!.websiteUri!),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.public,
+                                          size: 20,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          _formatWebsiteUri(_destinationPlace!.websiteUri),
+                                          style: TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                    // Editorial summary section - NEW
+                    if (_destinationPlace!.editorialSummary != null &&
+                        _destinationPlace!.editorialSummary!.containsKey('text') &&
+                        _destinationPlace!.editorialSummary!['text'] != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'About',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _destinationPlace!.editorialSummary!['text'],
+                              style: TextStyle(
+                                color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Hours section
+                    if (_destinationPlace!.currentOpeningHours != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Opening Hours',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: isDarkMode ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildOpeningHours(_destinationPlace!.currentOpeningHours, isDarkMode),
+                          ],
+                        ),
                       ),
                   ],
-                ),
+                ],
               ),
-
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1881,5 +2041,27 @@ extension NavigoMapUIBuilderExtension on _NavigoMapScreenState {
         ),
       ),
     );
+  }
+
+  // Manually expand the place card
+  void _expandPlaceCard() {
+    if (!_isPlaceCardExpanded && _placeCardScrollController.isAttached) {
+      _placeCardScrollController.animateTo(
+        0.75, // 75% of screen height
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  // Manually collapse the place card
+  void _collapsePlaceCard() {
+    if (_isPlaceCardExpanded && _placeCardScrollController.isAttached) {
+      _placeCardScrollController.animateTo(
+        _placeCardMinHeight,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 }

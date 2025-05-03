@@ -1,7 +1,8 @@
 library navigo_map;
 
 import 'dart:math';
-
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
@@ -206,6 +207,10 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   // Navigation Icon
   BitmapDescriptor? _navigationArrowIcon;
 
+  bool _isPlaceCardExpanded = false;
+  DraggableScrollableController _placeCardScrollController = DraggableScrollableController();
+  final double _placeCardMinHeight = 400 / 800; // Adjust denominator based on average screen height
+
   ///--------------------------------Lifecycle and Initialization--------------------------------------------------------///
 
   @override
@@ -215,6 +220,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     _initLocationService();
     _trafficEnabled = false;
+    _placeCardScrollController = DraggableScrollableController();
 
     _preloadNavigationIcon();
 
@@ -265,6 +271,7 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     // Restore system UI to default when leaving the screen
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
+    _placeCardScrollController.dispose();
     _pulseController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
@@ -644,6 +651,247 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     if (themeProvider.isDarkMode) {
       _applyDarkMapStyle();
     }
+  }
+
+  // Helper method to display rating stars
+  Widget _buildRatingStars(double? rating, {double size = 16}) {
+    if (rating == null) return SizedBox.shrink();
+
+    const int maxStars = 5;
+    final int fullStars = rating.floor();
+    final bool hasHalfStar = rating - fullStars >= 0.5;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(maxStars, (index) {
+        if (index < fullStars) {
+          return Icon(Icons.star, color: Colors.amber, size: size);
+        } else if (index == fullStars && hasHalfStar) {
+          return Icon(Icons.star_half, color: Colors.amber, size: size);
+        } else {
+          return Icon(Icons.star_border, color: Colors.amber, size: size);
+        }
+      }),
+    );
+  }
+
+// Helper method for price level display
+  Widget _buildPriceLevel(int? priceLevel, bool isDarkMode) {
+    if (priceLevel == null) return SizedBox.shrink();
+
+    final int level = priceLevel.clamp(0, 4);
+    String dollars = '';
+    for (int i = 0; i <= level; i++) {
+      dollars += '\$';
+    }
+
+    return Text(
+      dollars,
+      style: TextStyle(
+        color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+        fontWeight: FontWeight.bold,
+        fontSize: 14,
+      ),
+    );
+  }
+
+
+// URL launching helper
+  void _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        print('Could not launch $url');
+      }
+    } catch (e) {
+      print('Error launching URL: $e');
+    }
+  }
+
+// Format website URL for display
+  String _formatWebsiteUri(String? url) {
+    if (url == null || url.isEmpty) return '';
+
+    try {
+      Uri uri = Uri.parse(url);
+      return uri.host;
+    } catch (e) {
+      return url;
+    }
+  }
+
+// Helper for opening hours display
+  Widget _buildOpeningHours(Map<String, dynamic>? openingHours, bool isDarkMode) {
+    if (openingHours == null) return const SizedBox.shrink();
+
+    // Get open now status
+    final bool openNow = openingHours['openNow'] ?? false;
+
+    // Check if we have weekday descriptions directly
+    final List<dynamic>? weekdayText = openingHours['weekdayDescriptions'];
+
+    // If no weekday descriptions, we need to format from periods
+    List<String> formattedHours = [];
+    if (weekdayText == null || weekdayText.isEmpty) {
+      // Format from periods if available
+      if (openingHours.containsKey('periods') && openingHours['periods'] is List) {
+        final dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        // Initialize with "Closed" for all days
+        Map<int, String> dayHours = {
+          0: 'Sunday: Closed',
+          1: 'Monday: Closed',
+          2: 'Tuesday: Closed',
+          3: 'Wednesday: Closed',
+          4: 'Thursday: Closed',
+          5: 'Friday: Closed',
+          6: 'Saturday: Closed',
+        };
+
+        // Fill in actual hours from periods
+        for (var period in openingHours['periods']) {
+          if (period['open'] != null) {
+            final int day = period['open']['day'] ?? 0;
+            final int openHour = period['open']['hour'] ?? 0;
+            final int openMinute = period['open']['minute'] ?? 0;
+
+            String closeTime = 'Closed';
+            if (period['close'] != null) {
+              final int closeHour = period['close']['hour'] ?? 0;
+              final int closeMinute = period['close']['minute'] ?? 0;
+              closeTime = '${_formatHour(closeHour)}:${_formatMinute(closeMinute)}';
+            }
+
+            dayHours[day] = '${dayNames[day]}: ${_formatHour(openHour)}:${_formatMinute(openMinute)} - $closeTime';
+          }
+        }
+
+        // Sort by day and create formatted list
+        formattedHours = List.generate(7, (i) => dayHours[i] ?? '${dayNames[i]}: Closed');
+      }
+    } else {
+      // Use existing weekday descriptions
+      formattedHours = weekdayText.map((day) => day.toString()).toList();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Open now indicator
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: openNow
+                ? Colors.green.withOpacity(isDarkMode ? 0.2 : 0.1)
+                : Colors.red.withOpacity(isDarkMode ? 0.2 : 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: openNow ? Colors.green : Colors.red,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            openNow ? 'Open Now' : 'Closed',
+            style: TextStyle(
+              color: openNow ? Colors.green : Colors.red,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Weekly hours - show all days
+        ...formattedHours.map((dayHour) {
+          // Try to find today's hours to highlight
+          bool isToday = false;
+
+          // Get current day name
+          final now = DateTime.now();
+          final dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          final todayName = dayNames[now.weekday % 7];
+
+          // Check if this row is for today
+          if (dayHour.toString().startsWith(todayName)) {
+            isToday = true;
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4.0),
+            child: Row(
+              children: [
+                if (isToday)
+                  Container(
+                    width: 4,
+                    height: 4,
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    dayHour.toString(),
+                    style: TextStyle(
+                      color: isToday
+                          ? Colors.blue
+                          : (isDarkMode ? Colors.grey[300] : Colors.grey[800]),
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+// Helper methods for formatting time
+  String _formatHour(int hour) {
+    if (hour == 0) return '12 AM';
+    if (hour < 12) return '$hour AM';
+    if (hour == 12) return '12 PM';
+    return '${hour - 12} PM';
+  }
+
+  String _formatMinute(int minute) {
+    return minute.toString().padLeft(2, '0');
+  }
+
+// Display editorial summary (if available)
+  Widget _buildEditorialSummary(Map<String, dynamic>? summary, bool isDarkMode) {
+    if (summary == null || !summary.containsKey('text') || summary['text'] == null) {
+      return SizedBox.shrink();
+    }
+
+    return Text(
+      summary['text'],
+      style: TextStyle(
+        color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
+        fontSize: 14,
+        height: 1.4,
+      ),
+    );
+  }
+
+// Share place helper
+  void _sharePlace() {
+    if (_destinationPlace == null) return;
+
+    String shareText = '${_destinationPlace!.name}\n${_destinationPlace!.address}';
+
+    // Add Google Maps link for the location
+    final lat = _destinationPlace!.latLng.latitude;
+    final lng = _destinationPlace!.latLng.longitude;
+    shareText += '\nhttps://maps.google.com/maps?q=$lat,$lng';
+
+    Share.share(shareText);
   }
 
   // Apply dark style using JSON
