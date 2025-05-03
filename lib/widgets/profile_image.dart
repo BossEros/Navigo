@@ -1,4 +1,7 @@
+// Updated profile_image.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:project_navigo/services/user_provider.dart';
 
 class ProfileImageWidget extends StatelessWidget {
   final String? imageUrl;
@@ -32,38 +35,65 @@ class ProfileImageWidget extends StatelessWidget {
       child: ClipOval(
         child: isLoading
             ? _buildLoadingIndicator()
-            : _buildProfileImage(),
+            : _buildProfileImage(context),
       ),
     );
   }
 
-  Widget _buildProfileImage() {
+  Widget _buildProfileImage(BuildContext context) {
+    // Check if we should use the preloaded image from UserProvider
     if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return Image.network(
-        imageUrl!,
-        fit: BoxFit.cover,
-        width: size,
-        height: size,
-        errorBuilder: (context, error, stackTrace) {
-          return _buildFallbackIcon();
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(color: Colors.grey[200]),
-              CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
-                    : null,
-                strokeWidth: 2,
-              ),
-            ],
-          );
-        },
-      );
+      // Get the UserProvider
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final preloadedImageProvider = userProvider.profileImageProvider;
+
+      // Check if this image URL matches the preloaded one
+      final isPreloadedImage = userProvider.isProfileImagePreloaded &&
+          preloadedImageProvider != null &&
+          userProvider.userProfile?.profileImageUrl == imageUrl;
+
+      // Use the preloaded image if available, otherwise load normally
+      if (isPreloadedImage) {
+        return Image(
+          image: preloadedImageProvider!,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildFallbackIcon();
+          },
+        );
+      } else {
+        // Fall back to normal loading if URLs don't match
+        return Image.network(
+          imageUrl!,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          // Add cacheWidth for better performance
+          cacheWidth: (size * 2).toInt(),
+          errorBuilder: (context, error, stackTrace) {
+            return _buildFallbackIcon();
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(color: Colors.grey[200]),
+                CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 2,
+                ),
+              ],
+            );
+          },
+        );
+      }
     } else {
       return _buildFallbackIcon();
     }

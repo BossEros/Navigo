@@ -1,42 +1,30 @@
+// Updated user_provider.dart with fixed precaching approach
 import 'package:flutter/material.dart';
 import 'package:project_navigo/models/user_profile.dart';
 import 'package:project_navigo/services/user_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:async';
 
 class UserProvider extends ChangeNotifier {
   UserProfile? _userProfile;
   final UserService _userService = UserService();
   bool _isLoading = false;
   String? _error;
-  StreamSubscription<User?>? _authStateSubscription;
-  bool _isInitialized = false;
 
-  UserProvider() {
-    // Set up auth state listener in constructor
-    _authStateSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
-      if (user != null) {
-        // User is logged in, load their data if not already loaded
-        if (!_isInitialized) {
-          loadUserData();
-        }
-      } else {
-        // User is logged out, clear their data
-        clearUserData();
-      }
-    });
-  }
+  // Image preloading state
+  bool _isProfileImagePreloaded = false;
+  bool _isPreloadingImage = false;
+
+  // Cached image provider
+  NetworkImage? _profileImageProvider;
 
   UserProfile? get userProfile => _userProfile;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get isProfileImagePreloaded => _isProfileImagePreloaded;
+  NetworkImage? get profileImageProvider => _profileImageProvider;
 
+  // Load user data from Firestore
   Future<void> loadUserData() async {
-    // Skip if already loading or if data is already loaded
-    if (_isLoading || (_userProfile != null && _isInitialized)) {
-      return;
-    }
-
     final User? currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       _error = "No user logged in";
@@ -51,7 +39,12 @@ class UserProvider extends ChangeNotifier {
     try {
       _userProfile = await _userService.getUserProfile(currentUser.uid);
       _error = null;
-      _isInitialized = true;  // Mark as initialized after successful load
+
+      // Initialize image provider if URL is available
+      if (_userProfile?.profileImageUrl != null &&
+          _userProfile!.profileImageUrl!.isNotEmpty) {
+        _initProfileImageProvider();
+      }
     } catch (e) {
       _error = "Failed to load user data: $e";
       print(_error);
@@ -61,17 +54,19 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // Clear user data on logout
   void clearUserData() {
     _userProfile = null;
-    _isInitialized = false;
+    _isProfileImagePreloaded = false;
+    _profileImageProvider = null;
     notifyListeners();
   }
 
   Future<void> refreshUserData() async {
-    _isInitialized = false;
     return loadUserData();
   }
 
+  // Add a method to update profile image
   Future<void> updateProfileImage(String imageUrl, String imagePath) async {
     if (_userProfile == null) return;
 
@@ -95,6 +90,11 @@ class UserProvider extends ChangeNotifier {
         profileImageUpdatedAt: DateTime.now(),
       );
 
+      // Reset image state and initialize with new URL
+      _isProfileImagePreloaded = false;
+      _profileImageProvider = null;
+      _initProfileImageProvider();
+
       // Notify listeners to update UI
       notifyListeners();
     } catch (e) {
@@ -102,9 +102,50 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  @override
-  void dispose() {
-    _authStateSubscription?.cancel();
-    super.dispose();
+  // Initialize and prepare the image provider
+  void _initProfileImageProvider() {
+    if (_userProfile?.profileImageUrl == null ||
+        _userProfile!.profileImageUrl!.isEmpty ||
+        _isPreloadingImage) {
+      return;
+    }
+
+    _isPreloadingImage = true;
+
+    try {
+      // Create the network image provider
+      final imageUrl = _userProfile!.profileImageUrl!;
+      _profileImageProvider = NetworkImage(imageUrl);
+
+      // Pre-start the image loading in the background
+      // This doesn't need a BuildContext
+      final imageConfig = ImageConfiguration();
+      final imageStream = _profileImageProvider!.resolve(imageConfig);
+
+      late final ImageStreamListener listener;
+      listener = ImageStreamListener(
+            (ImageInfo info, bool _) {
+          // Image is now in memory cache
+          _isProfileImagePreloaded = true;
+          _isPreloadingImage = false;
+          imageStream.removeListener(listener);
+          print('Profile image loaded in memory: $imageUrl');
+          notifyListeners();
+        },
+        onError: (dynamic exception, StackTrace? stackTrace) {
+          _isPreloadingImage = false;
+          imageStream.removeListener(listener);
+          print('Error loading profile image: $exception');
+          notifyListeners();
+        },
+      );
+
+      // Start listening to load the image
+      imageStream.addListener(listener);
+    } catch (e) {
+      _isPreloadingImage = false;
+      print('Error initializing profile image provider: $e');
+      notifyListeners();
+    }
   }
 }

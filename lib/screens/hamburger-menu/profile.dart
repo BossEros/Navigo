@@ -15,6 +15,8 @@ import '../../services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/theme_provider.dart';
 
+import '../../widgets/profile_image.dart';
+
 /// A utility class for profile screen icons to maintain consistency
 class ProfileIcons {
   // Standard constants
@@ -548,7 +550,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Profile picture - improved positioning
+            // Profile picture with improved positioning
             Transform.translate(
               offset: Offset(0, -70),
               child: GestureDetector(
@@ -556,78 +558,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
-                    // Profile picture container
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDarkMode ? Colors.grey[800] : Colors.white,
-                        border: Border.all(
-                            color: isDarkMode ? Colors.grey[800]! : Colors.white,
-                            width: 4
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: profileImageUrl != null && profileImageUrl.isNotEmpty
-                            ? Image.network(
-                          profileImageUrl,
-                          fit: BoxFit.cover,
-                          width: 120,
-                          height: 120,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            print('Error loading profile image: $error');
-                            return FaIcon(
-                              FontAwesomeIcons.userLarge,
-                              size: 60,
-                              color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
-                            );
-                          },
-                          cacheWidth: 240, // Set to double the display size for quality
-                          key: ValueKey(DateTime.now().toString()),
-                        )
-                            : FaIcon(
-                          FontAwesomeIcons.userLarge,
-                          size: 60,
-                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
-                        ),
-                      ),
+                    // Use ProfileImageWidget instead of direct Image.network
+                    ProfileImageWidget(
+                      imageUrl: profileImageUrl,
+                      size: 120,
+                      isLoading: _isLoading,
                     ),
 
-                    // Camera icon for editing
+                    // Camera icon for editing (keep this part unchanged)
                     if (_isEditing && !_isLoading)
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.blue,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: isDarkMode ? Colors.grey[800]! : Colors.white,
-                              width: 2
-                          ),
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: ProfileIcons.camera(),
                       ),
 
-                    // Loading indicator overlay
+                    // Loading indicator overlay (keep this part unchanged)
                     if (_isLoading)
                       Positioned.fill(
                         child: ClipOval(

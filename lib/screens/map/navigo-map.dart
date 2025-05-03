@@ -1,5 +1,7 @@
 library navigo_map;
 
+import 'dart:math';
+
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
@@ -34,6 +36,8 @@ import '../../widgets/report_panel.dart';
 import '../hamburger-menu/all_shortcuts_screen.dart';
 import '../authentication/login_screen.dart';
 import 'package:project_navigo/services/quick_access_shortcut_service.dart';
+import 'dart:ui' show Canvas, Paint, Path, PictureRecorder, ImageByteFormat;
+import 'dart:typed_data' show ByteData, Uint8List;
 
 import 'package:project_navigo/models/map_models/navigation_state.dart';
 import 'package:project_navigo/models/map_models/quick_access_shortcut.dart';
@@ -199,6 +203,9 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
   QuickAccessShortcutService? _shortcutService;
   bool _isLoadingShortcuts = false;
 
+  // Navigation Icon
+  BitmapDescriptor? _navigationArrowIcon;
+
   ///--------------------------------Lifecycle and Initialization--------------------------------------------------------///
 
   @override
@@ -208,6 +215,8 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
 
     _initLocationService();
     _trafficEnabled = false;
+
+    _preloadNavigationIcon();
 
     // Add this part to listen for theme changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -360,6 +369,17 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
       _locationSubscription = _location.onLocationChanged.listen(_updateCurrentLocation);
     } catch (e) {
       _showErrorSnackBar('Error initializing location: $e');
+    }
+  }
+
+  Future<void> _preloadNavigationIcon() async {
+    try {
+      print('Preloading navigation arrow icon...');
+      _navigationArrowIcon = await _createNavigationArrowIcon();
+      print('Navigation arrow icon preloaded: ${_navigationArrowIcon != null}');
+    } catch (e) {
+      print('Error preloading navigation arrow icon: $e');
+      // Continue without the icon, it will be loaded when needed
     }
   }
 
