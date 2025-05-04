@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/screens/map/navigo-map.dart';
 import 'package:project_navigo/services/onboarding_service.dart';
+import 'package:project_navigo/themes/app_typography.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
+import 'package:project_navigo/themes/app_theme.dart';
 
 import '../../services/user_provider.dart';
 
@@ -18,34 +21,94 @@ class OnboardingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'NaviGo',
-      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Roboto'),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: const WelcomeScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-// Shared decorations and styles
+/// Shared styles and utilities for onboarding screens
 class AppStyles {
-  static const Color primaryBlue = Color(0xFF4169E1); // Royal blue color from images
-  static const Color lightBlue = Color(0xFFADD8E6);
-  static const Color errorRed = Color(0xFFE53935);
+  /// Gets primary button style based on theme
+  static ButtonStyle getPrimaryButtonStyle(bool isDarkMode) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: AppTheme.primaryColor,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      minimumSize: const Size(180, 48),
+      elevation: isDarkMode ? 2 : 3,
+      shadowColor: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.3),
+    );
+  }
 
-  static ButtonStyle primaryButtonStyle = ElevatedButton.styleFrom(
-    backgroundColor: primaryBlue,
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-    minimumSize: const Size(180, 48),
-  );
+  /// Gets disabled button style based on theme
+  static ButtonStyle getDisabledButtonStyle(bool isDarkMode) {
+    return ElevatedButton.styleFrom(
+      backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[400],
+      foregroundColor: isDarkMode ? Colors.grey[400] : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      minimumSize: const Size(180, 48),
+      elevation: isDarkMode ? 1 : 2,
+    );
+  }
 
-  static ButtonStyle disabledButtonStyle = ElevatedButton.styleFrom(
-    backgroundColor: Colors.grey[400],
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-    minimumSize: const Size(180, 48),
-  );
+  /// Enhanced error dialog for better error visualization
+  static void showErrorDialog(BuildContext context, String message) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.red[400],
+                size: 28,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Error',
+                style: AppTypography.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: AppTypography.textTheme.bodyMedium?.copyWith(
+              color: isDarkMode ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'OK',
+                style: AppTypography.textTheme.labelLarge?.copyWith(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 // 1. Initial Welcome Screen
@@ -101,8 +164,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
 
+    // Get theme mode from provider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Apply theme-aware background color
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       body: Stack(
         children: [
           // Top left corner decoration with animation
@@ -117,6 +185,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                   child: Image.asset(
                     'assets/abstract_corner_pattern.png',
                     width: 180,
+                    // Apply color filter in dark mode
+                    color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                    colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
                   ),
                 ),
               );
@@ -137,6 +208,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                     child: Image.asset(
                       'assets/abstract_corner_pattern.png',
                       width: 180,
+                      // Apply color filter in dark mode
+                      color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                      colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
                     ),
                   ),
                 ),
@@ -179,13 +253,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                       position: _slideAnimation,
                       child: Column(
                         children: [
-                          const Text(
+                          Text(
                             'Welcome to NaviGo',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: AppStyles.primaryBlue,
-                              height: 1.3,
+                            style: AppTypography.authTitle.copyWith(
+                              color: isDarkMode ? Colors.white : AppTheme.primaryColor,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -194,10 +265,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                           // Description text
                           Text(
                             'Let\'s set up your account to get you started with personalized navigation and real-time traffic updates.',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[800],
-                              height: 1.4,
+                            style: AppTypography.authSubtitle.copyWith(
+                              color: isDarkMode ? Colors.white70 : Colors.grey[800],
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -208,7 +277,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
 
                   SizedBox(height: screenSize.height * 0.08),
 
-                  // Illustration with animation
+                  // Illustration with animation - keep GIF regardless of theme
                   FadeTransition(
                     opacity: _fadeInAnimation,
                     child: SlideTransition(
@@ -216,12 +285,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                       child: Container(
                         height: 180,
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
+                          color: isDarkMode ? Colors.grey[850] : Colors.grey[100],
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
+                              color: isDarkMode
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.black.withOpacity(0.05),
+                              blurRadius: isDarkMode ? 15 : 10,
                               offset: const Offset(0, 5),
                             ),
                           ],
@@ -255,21 +326,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppStyles.primaryBlue.withOpacity(0.3),
+                                  color: AppTheme.primaryColor.withOpacity(isDarkMode ? 0.2 : 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
                             child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppStyles.primaryBlue,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
+                              style: AppStyles.getPrimaryButtonStyle(isDarkMode),
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -295,16 +359,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
                               },
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
+                                children: [
                                   Text(
                                     'Let\'s Get Started',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: AppTypography.authButton,
                                   ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_rounded),
                                 ],
                               ),
                             ),
@@ -464,11 +525,13 @@ class _UsernameScreenState extends State<UsernameScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error saving username: ${e.toString()}';
+          _errorMessage = null; // Clear inline error as we'll show a dialog
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_errorMessage!))
+        // Show enhanced error dialog instead of snackbar
+        AppStyles.showErrorDialog(
+            context,
+            'Error saving username: ${e.toString()}'
         );
       }
     } finally {
@@ -482,8 +545,13 @@ class _UsernameScreenState extends State<UsernameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Apply theme-aware background
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
@@ -494,6 +562,9 @@ class _UsernameScreenState extends State<UsernameScreen> {
               child: Image.asset(
                 'assets/abstract_corner_pattern.png',
                 width: 150,
+                // Apply color filter in dark mode
+                color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
               ),
             ),
 
@@ -506,6 +577,9 @@ class _UsernameScreenState extends State<UsernameScreen> {
                 child: Image.asset(
                   'assets/abstract_corner_pattern.png',
                   width: 150,
+                  // Apply color filter in dark mode
+                  color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                  colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
                 ),
               ),
             ),
@@ -517,13 +591,10 @@ class _UsernameScreenState extends State<UsernameScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 120),
-                    const Text(
+                    Text(
                       'What should we\ncall you?',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                        height: 1.2,
+                      style: AppTypography.authTitle.copyWith(
+                        color: isDarkMode ? Colors.white : Colors.black,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -532,43 +603,66 @@ class _UsernameScreenState extends State<UsernameScreen> {
                       controller: _usernameController,
                       decoration: InputDecoration(
                         hintText: 'Enter your preferred username',
-                        hintStyle: TextStyle(color: Colors.grey[400], fontStyle: FontStyle.italic),
-                        prefixIcon: Icon(Icons.person, color: AppStyles.primaryBlue.withOpacity(0.7)),
+                        hintStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                            color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
+                            fontStyle: FontStyle.italic
+                        ),
+                        prefixIcon: Icon(
+                            Icons.person,
+                            color: isDarkMode
+                                ? AppTheme.primaryColor.withOpacity(0.6)
+                                : AppTheme.primaryColor.withOpacity(0.7)
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDarkMode ? Colors.grey[850] : Colors.white,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.5),
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                              width: 1.5
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppStyles.primaryBlue, width: 2),
+                          borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppStyles.errorRed, width: 1.5),
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.red[300]! : AppTheme.errorColor,
+                              width: 1.5
+                          ),
                         ),
                         focusedErrorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppStyles.errorRed, width: 2),
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.red[300]! : AppTheme.errorColor,
+                              width: 2
+                          ),
                         ),
                         errorText: _errorMessage,
+                        errorStyle: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: isDarkMode ? Colors.red[300] : AppTheme.errorColor,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 18,
                         ),
                         isDense: false,
-                        focusColor: AppStyles.primaryBlue,
+                        focusColor: AppTheme.primaryColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                         // Show a check mark if username is valid
-                        suffixIcon: _isUsernameValid ?
-                        Icon(Icons.check_circle, color: Colors.green) : null,
+                        suffixIcon: _isUsernameValid
+                            ? Icon(Icons.check_circle, color: Colors.green)
+                            : null,
                       ),
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                      cursorColor: AppStyles.primaryBlue,
+                      style: AppTypography.authInputText.copyWith(
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
+                      cursorColor: AppTheme.primaryColor,
                       onChanged: _validateUsername,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -587,24 +681,29 @@ class _UsernameScreenState extends State<UsernameScreen> {
                     ),
                     const SizedBox(height: 16),
                     if (_isLoading)
-                      const Center(child: CircularProgressIndicator()),
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            isDarkMode ? Colors.white : AppTheme.primaryColor
+                        ),
+                      ),
                     const Spacer(),
                     ElevatedButton(
-                      style: _isUsernameValid && !_isLoading ?
-                      AppStyles.primaryButtonStyle : AppStyles.disabledButtonStyle,
+                      style: _isUsernameValid && !_isLoading
+                          ? AppStyles.getPrimaryButtonStyle(isDarkMode)
+                          : AppStyles.getDisabledButtonStyle(isDarkMode),
                       onPressed: _isUsernameValid && !_isLoading ? _saveUsername : null,
-                      child: _isLoading ?
-                      const SizedBox(
+                      child: _isLoading
+                          ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      ) :
-                      const Text(
+                          child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2
+                          )
+                      )
+                          : Text(
                         'Continue',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: AppTypography.authButton,
                       ),
                     ),
                     const SizedBox(height: 50),
@@ -639,6 +738,10 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
 
   // Function to show date picker
   Future<void> _showDatePicker() async {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime(2000, 1, 1),
@@ -653,23 +756,24 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
       errorInvalidText: 'You must be at least 13 years old',
       builder: (context, child) {
         return Theme(
-          data: ThemeData.light().copyWith(
+          data: isDarkMode
+              ? ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.grey[850]!,
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: Colors.grey[900],
+          )
+              : ThemeData.light().copyWith(
             colorScheme: ColorScheme.light(
-              primary: AppStyles.primaryBlue,
+              primary: AppTheme.primaryColor,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black87,
             ),
             dialogBackgroundColor: Colors.white,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: AppStyles.primaryBlue,
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
           ),
           child: child!,
         );
@@ -723,11 +827,13 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error saving date of birth: ${e.toString()}';
+          _errorMessage = null; // Clear inline error to use dialog
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_errorMessage!))
+        // Show enhanced error dialog
+        AppStyles.showErrorDialog(
+            context,
+            'Error saving date of birth: ${e.toString()}'
         );
       }
     } finally {
@@ -752,8 +858,13 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Apply theme-aware background
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
@@ -764,6 +875,9 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
               child: Image.asset(
                 'assets/abstract_corner_pattern.png',
                 width: 150,
+                // Apply color filter in dark mode
+                color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
               ),
             ),
 
@@ -776,6 +890,9 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
                 child: Image.asset(
                   'assets/abstract_corner_pattern.png',
                   width: 150,
+                  // Apply color filter in dark mode
+                  color: isDarkMode ? Colors.white.withOpacity(0.3) : null,
+                  colorBlendMode: isDarkMode ? BlendMode.srcATop : null,
                 ),
               ),
             ),
@@ -785,21 +902,18 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 80),
-                  const Text(
+                  Text(
                     'When were you born?',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                    style: AppTypography.authTitle.copyWith(
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'This helps us personalize your experience',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
+                    style: AppTypography.authSubtitle.copyWith(
+                      color: isDarkMode ? Colors.white70 : Colors.black54,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -808,55 +922,60 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
                   // Date selector card
                   InkWell(
                     onTap: _isLoading ? null : _showDatePicker,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Ink(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDarkMode ? Colors.grey[850] : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _errorMessage != null ?
-                          AppStyles.errorRed :
-                          (_selectedDate != null ? AppStyles.primaryBlue : Colors.grey[300]!),
+                          color: _errorMessage != null
+                              ? (isDarkMode ? Colors.red[300]! : AppTheme.errorColor)
+                              : (_selectedDate != null
+                              ? AppTheme.primaryColor
+                              : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
                           width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: isDarkMode
+                                ? Colors.black.withOpacity(0.2)
+                                : Colors.black.withOpacity(0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            color: _selectedDate != null
-                                ? AppStyles.primaryBlue
-                                : Colors.grey[500],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              formattedDate,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: _selectedDate != null
-                                    ? Colors.black87
-                                    : Colors.grey[600],
-                                fontWeight: _selectedDate != null
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              color: _selectedDate != null
+                                  ? AppTheme.primaryColor
+                                  : (isDarkMode ? Colors.grey[400] : Colors.grey[500]),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                formattedDate,
+                                style: AppTypography.textTheme.bodyLarge?.copyWith(
+                                  color: _selectedDate != null
+                                      ? (isDarkMode ? Colors.white : Colors.black87)
+                                      : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                                  fontWeight: _selectedDate != null
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                                ),
                               ),
                             ),
-                          ),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.grey[600],
-                          ),
-                        ],
+                            Icon(
+                              Icons.arrow_drop_down,
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -867,9 +986,8 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
                         _errorMessage!,
-                        style: TextStyle(
-                          color: AppStyles.errorRed,
-                          fontSize: 12,
+                        style: AppTypography.textTheme.bodySmall?.copyWith(
+                          color: isDarkMode ? Colors.red[300] : AppTheme.errorColor,
                         ),
                       ),
                     ),
@@ -878,26 +996,31 @@ class _DateOfBirthScreenState extends State<DateOfBirthScreen> {
                   if (_isLoading)
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
-                      child: CircularProgressIndicator(),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            isDarkMode ? Colors.white : AppTheme.primaryColor
+                        ),
+                      ),
                     ),
 
                   const Spacer(),
                   ElevatedButton(
-                    style: _selectedDate != null && !_isLoading ?
-                    AppStyles.primaryButtonStyle : AppStyles.disabledButtonStyle,
+                    style: _selectedDate != null && !_isLoading
+                        ? AppStyles.getPrimaryButtonStyle(isDarkMode)
+                        : AppStyles.getDisabledButtonStyle(isDarkMode),
                     onPressed: _selectedDate != null && !_isLoading ? _saveDateOfBirth : null,
-                    child: _isLoading ?
-                    const SizedBox(
+                    child: _isLoading
+                        ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                    ) :
-                    const Text(
+                        child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2
+                        )
+                    )
+                        : Text(
                       'Continue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTypography.authButton,
                     ),
                   ),
                   const SizedBox(height: 50),
@@ -924,16 +1047,22 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient
+          // Background gradient that works in both light and dark modes
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF4169E1), Color(0xFF1E3A8A)],
+                colors: isDarkMode
+                    ? [Colors.blue.shade900, Colors.indigo.shade900]
+                    : [Color(0xFF4169E1), Color(0xFF1E3A8A)],
               ),
             ),
           ),
@@ -1020,20 +1149,18 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
                     },
                     child: Column(
                       children: [
-                        const Text(
+                        Text(
                           'Welcome to',
-                          style: TextStyle(
+                          style: AppTypography.textTheme.headlineMedium?.copyWith(
                             color: Colors.white,
-                            fontSize: 22,
                             fontWeight: FontWeight.normal,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'NaviGo',
-                          style: TextStyle(
+                          style: AppTypography.textTheme.displayMedium?.copyWith(
                             color: Colors.white,
-                            fontSize: 42,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1069,7 +1196,7 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: AppStyles.primaryBlue,
+                        foregroundColor: AppTheme.primaryColor,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 40,
                           vertical: 16,
@@ -1081,7 +1208,10 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
                         shadowColor: Colors.black38,
                         minimumSize: const Size(220, 58),
                       ),
-                      onPressed: () async {
+                      onPressed: _isLoading ? null : () async {
+                        setState(() {
+                          _isLoading = true;
+                        });
 
                         try {
                           // Get UserProvider instance
@@ -1100,6 +1230,13 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
                         } catch (e) {
                           print('Error loading user data: $e');
 
+                          if (mounted) {
+                            // Show error dialog for better error visualization
+                            AppStyles.showErrorDialog(
+                                context,
+                                'Error loading user data: ${e.toString()}'
+                            );
+                          }
                         } finally {
                           if (mounted) {
                             setState(() {
@@ -1108,11 +1245,19 @@ class _FinalWelcomeScreenState extends State<FinalWelcomeScreen> {
                           }
                         }
                       },
-                      child: const Text(
+                      child: _isLoading
+                          ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : Text(
                         'Get Started',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        style: AppTypography.authButton.copyWith(
+                          color: AppTheme.primaryColor,
                         ),
                       ),
                     ),

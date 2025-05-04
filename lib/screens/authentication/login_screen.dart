@@ -5,7 +5,8 @@ import 'package:project_navigo/screens/authentication/forgotPasswordScreen.dart'
 import 'package:provider/provider.dart';
 import 'package:project_navigo/services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
-import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
+import 'package:project_navigo/themes/theme_provider.dart';
+import 'package:project_navigo/utils/firebase_error_handler.dart';
 import '../../services/auth_service.dart';
 import '../../services/onboarding_service.dart';
 import 'package:project_navigo/screens/onboarding/onboarding_screen.dart';
@@ -18,11 +19,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>(); // Add form key for validation
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _obscurePassword = true; // Add to toggle password visibility
+  bool _obscurePassword = true;
 
   // Email validation regex pattern
   final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
@@ -51,10 +52,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login error: $e')),
-        );
+        // Convert Firebase error to user-friendly message
+        final errorMessage = FirebaseErrorHandler.handleAuthError(e);
+
+        // Show enhanced error dialog
+        _showEnhancedErrorDialog(errorMessage);
       }
     } finally {
       if (mounted) {
@@ -76,16 +78,117 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: $e')),
-        );
+        // Convert Firebase error to user-friendly message
+        final errorMessage = FirebaseErrorHandler.handleAuthError(e);
+
+        // Show improved error dialog
+        _showEnhancedErrorDialog(errorMessage);
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  // Method to show a modern, enhanced error dialog
+  void _showEnhancedErrorDialog(String message) {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Error icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.error_outline,
+                    color: Colors.red,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Error title
+                Text(
+                  'Login Failed',
+                  style: AppTypography.textTheme.titleLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                // Error message
+                Text(
+                  message,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+
+                // Single OK button (removed Reset Password button)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _forgotPassword() {
