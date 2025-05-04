@@ -18,7 +18,7 @@ class SearchHistoryScreen extends StatefulWidget {
   _SearchHistoryScreenState createState() => _SearchHistoryScreenState();
 }
 
-class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
+class _SearchHistoryScreenState extends State<SearchHistoryScreen> with SingleTickerProviderStateMixin {
   final RecentLocationsService _locationService = RecentLocationsService();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -32,11 +32,20 @@ class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
   DocumentSnapshot? _lastDocument;
   final int _pageSize = 25; // Larger page size for more historical data
 
+  // Add this property with your other state variables
+  late AnimationController _animationController;
+
   @override
   void initState() {
     super.initState();
     _fetchAllSearchHistory();
     _scrollController.addListener(_scrollListener);
+
+    // Initialize animation controller - add this line
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   @override
@@ -44,6 +53,7 @@ class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
     _searchController.dispose();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _animationController.dispose(); // Add this line
     super.dispose();
   }
 
@@ -205,30 +215,9 @@ class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
         _filteredLocations.removeWhere((loc) => loc.id == location.id);
       });
 
-      if (mounted) {
-        final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+      // Show the enhanced success dialog instead of Snackbar
+      _showDeleteSuccessDialog(location);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Location removed from history',
-              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-              ),
-            ),
-            backgroundColor: isDarkMode ? Colors.grey[800] : null,
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () {
-                // Since we can't easily restore the deleted location,
-                // we'll just refresh the list
-                _refreshSearchHistory();
-              },
-              textColor: Colors.blue[200],
-            ),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
@@ -257,21 +246,9 @@ class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
         _filteredLocations = [];
       });
 
-      if (mounted) {
-        final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+      // Show the enhanced success dialog
+      _showClearAllSuccessDialog();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Search history cleared',
-              style: AppTypography.textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-              ),
-            ),
-            backgroundColor: isDarkMode ? Colors.grey[800] : null,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         final isDarkMode = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
@@ -864,6 +841,221 @@ class _SearchHistoryScreenState extends State<SearchHistoryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDeleteSuccessDialog(RecentLocation location) {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Reset animation controller
+    _animationController.reset();
+    _animationController.forward();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: Curves.easeOutBack.transform(_animationController.value),
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey[850] : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Success icon
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.blue,
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Success title
+                      Text(
+                        'Successfully Deleted',
+                        style: AppTypography.textTheme.titleLarge?.copyWith(
+                          color: isDarkMode ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Success message
+                      Text(
+                        '"${location.name}" has been removed from your search history.',
+                        style: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Done button
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        ),
+                        child: Text(
+                          'DONE',
+                          style: AppTypography.textTheme.labelLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Enhanced method to show success dialog for clearing all history
+  void _showClearAllSuccessDialog() {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Reset animation controller
+    _animationController.reset();
+    _animationController.forward();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: Curves.easeOutBack.transform(_animationController.value),
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey[850] : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Success icon
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.blue,
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Success title
+                      Text(
+                        'History Cleared',
+                        style: AppTypography.textTheme.titleLarge?.copyWith(
+                          color: isDarkMode ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Success message
+                      Text(
+                        'Your search history has been cleared successfully.',
+                        style: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Done button
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        ),
+                        child: Text(
+                          'DONE',
+                          style: AppTypography.textTheme.labelLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -8,8 +8,8 @@ import 'package:project_navigo/services/saved-map_services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:project_navigo/services/app_constants.dart';
 import 'package:project_navigo/themes/app_typography.dart';
-import 'package:provider/provider.dart'; // Added for ThemeProvider
-import 'package:project_navigo/themes/theme_provider.dart'; // Added for ThemeProvider
+import 'package:provider/provider.dart';
+import 'package:project_navigo/themes/theme_provider.dart';
 
 class SavedLocationsScreen extends StatefulWidget {
   const SavedLocationsScreen({Key? key}) : super(key: key);
@@ -18,7 +18,7 @@ class SavedLocationsScreen extends StatefulWidget {
   _SavedLocationsScreenState createState() => _SavedLocationsScreenState();
 }
 
-class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
+class _SavedLocationsScreenState extends State<SavedLocationsScreen> with SingleTickerProviderStateMixin {
   final SavedMapService _savedMapService = SavedMapService();
 
   List<SavedMap> _savedLocations = [];
@@ -32,17 +32,27 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
 
   final ScrollController _scrollController = ScrollController();
 
+  // Animation controller for the success dialog
+  late AnimationController _animationController;
+
   @override
   void initState() {
     super.initState();
     _fetchSavedLocations();
     _scrollController.addListener(_scrollListener);
+
+    // Initialize animation controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   @override
   void dispose() {
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -181,34 +191,142 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     }
   }
 
+  // Enhanced method to show a modern success dialog
+  void _showDeleteSuccessDialog(SavedMap location) {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Reset animation controller
+    _animationController.reset();
+    _animationController.forward();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: Curves.easeOutBack.transform(_animationController.value),
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.grey[850] : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Success icon with category color
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _getCategoryColor(location.category).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          color: _getCategoryColor(location.category),
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Success title
+                      Text(
+                        'Successfully Deleted',
+                        style: AppTypography.textTheme.titleLarge?.copyWith(
+                          color: isDarkMode ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Success message
+                      Text(
+                        '"${location.name}" has been removed from your saved locations.',
+                        style: AppTypography.textTheme.bodyMedium?.copyWith(
+                          color: isDarkMode ? Colors.white70 : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Action buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Done button
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                            ),
+                            child: Text(
+                              'DONE',
+                              style: AppTypography.textTheme.labelLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _deleteLocation(SavedMap location) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // Save a copy for potential restoration
+      final SavedMap deletedLocation = location;
+
+      // Delete from Firestore
       await _savedMapService.deleteSavedLocation(
         userId: user.uid,
         savedMapId: location.id,
       );
 
+      // Update UI
       setState(() {
         _savedLocations.removeWhere((loc) => loc.id == location.id);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Location deleted',
-            style: AppTypography.textTheme.bodyMedium,
-          ),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () {
-              _fetchSavedLocations(); // Refresh to restore
-            },
-          ),
-        ),
-      );
+      // Show the enhanced success dialog
+      _showDeleteSuccessDialog(deletedLocation);
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -432,39 +550,6 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
     );
   }
 
-  final Map<String, Map<String, dynamic>> locationCategories = {
-    'favorite': {
-      'displayName': 'Favorites',
-      'icon': Icons.favorite,
-      'color': Colors.red,
-    },
-    'food': {
-      'displayName': 'Food & Dining',
-      'icon': Icons.restaurant,
-      'color': Colors.orange,
-    },
-    'shopping': {
-      'displayName': 'Shopping',
-      'icon': Icons.shopping_bag,
-      'color': Colors.lightBlue,
-    },
-    'entertainment': {
-      'displayName': 'Entertainment',
-      'icon': Icons.movie,
-      'color': Colors.purple,
-    },
-    'services': {
-      'displayName': 'Services',
-      'icon': Icons.business,
-      'color': Colors.teal,
-    },
-    'other': {
-      'displayName': 'Other Places',
-      'icon': Icons.place,
-      'color': Colors.amber,
-    },
-  };
-
   String _getCategoryDisplayName(String category) {
     return getCategoryDisplayName(category);
   }
@@ -679,8 +764,8 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                   _filterByCategory(null);
                 },
               ),
-              // Generate filter options dynamically from categories
-              ...locationCategories.entries.map((entry) {
+              // Generate filter options dynamically from app_constants
+              ...(locationCategories.entries.map((entry) {
                 final key = entry.key;
                 final data = entry.value;
                 return ListTile(
@@ -701,7 +786,7 @@ class _SavedLocationsScreenState extends State<SavedLocationsScreen> {
                     _filterByCategory(key);
                   },
                 );
-              }).toList(),
+              }).toList()),
             ],
           ),
         );

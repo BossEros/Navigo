@@ -884,15 +884,9 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
       // Save to Firebase
       await _shortcutService!.saveShortcuts(_quickAccessShortcuts);
 
-      // Show success message
+      // Show enhanced success message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Shortcut order updated'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        _showSuccessOverlay('Shortcut order updated successfully');
       }
     } catch (e) {
       print('Error saving reordered shortcuts: $e');
@@ -1484,5 +1478,128 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
         ),
       ),
     );
+  }
+
+  void _showSuccessOverlay(String message) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Add haptic feedback for better UX
+    HapticFeedback.mediumImpact();
+
+    // Create an overlay entry
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Positioned(
+              top: 150 + (40 * (1 - value)), // Slide down animation
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Color.lerp(Colors.grey[900], Colors.green, 0.1)
+                          : Color.lerp(Colors.white, Colors.green, 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                      border: Border.all(
+                          color: Colors.green.withOpacity(0.5),
+                          width: 1.5
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Animated check icon
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 28,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Text content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Success!',
+                                style: AppTypography.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                message,
+                                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Add the overlay
+    overlayState.insert(overlayEntry);
+
+    // Remove after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
   }
 }

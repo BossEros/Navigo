@@ -55,37 +55,131 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
       _shortcuts.removeWhere((item) => item.id == shortcut.id);
     });
 
-    // Get the current theme state
+    // Show the enhanced delete success overlay
+    _showDeleteSuccessOverlay(shortcut);
+  }
+
+  void _showDeleteSuccessOverlay(dynamic shortcut) {
+    // Get theme state
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDarkMode = themeProvider.isDarkMode;
 
-    // Show confirmation with theme-aware styling
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Shortcut deleted',
-          style: AppTypography.textTheme.bodyMedium?.copyWith(color: Colors.white),
-        ),
-        behavior: SnackBarBehavior.floating,
-        // Dark snackbar in light mode, lighter in dark mode for contrast
-        backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
-        action: SnackBarAction(
-          label: 'UNDO',
-          // Use white text on both themes for contrast
-          textColor: Colors.white,
-          onPressed: () {
-            // In a real app, you'd handle undo here
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Restore feature coming soon'),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: isDarkMode ? Colors.grey[800] : Colors.black87,
+    // Add haptic feedback for better UX
+    HapticFeedback.mediumImpact();
+
+    // Create an overlay entry
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Positioned(
+              top: 150 + (40 * (1 - value)), // Slide down animation
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Color.lerp(Colors.grey[900], Colors.red, 0.1)
+                          : Color.lerp(Colors.white, Colors.red, 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                      border: Border.all(
+                          color: Colors.red.withOpacity(0.5),
+                          width: 1.5
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Animated delete icon
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 28,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Text content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Shortcut Deleted',
+                                style: AppTypography.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '"${shortcut.label}" has been removed',
+                                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             );
           },
-        ),
-      ),
+        );
+      },
     );
+
+    // Add the overlay
+    overlayState.insert(overlayEntry);
+
+    // Remove after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
   }
 
   @override
@@ -431,7 +525,6 @@ class _AllShortcutsScreenState extends State<AllShortcutsScreen> {
       ),
     );
   }
-
 
   Widget _buildAddButton([double bottomPadding = 0, bool isDarkMode = false]) {
     return Container(
