@@ -114,47 +114,149 @@ class GoogleApiServices {
     }
   }
 
-  // Updated Places API (New) - Get place details
   static Future<Place?> getPlaceDetails(String placeId) async {
     final String url = '$_placesBaseUrl/places/$placeId';
 
     try {
       print('Fetching place details for ID: $placeId');
+
+      // Using only valid field paths - removed problematic fields like userRatingsTotal
       final response = await http.get(
         Uri.parse(url),
         headers: {
           'X-Goog-Api-Key': _apiKey,
-          'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types'
+          'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types,rating,'
+              'primaryType,internationalPhoneNumber,websiteUri,'
+              'currentOpeningHours,priceLevel,editorialSummary,'
+              'photos'
         },
       );
+
+      // Log full response for debugging
+      print('Places API Response Status: ${response.statusCode}');
+      if (response.body.length > 1000) {
+        print('Response truncated: ${response.body.substring(0, 1000)}...');
+      } else {
+        print('Full response: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        return Place(
+        // Extract displayName correctly - it's a nested object in the new API
+        String name = 'Unknown Place';
+        if (data['displayName'] != null && data['displayName'] is Map) {
+          name = data['displayName']['text'] ?? 'Unknown Place';
+        }
+
+        // Create place with available fields
+        final place = Place(
           id: placeId,
-          name: data['displayName']?['text'] ?? 'Unknown Place',
+          name: name,
           address: data['formattedAddress'] ?? '',
-          latLng: LatLng(
-            data['location']['latitude'],
-            data['location']['longitude'],
-          ),
-          types: data.containsKey('types')
-              ? List<String>.from(data['types'])
-              : ['unknown'],
+          latLng: _extractLocation(data),
+          types: _extractStringList(data, 'types'),
+
+          // Handle potentially missing fields
+          rating: data['rating']?.toDouble(),
+          userRatingsTotal: null, // Field not available in v1 API
+          phoneNumber: data['internationalPhoneNumber'],
+          websiteUri: data['websiteUri'],
+          currentOpeningHours: data['currentOpeningHours'],
+          priceLevel: data['priceLevel'],
+          editorialSummary: data['editorialSummary'],
         );
+
+        // Log the extracted fields for debugging
+        print('Extracted place details:');
+        print('- Name: ${place.name}');
+        print('- Rating: ${place.rating}');
+        print('- Phone: ${place.phoneNumber}');
+        print('- Website: ${place.websiteUri}');
+        print('- Has hours: ${place.currentOpeningHours != null}');
+        print('- Has summary: ${place.editorialSummary != null}');
+
+        return place;
       } else {
         final errorData = json.decode(response.body);
-        final errorMessage = errorData['error']?['message'] ??
-            'No error message';
-        print(
-            'Place Details API error: ${response.statusCode} - $errorMessage');
+        final errorMessage = errorData['error']?['message'] ?? 'Unknown error';
+        print('Place Details API error: ${response.statusCode} - $errorMessage');
         throw Exception('Failed to get place details: $errorMessage');
       }
     } catch (e) {
       print('Error getting place details: $e');
+      print('Stack trace: ${StackTrace.current}');
       throw Exception('Failed to get place details: $e');
     }
+  }
+
+  /// Helper method to safely extract location from place data
+  static LatLng _extractLocation(Map<String, dynamic> data) {
+    if (data['location'] == null) return const LatLng(0, 0);
+
+    try {
+      final lat = data['location']['latitude'] ?? 0.0;
+      final lng = data['location']['longitude'] ?? 0.0;
+      return LatLng(lat, lng);
+    } catch (e) {
+      print('Error extracting location: $e');
+      return const LatLng(0, 0);
+    }
+  }
+
+  /// Helper method to safely extract string lists from place data
+  static List<String> _extractStringList(Map<String, dynamic> data, String field) {
+    try {
+      if (data[field] != null && data[field] is List) {
+        return List<String>.from(data[field]);
+      }
+    } catch (e) {
+      print('Error extracting $field: $e');
+    }
+    return ['unknown'];
+  }
+
+  /// Helper method to safely extract opening hours
+  static Map<String, dynamic>? _extractOpeningHours(Map<String, dynamic> data) {
+    // Try currentOpeningHours first, then regularOpeningHours
+    final openingHours = data['currentOpeningHours'] ?? data['regularOpeningHours'];
+
+    if (openingHours == null) return null;
+
+    try {
+      // Convert weekdayDescriptions from list to map format if needed
+      if (openingHours['weekdayDescriptions'] != null &&
+          openingHours['weekdayDescriptions'] is List) {
+        final Map<String, dynamic> formattedHours = {
+          'weekdayDescriptions': openingHours['weekdayDescriptions'],
+          'openNow': openingHours['openNow'] ?? false,
+        };
+        return formattedHours;
+      }
+      return openingHours;
+    } catch (e) {
+      print('Error extracting opening hours: $e');
+      return null;
+    }
+  }
+
+  /// Helper method to safely extract editorial summary
+  static Map<String, dynamic>? _extractEditorialSummary(Map<String, dynamic> data) {
+    if (data['editorialSummary'] == null) return null;
+
+    try {
+      // Editorial summary might be an object with 'text' or 'language' fields
+      if (data['editorialSummary'] is Map) {
+        return data['editorialSummary'];
+      }
+      // Or it might be directly a string
+      if (data['editorialSummary'] is String) {
+        return {'text': data['editorialSummary']};
+      }
+    } catch (e) {
+      print('Error extracting editorial summary: $e');
+    }
+    return null;
   }
 
   // Potential implementation
@@ -665,7 +767,16 @@ class Place {
   final String address;
   final LatLng latLng;
   final List<String> types;
-  List<String> photoUrls = [];  // Add this field
+  List<String> photoUrls = [];
+
+  // New fields
+  final double? rating;
+  final int? userRatingsTotal;
+  final String? phoneNumber;
+  final String? websiteUri;
+  final Map<String, dynamic>? currentOpeningHours;
+  final int? priceLevel;
+  final Map<String, dynamic>? editorialSummary;
 
   Place({
     required this.id,
@@ -673,6 +784,13 @@ class Place {
     required this.address,
     required this.latLng,
     required this.types,
+    this.rating,
+    this.userRatingsTotal,
+    this.phoneNumber,
+    this.websiteUri,
+    this.currentOpeningHours,
+    this.priceLevel,
+    this.editorialSummary,
   });
 }
 

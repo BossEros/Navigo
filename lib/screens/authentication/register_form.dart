@@ -5,7 +5,8 @@ import 'package:project_navigo/services/user_service.dart';
 import 'package:project_navigo/screens/authentication/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
-import 'package:project_navigo/themes/theme_provider.dart'; // Import ThemeProvider
+import 'package:project_navigo/themes/theme_provider.dart';
+import 'package:project_navigo/utils/firebase_error_handler.dart';
 import '../../services/auth_service.dart';
 import '../../services/onboarding_service.dart';
 import '../map/navigo-map.dart';
@@ -93,16 +94,219 @@ class _RegisterFormState extends State<RegisterForm> {
     }
   }
 
+  // Method to show a modern, enhanced error dialog (same as login screen)
+  void _showEnhancedErrorDialog(String message) {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Error icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.error_outline,
+                    color: Colors.red,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Error title
+                Text(
+                  'Registration Failed',
+                  style: AppTypography.textTheme.titleLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                // Error message
+                Text(
+                  message,
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+
+                // Single OK button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Method to show a success dialog when registration is successful
+  void _showSuccessDialog() {
+    // Get the theme provider to check dark mode status
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User must respond to the dialog
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[850] : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.green,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Success title
+                Text(
+                  'Registration Successful!',
+                  style: AppTypography.textTheme.titleLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                // Success message
+                Text(
+                  'Your account has been created successfully. Please log in to continue.',
+                  style: AppTypography.textTheme.bodyMedium?.copyWith(
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+
+                // Login button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Navigate to login screen, replacing the current screen
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'Login Now',
+                      style: AppTypography.textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void signUp() async {
     // Validate form
     if (_formKey.currentState?.validate() != true) {
       return;
     }
 
+    // Check terms and conditions - use the enhanced error dialog instead of snackbar
     if (!_acceptedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the terms and conditions')),
-      );
+      _showEnhancedErrorDialog('Please accept the terms and conditions to create an account.');
       return;
     }
 
@@ -119,30 +323,20 @@ class _RegisterFormState extends State<RegisterForm> {
       // This will create a minimal user profile with onboarding_status = "incomplete"
       await authService.registerWithEmailPassword(email, password);
 
-      // Navigate to login screen after successful registration
+      // Show success dialog instead of snackbar
       if (mounted) {
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Registration successful! Please log in.')),
-        );
-
-        // Navigate to login screen
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        setState(() => _isLoading = false);
+        _showSuccessDialog();
       }
     } catch (e) {
       if (mounted) {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
+
+        // Convert Firebase error to user-friendly message using our utility
+        final errorMessage = FirebaseErrorHandler.handleAuthError(e);
+
+        // Show enhanced error dialog
+        _showEnhancedErrorDialog(errorMessage);
       }
     }
   }
@@ -172,9 +366,11 @@ class _RegisterFormState extends State<RegisterForm> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in error: $e')),
-        );
+        // Convert Firebase error to user-friendly message
+        final errorMessage = FirebaseErrorHandler.handleAuthError(e);
+
+        // Show enhanced error dialog
+        _showEnhancedErrorDialog(errorMessage);
       }
     } finally {
       if (mounted) {

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
@@ -14,6 +16,8 @@ import '../../component/reusable-location-search_screen.dart';
 import '../../services/user_provider.dart';
 import 'package:project_navigo/themes/app_typography.dart';
 import 'package:project_navigo/themes/theme_provider.dart';
+
+import '../../widgets/profile_image.dart';
 
 /// A utility class for profile screen icons to maintain consistency
 class ProfileIcons {
@@ -61,6 +65,234 @@ class ProfileIcons {
     size: 16,
     color: Colors.white,
   );
+}
+
+class SuccessOverlay {
+  static void show(
+      BuildContext context, {
+        required String title,
+        required String message,
+        required IconData icon,
+        Color? color,
+        Duration duration = const Duration(seconds: 2),
+      }) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Create an overlay entry
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    // Set default color if not provided
+    color = color ?? Colors.green;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Positioned(
+              top: 100 + (40 * (1 - value)), // Slide down animation
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Color.lerp(Colors.grey[900], color, 0.15)
+                          : Color.lerp(Colors.white, color, 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color!.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                      border: Border.all(
+                          color: color.withOpacity(0.5),
+                          width: 1.5
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Animated icon
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: color?.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    icon,
+                                    color: color,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Text content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title,
+                                style: AppTypography.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                message,
+                                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Add the overlay
+    overlayState.insert(overlayEntry);
+
+    // Remove after the specified duration
+    Future.delayed(duration, () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
+  }
+}
+
+class AnimatedProfileSuccessDialog extends StatefulWidget {
+  final String title;
+  final String message;
+
+  const AnimatedProfileSuccessDialog({
+    Key? key,
+    required this.title,
+    required this.message
+  }) : super(key: key);
+
+  @override
+  _AnimatedProfileSuccessDialogState createState() => _AnimatedProfileSuccessDialogState();
+}
+
+class _AnimatedProfileSuccessDialogState extends State<AnimatedProfileSuccessDialog>
+    with SingleTickerProviderStateMixin {
+
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    );
+
+    _controller.forward();
+
+    // Auto-dismiss after 2 seconds
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: AlertDialog(
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.title,
+              style: AppTypography.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class ProfileScreen extends StatefulWidget {
@@ -228,13 +460,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await userProvider.refreshUserData();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profile updated successfully',
-            style: AppTypography.textTheme.bodyMedium,
-          ),
-        ),
+      // Show success overlay instead of SnackBar
+      SuccessOverlay.show(
+        context,
+        title: 'Profile Updated',
+        message: 'Your profile has been updated successfully.',
+        icon: Icons.check_circle,
+        color: Colors.green,
       );
     } catch (e) {
       print('Error updating profile: $e');
@@ -242,13 +474,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isSaving = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to update profile: $e',
-            style: AppTypography.textTheme.bodyMedium,
-          ),
-        ),
+      // Show error overlay
+      SuccessOverlay.show(
+        context,
+        title: 'Update Failed',
+        message: 'There was an error updating your profile.',
+        icon: Icons.error_outline,
+        color: Colors.red,
       );
     }
   }
@@ -335,23 +567,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Profile picture updated successfully',
-              style: AppTypography.textTheme.bodyMedium,
-            ),
-          ),
+        // Show success overlay with avatar icon
+        SuccessOverlay.show(
+          context,
+          title: 'Profile Picture Updated',
+          message: 'Your profile picture has been updated successfully.',
+          icon: Icons.person,
+          color: Colors.blue,
         );
       } catch (e) {
         print('Error updating profile picture: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error updating profile picture: $e',
-              style: AppTypography.textTheme.bodyMedium,
-            ),
-          ),
+
+        // Show error overlay
+        SuccessOverlay.show(
+          context,
+          title: 'Update Failed',
+          message: 'There was an error updating your profile picture.',
+          icon: Icons.error_outline,
+          color: Colors.red,
         );
       } finally {
         if (mounted) {
@@ -363,7 +596,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // New method to open location search screen
   Future<void> _openLocationSearch(String type) async {
     // First, hide keyboard if showing
     FocusScope.of(context).unfocus();
@@ -383,7 +615,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // Navigate to our enhanced location search screen
-      // Note: initialQuery is now an empty string, and showSuggestionButtons is false
       final api.Place? selectedPlace = await Navigator.push<api.Place>(
         context,
         MaterialPageRoute(
@@ -413,58 +644,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         });
 
-        // Show confirmation with enhanced animation and details
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                type == 'home'
-                    ? ProfileIcons.home(false)
-                    : ProfileIcons.work(false),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        type == 'home' ? 'Home address updated' : 'Work address updated',
-                        style: AppTypography.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        selectedPlace.address,
-                        style: AppTypography.textTheme.bodySmall?.copyWith(
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green[700],
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        // Show success overlay with appropriate icon
+        SuccessOverlay.show(
+          context,
+          title: type == 'home' ? 'Home Address Updated' : 'Work Address Updated',
+          message: selectedPlace.address,
+          icon: type == 'home' ? Icons.home : Icons.work,
+          color: type == 'home' ? Colors.green : Colors.blue,
         );
       }
     } catch (e) {
       print('Error with place search: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error searching for location: $e',
-            style: AppTypography.textTheme.bodyMedium,
-          ),
-        ),
+
+      // Show error overlay
+      SuccessOverlay.show(
+        context,
+        title: 'Update Failed',
+        message: 'There was an error updating your address.',
+        icon: Icons.error_outline,
+        color: Colors.red,
       );
     }
   }
@@ -521,9 +719,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         key: _formKey,
         child: Column(
           children: [
-            // Shortened blue header with username and profile pic
+            // Shortened blue header with profile pic
             Container(
-              height: 160, // Reduced height for shorter gradient
+              height: 120, // Reduced height from 160 to 120
               width: double.infinity, // Ensure full width
               child: Stack(
                 children: [
@@ -548,86 +746,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Profile picture - improved positioning
+            // Profile picture with improved positioning
             Transform.translate(
-              offset: Offset(0, -70),
+              offset: Offset(0, -60), // Changed from -70 to -60
               child: GestureDetector(
                 onTap: _pickProfileImage,
                 child: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
-                    // Profile picture container
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDarkMode ? Colors.grey[800] : Colors.white,
-                        border: Border.all(
-                            color: isDarkMode ? Colors.grey[800]! : Colors.white,
-                            width: 4
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: profileImageUrl != null && profileImageUrl.isNotEmpty
-                            ? Image.network(
-                          profileImageUrl,
-                          fit: BoxFit.cover,
-                          width: 120,
-                          height: 120,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            print('Error loading profile image: $error');
-                            return FaIcon(
-                              FontAwesomeIcons.userLarge,
-                              size: 60,
-                              color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
-                            );
-                          },
-                          cacheWidth: 240, // Set to double the display size for quality
-                          key: ValueKey(DateTime.now().toString()),
-                        )
-                            : FaIcon(
-                          FontAwesomeIcons.userLarge,
-                          size: 60,
-                          color: isDarkMode ? Colors.grey[500] : Colors.grey[400],
-                        ),
-                      ),
+                    // Use ProfileImageWidget instead of direct Image.network
+                    ProfileImageWidget(
+                      imageUrl: profileImageUrl,
+                      size: 120,
+                      isLoading: _isLoading,
                     ),
 
-                    // Camera icon for editing
+                    // Camera icon for editing (keep this part unchanged)
                     if (_isEditing && !_isLoading)
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.blue,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: isDarkMode ? Colors.grey[800]! : Colors.white,
-                              width: 2
-                          ),
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: ProfileIcons.camera(),
                       ),
 
-                    // Loading indicator overlay
+                    // Loading indicator overlay (keep this part unchanged)
                     if (_isLoading)
                       Positioned.fill(
                         child: ClipOval(
@@ -646,76 +792,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Space to account for the overlapping profile picture (reduced since we use Transform)
-            SizedBox(height: 0),
+            // No padding here - removing vertical space
 
             // Profile details list
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Column(  // Changed from ListView to Column
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // User detail items remain the same
-                  buildProfileItem(
-                    title: 'Username',
-                    value: username,
-                    icon: ProfileIcons.username(isDarkMode),
-                    isEditable: false,
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: ListView(
+                  // Remove the physics property to use default scroll physics
+                  children: [
+                    // Username
+                    buildProfileItem(
+                      title: 'Username',
+                      value: username,
+                      icon: ProfileIcons.username(isDarkMode),
+                      isEditable: false,
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildProfileItem(
-                    title: 'Email',
-                    value: email,
-                    icon: ProfileIcons.email(isDarkMode),
-                    isEditable: false,
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+                    // Email
+                    buildProfileItem(
+                      title: 'Email',
+                      value: email,
+                      icon: ProfileIcons.email(isDarkMode),
+                      isEditable: false,
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildAddressItem(
-                    title: 'Home Address',
-                    address: _homeAddress,
-                    icon: ProfileIcons.home(isDarkMode),
-                    isEditable: _isEditing,
-                    onEditTap: () => _openLocationSearch('home'),
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
+                    // Home Address
+                    buildAddressItem(
+                      title: 'Home Address',
+                      address: _homeAddress,
+                      icon: ProfileIcons.home(isDarkMode),
+                      isEditable: _isEditing,
+                      onEditTap: () => _openLocationSearch('home'),
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
 
-                  buildAddressItem(
-                    title: 'Work Address',
-                    address: _workAddress,
-                    icon: ProfileIcons.work(isDarkMode),
-                    isEditable: _isEditing,
-                    onEditTap: () => _openLocationSearch('work'),
-                    isDarkMode: isDarkMode,
-                  ),
-                  Divider(
-                    height: 1,
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                  ),
-                ],
+                    // Work Address
+                    buildAddressItem(
+                      title: 'Work Address',
+                      address: _workAddress,
+                      icon: ProfileIcons.work(isDarkMode),
+                      isEditable: _isEditing,
+                      onEditTap: () => _openLocationSearch('work'),
+                      isDarkMode: isDarkMode,
+                    ),
+                    Divider(
+                      height: 1,
+                      color: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                    ),
+
+                    // Add some bottom spacing for better appearance
+                    SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
 
-            // Add spacer to push button to bottom while maintaining layout
-            Spacer(),
-
-            // Edit/Save button
+            // Edit/Save button at the bottom
             SafeArea(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20), // Reduced vertical padding
                 child: buildEditButton(isDarkMode),
               ),
             ),
@@ -734,7 +884,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool isDarkMode,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: 10), // Reduced from 12 to 10
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -784,7 +934,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool isDarkMode,
   }) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: 10), // Reduced from 12 to 10
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

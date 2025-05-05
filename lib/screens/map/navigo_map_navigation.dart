@@ -162,10 +162,24 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
     }
   }
 
-  void _startActiveNavigation() {
+  void _startActiveNavigation() async {
     if (_routeAlternatives.isEmpty || _selectedRouteIndex >= _routeAlternatives[0].routes.length) {
       _showErrorSnackBar('No route selected');
       return;
+    }
+
+    // Load the navigation arrow icon if not already loaded
+    try {
+      if (_navigationArrowIcon == null) {
+        print('Loading navigation arrow icon...');
+        _navigationArrowIcon = await _createNavigationArrowIcon();
+        print('Navigation arrow icon loaded successfully: ${_navigationArrowIcon != null}');
+      } else {
+        print('Using existing navigation arrow icon');
+      }
+    } catch (e) {
+      print('Error loading navigation arrow icon: $e');
+      // Continue with default icon if custom icon fails
     }
 
     _navigationStartTime = DateTime.now();
@@ -202,13 +216,45 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
     // Start more frequent location updates for navigation
     _startNavigationLocationTracking();
 
-    // Initialize with current position
+    // Initialize with current position and force marker update
     if (_currentLocation != null) {
       _lastKnownLocation = LatLng(
         _currentLocation!.latitude!,
         _currentLocation!.longitude!,
       );
+
+      // Force an immediate update of the navigation marker
+      _updateCurrentNavigationMarker();
+
+      // Then update the camera
       _updateNavigationCamera();
+    }
+  }
+
+  // New helper method to update the navigation marker specifically
+  void _updateCurrentNavigationMarker() {
+    if (_lastKnownLocation == null) return;
+
+    final markerId = const MarkerId('currentLocation');
+
+    print('Updating navigation marker with arrow icon: ${_navigationArrowIcon != null}');
+
+    final marker = Marker(
+      markerId: markerId,
+      position: _lastKnownLocation!,
+      icon: _navigationArrowIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      rotation: _navigationBearing,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      zIndex: 2,
+    );
+
+    // Update marker without setState to avoid unnecessarily rebuilding the UI
+    _markersMap[markerId] = marker;
+
+    // Only call setState if we need to rebuild the UI
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -293,20 +339,21 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
 
       // Update current location marker
       final markerId = const MarkerId('currentLocation');
+
+      // Log the marker creation for debugging
+      print('Creating navigation marker with arrow icon: ${_navigationArrowIcon != null}');
+
       final marker = Marker(
         markerId: markerId,
         position: newLocation,
-        // Use a custom marker that shows direction
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        // You could also use a custom asset for a directional arrow:
-        // icon: await BitmapDescriptor.fromAssetImage(
-        //   ImageConfiguration(size: Size(48, 48)),
-        //   'assets/navigation_arrow.png',
-        // ),
+        // Use our custom navigation arrow icon
+        icon: _navigationArrowIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         rotation: bearing, // Rotate marker to show direction
         flat: true, // Keep marker flat on the map
-        anchor: const Offset(0.5, 0.5), // Center the marker
+        anchor: const Offset(0.5, 0.5), // Center the marker at the image center
+        zIndex: 2, // Ensure it appears above other markers
       );
+
       _markersMap[markerId] = marker;
     });
 
@@ -336,6 +383,8 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
 
     // Also adjust zoom based on distance to next maneuver
     if (_routeDetails != null &&
+        _routeDetails!.routes.isNotEmpty &&
+        _routeDetails!.routes[0].legs.isNotEmpty &&
         _currentStepIndex < _routeDetails!.routes[0].legs[0].steps.length) {
       final currentStep = _routeDetails!.routes[0].legs[0].steps[_currentStepIndex];
       final distanceToNextTurn = LocationUtils.calculateDistanceInMeters(_lastKnownLocation!, currentStep.endLocation);
@@ -348,11 +397,31 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
       }
     }
 
-    final CameraPosition cameraPosition = CameraPosition(
-      target: _lastKnownLocation!,
+    // For a Waze-like experience, we want to offset the camera target
+    // in front of the user's current location in the direction of travel
+
+    // Calculate a point ahead of the current location using the bearing
+    final forwardDistance = 150.0; // Distance in meters to look ahead
+    final double bearingRadians = _navigationBearing * (pi / 180.0);
+
+    // Calculate the offset (simplified version for small distances)
+    final double earthRadius = 6371000.0; // Earth radius in meters
+    final double latRad = _lastKnownLocation!.latitude * (pi / 180.0);
+
+    // Calculate new lat/lng with offset
+    final newLat = _lastKnownLocation!.latitude +
+        (forwardDistance * cos(bearingRadians) / earthRadius) * (180.0 / pi);
+    final newLng = _lastKnownLocation!.longitude +
+        (forwardDistance * sin(bearingRadians) / (earthRadius * cos(latRad))) * (180.0 / pi);
+
+    final LatLng targetPosition = LatLng(newLat, newLng);
+
+    // Create a camera position with Waze-like settings
+    final cameraPosition = CameraPosition(
+      target: targetPosition, // Position ahead of user
       zoom: _navigationZoom,
-      tilt: _navigationTilt,
-      bearing: _navigationBearing,
+      tilt: 60.0, // Increased tilt for Waze-like 3D perspective
+      bearing: _navigationBearing, // Match the direction of travel
     );
 
     _mapController!.animateCamera(
@@ -1099,5 +1168,29 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
         ],
       ),
     );
+  }
+
+  Future<BitmapDescriptor> _createNavigationArrowIcon() async {
+    try {
+      print('Attempting to load navigation arrow icon from assets...');
+
+      // Create a better configuration for the icon
+      final ImageConfiguration config = ImageConfiguration(
+        size: Size(48, 48),
+        devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
+      );
+
+      // Load the icon with the improved configuration
+      return await BitmapDescriptor.fromAssetImage(
+        config,
+        'assets/navigation-arrow_icon.png',
+      );
+    } catch (e) {
+      print('Error loading navigation arrow asset: $e');
+      print('Stack trace: ${StackTrace.current}');
+
+      // If asset loading fails, use default marker as fallback
+      return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    }
   }
 }
