@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../services/user_service.dart';
 import '../../themes/theme_provider.dart';
 import '../authentication/login_screen.dart';
@@ -56,7 +57,6 @@ class SettingsPage extends StatelessWidget {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        // X button removed from here
       ),
       body: SafeArea(
         top: false, // Don't add padding at the top since AppBar already handles it
@@ -288,6 +288,36 @@ void _proceedWithAccountDeletion(BuildContext context) async {
   await _performAccountDeletion(context);
 }
 
+// Add this function to classify errors and provide user-friendly messages
+String _getUserFriendlyErrorMessage(dynamic error) {
+  // Check for cancellation
+  if (error.toString().contains('Authentication cancelled')) {
+    return "Account deletion was cancelled. Your account remains unchanged.";
+  }
+
+  // Check for authentication errors
+  if (error.toString().contains('invalid-credentials') ||
+      error.toString().contains('wrong-password') ||
+      error.toString().contains('incorrect, malformed or has expired')) {
+    return "The password you entered is incorrect. Please try again with the correct password.";
+  }
+
+  // Check for network errors
+  if (error.toString().contains('network') ||
+      error.toString().contains('connection') ||
+      error.toString().contains('timeout')) {
+    return "Unable to connect to our servers. Please check your internet connection and try again.";
+  }
+
+  // Check for recent sign-in requirement
+  if (error.toString().contains('requires-recent-login')) {
+    return "For security reasons, please sign out and sign back in before deleting your account.";
+  }
+
+  // Default message for unknown errors
+  return "We couldn't complete the account deletion process. Please try again later or contact support.";
+}
+
 Future<void> _performAccountDeletion(BuildContext context) async {
   // Get theme status for dialog styling
   final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -363,8 +393,6 @@ Future<void> _performAccountDeletion(BuildContext context) async {
       }
     }
 
-    print(deletionSuccessful);
-
     // If deletion was successful, show success message and navigate to login
     if (deletionSuccessful) {
       showDialog(
@@ -436,6 +464,14 @@ Future<void> _performAccountDeletion(BuildContext context) async {
       Navigator.pop(dialogContext!);
     }
 
+    // Get user-friendly error message
+    final userFriendlyMessage = _getUserFriendlyErrorMessage(e);
+
+    // If it's just a cancellation, don't show an error dialog
+    if (e.toString().contains('Authentication cancelled') && !e.toString().contains('by user')) {
+      // Just return without showing error - user cancelled intentionally
+      return;
+    }
 
     // Show error dialog
     if (context.mounted) {
@@ -446,19 +482,17 @@ Future<void> _performAccountDeletion(BuildContext context) async {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            // Apply theme-aware background color
             backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
             title: Text(
-              "Error Deleting Account",
+              "Account Deletion Stopped",
               style: AppTypography.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.red,
               ),
             ),
             content: Text(
-              "We encountered an error while trying to delete your account: $e\n\nPlease try again later or contact support.",
+              userFriendlyMessage,
               style: AppTypography.textTheme.bodyLarge?.copyWith(
-                // Apply theme-aware text color
                 color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
@@ -466,7 +500,7 @@ Future<void> _performAccountDeletion(BuildContext context) async {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  "CLOSE",
+                  "OK",
                   style: AppTypography.textTheme.labelLarge?.copyWith(
                     color: Colors.blue,
                   ),
@@ -483,12 +517,154 @@ Future<void> _performAccountDeletion(BuildContext context) async {
 Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
   final currentUser = FirebaseAuth.instance.currentUser;
   if (currentUser == null) throw Exception('No user is logged in');
-  if (currentUser.email == null) throw Exception('User has no email');
+
+  // Get the user's sign-in methods
+  final providerData = currentUser.providerData;
+  final isGoogleUser = providerData.any((info) =>
+  info.providerId == 'google.com');
+
+  // For Google users, use Google Sign-In
+  if (isGoogleUser) {
+    return await _reauthenticateWithGoogle(context, isDarkMode);
+  }
+  // For email/password users, use password reauthentication
+  else {
+    return await _reauthenticateWithPassword(context, isDarkMode);
+  }
+}
+
+Future<void> _reauthenticateWithPassword(BuildContext context, bool isDarkMode) async {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null || currentUser.email == null)
+    throw Exception('No user is logged in');
 
   final TextEditingController passwordController = TextEditingController();
   bool authenticated = false;
 
-  // Show reauthentication dialog
+  // Add state variable for password visibility
+  bool _obscurePassword = true;
+
+  // Show password dialog with StatefulBuilder to manage state
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+            title: Text(
+              'Security Verification',
+              style: AppTypography.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Please enter your password to confirm account deletion:',
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: isDarkMode ? Colors.grey[400] : null,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                    // Add the password visibility toggle
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  style: AppTypography.textTheme.bodyLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                  obscureText: _obscurePassword,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  throw Exception('Authentication cancelled by user');
+                },
+                child: Text(
+                  'CANCEL',
+                  style: AppTypography.textTheme.labelLarge?.copyWith(
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  authenticated = true;
+                },
+                child: Text(
+                  'VERIFY',
+                  style: AppTypography.textTheme.labelLarge?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  if (!authenticated) {
+    throw Exception('Authentication cancelled by user');
+  }
+
+  // Create email/password credential
+  AuthCredential credential = EmailAuthProvider.credential(
+    email: currentUser.email!,
+    password: passwordController.text,
+  );
+
+  // Reauthenticate
+  try {
+    await currentUser.reauthenticateWithCredential(credential);
+  } catch (e) {
+    throw Exception('Failed to authenticate: $e');
+  }
+}
+
+Future<void> _reauthenticateWithGoogle(BuildContext context, bool isDarkMode) async {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) throw Exception('No user is logged in');
+
+  // Get Google SignIn instance
+  final GoogleSignIn googleSignIn = GoogleSignIn();
+
+  // Show dialog to inform the user
+  bool shouldProceed = false;
   await showDialog(
     context: context,
     barrierDismissible: false,
@@ -497,13 +673,11 @@ Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        // Apply theme-aware background color
         backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         title: Text(
-          'Security Verification',
+          'Google Authentication Required',
           style: AppTypography.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            // Apply theme-aware text color
             color: isDarkMode ? Colors.white : Colors.black87,
           ),
         ),
@@ -511,33 +685,18 @@ Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Please enter your password to confirm account deletion:',
+              'Since you signed in with Google, you need to authenticate with Google again to delete your account.',
               style: AppTypography.textTheme.bodyLarge?.copyWith(
-                // Apply theme-aware text color
                 color: isDarkMode ? Colors.white : Colors.black87,
               ),
             ),
             SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                labelStyle: AppTypography.textTheme.bodyMedium?.copyWith(
-                  // Apply theme-aware label color
-                  color: isDarkMode ? Colors.grey[400] : null,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                // Apply theme-aware fill color
-                fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+            Text(
+              'You\'ll be redirected to the Google sign-in screen.',
+              style: AppTypography.textTheme.bodyMedium?.copyWith(
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                fontStyle: FontStyle.italic,
               ),
-              style: AppTypography.textTheme.bodyLarge?.copyWith(
-                // Apply theme-aware text color
-                color: isDarkMode ? Colors.white : Colors.black87,
-              ),
-              obscureText: true,
             ),
           ],
         ),
@@ -550,18 +709,17 @@ Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
             child: Text(
               'CANCEL',
               style: AppTypography.textTheme.labelLarge?.copyWith(
-                // Apply theme-aware text color
                 color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
               ),
             ),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
+              shouldProceed = true;
               Navigator.of(context).pop();
-              authenticated = true;
             },
             child: Text(
-              'VERIFY',
+              'CONTINUE',
               style: AppTypography.textTheme.labelLarge?.copyWith(
                 color: Colors.blue,
                 fontWeight: FontWeight.bold,
@@ -573,21 +731,33 @@ Future<void> _reauthenticateUser(BuildContext context, bool isDarkMode) async {
     },
   );
 
-  if (!authenticated) {
-    throw Exception('Authentication cancelled');
+  if (!shouldProceed) {
+    throw Exception('Authentication cancelled by user');
   }
 
-  // Create credential
-  AuthCredential credential = EmailAuthProvider.credential(
-    email: currentUser.email!,
-    password: passwordController.text,
-  );
-
-  // Reauthenticate
   try {
+    // Sign out first to ensure we get a fresh authentication
+    await googleSignIn.signOut();
+
+    // Trigger Google sign-in flow
+    final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+    if (googleUser == null) {
+      throw Exception('Google sign-in was cancelled');
+    }
+
+    // Get auth details from Google
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+    // Create credential
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    // Reauthenticate with Firebase
     await currentUser.reauthenticateWithCredential(credential);
   } catch (e) {
-    throw Exception('Failed to authenticate: $e');
+    throw Exception('Failed to authenticate with Google: $e');
   }
 }
 
@@ -643,7 +813,6 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
           icon: Icon(Icons.arrow_back, color: isDarkMode ? Colors.white : Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        // X button removed from here
       ),
 
       backgroundColor: isDarkMode ? Colors.black : Colors.white,

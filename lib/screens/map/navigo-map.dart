@@ -47,6 +47,8 @@ import 'package:project_navigo/utils/map_utilities/camera_utils.dart';
 import 'package:project_navigo/utils/map_utilities/format_utils.dart';
 import 'package:project_navigo/utils/map_utilities/map_utils.dart';
 
+import '../hamburger-menu/profile.dart';
+
 part 'navigo_map_shortcuts.dart';
 part 'navigo_map_navigation.dart';
 part 'navigo_map_search.dart';

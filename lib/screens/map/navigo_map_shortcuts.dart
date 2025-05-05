@@ -692,9 +692,8 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
             // Update cache
             _savedLocationCache[_destinationPlace!.id] = false;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${_destinationPlace!.name} removed from saved locations')),
-            );
+            // Show unsave confirmation instead of Snackbar
+            _showUnsaveConfirmation(_destinationPlace!.name);
           }
         }
       } else {
@@ -721,9 +720,7 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
             // Update cache
             _savedLocationCache[_destinationPlace!.id] = true;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${_destinationPlace!.name} saved to ${getCategoryDisplayName(selectedCategory)}')),
-            );
+            _showSaveConfirmation(_destinationPlace!.name, selectedCategory);
           }
         }
       }
@@ -992,24 +989,15 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
     // Check if address is set
     if (userProvider.userProfile == null ||
         address.formattedAddress.isEmpty) {
-      // Address not set
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No ${type == 'home' ? 'Home' : 'Work'} location set. Please update your profile to add this location.'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      // Replace the Snackbar with our new dialog
+      _showLocationNotSetDialog(type);
       return;
     }
 
     // Only proceed if we have valid coordinates
     if (address.lat == 0 && address.lng == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Invalid ${type == 'home' ? 'Home' : 'Work'} location coordinates. Please update your profile.'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      // We can also use our new dialog here instead
+      _showLocationNotSetDialog(type);
       return;
     }
 
@@ -1601,5 +1589,421 @@ extension NavigoMapShortcutsExtension on _NavigoMapScreenState {
         overlayEntry.remove();
       }
     });
+  }
+
+  void _showSaveConfirmation(String locationName, String category) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Add haptic feedback for better UX
+    HapticFeedback.mediumImpact();
+
+    // Get category color
+    final categoryData = locationCategories[category];
+    final Color categoryColor = categoryData?['color'] ?? Colors.blue;
+
+    // Get category icon
+    final IconData categoryIcon = getCategoryIcon(category);
+
+    // Create an overlay entry
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Positioned(
+              top: 200 + (40 * (1 - value)), // Slide down animation
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Color.lerp(Colors.grey[900], categoryColor, 0.15)
+                          : Color.lerp(Colors.white, categoryColor, 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: categoryColor.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                      border: Border.all(
+                          color: categoryColor.withOpacity(0.5),
+                          width: 1.5
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Animated icon/image container
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: categoryColor.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    categoryIcon,
+                                    color: categoryColor,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Text content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Location Saved!',
+                                style: AppTypography.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$locationName has been saved to ${getCategoryDisplayName(category)}.',
+                                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Add the overlay
+    overlayState.insert(overlayEntry);
+
+    // Remove after 3 seconds
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
+  }
+
+  void _showUnsaveConfirmation(String locationName) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Add haptic feedback for better UX
+    HapticFeedback.lightImpact();
+
+    // Create an overlay entry
+    final overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          builder: (context, value, child) {
+            return Positioned(
+              top: 200 + (40 * (1 - value)), // Slide down animation
+              left: 20,
+              right: 20,
+              child: Opacity(
+                opacity: value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? Color.lerp(Colors.grey[900], Colors.grey[800], 0.15)
+                          : Color.lerp(Colors.white, Colors.grey[300], 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 20,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                      border: Border.all(
+                          color: Colors.grey.withOpacity(0.3),
+                          width: 1.5
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Animated icon container
+                        TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: value,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.bookmark_remove,
+                                    color: Colors.grey[600],
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Text content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Location Removed',
+                                style: AppTypography.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$locationName has been removed from saved locations.',
+                                style: AppTypography.textTheme.bodyMedium?.copyWith(
+                                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Add the overlay
+    overlayState.insert(overlayEntry);
+
+    // Remove after 3 seconds
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
+  }
+
+  void _showLocationNotSetDialog(String type) {
+    // Get theme state
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    // Determine icon and title based on type
+    final IconData locationIcon = type == 'home' ? Icons.home : Icons.work;
+    final String locationName = type == 'home' ? 'Home' : 'Work';
+    final Color iconColor = type == 'home' ? Colors.blue : Colors.blue;
+
+    // Add subtle haptic feedback
+    HapticFeedback.lightImpact();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 300),
+            tween: Tween<double>(begin: 0.8, end: 1.0),
+            curve: Curves.easeOutQuint,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: child,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.grey[850] : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Location icon in a nice circle
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        locationIcon,
+                        size: 40,
+                        color: iconColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Title
+                  Text(
+                    'No $locationName Location Set',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Description
+                  Text(
+                    'You haven\'t set a $locationName address yet. Add your $locationName location to use this shortcut.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.textTheme.bodyMedium?.copyWith(
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Not now button
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: Text(
+                            'Not Now',
+                            style: AppTypography.textTheme.labelLarge?.copyWith(
+                              color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Set location button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _navigateToProfileSettings();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: iconColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Set Location',
+                            style: AppTypography.textTheme.labelLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method to navigate to profile settings screen
+  void _navigateToProfileSettings() {
+    // Here you would navigate to the profile settings screen where users can set their address
+    // For example:
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileScreen(), // Your profile settings screen
+      ),
+    );
   }
 }
