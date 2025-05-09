@@ -81,9 +81,9 @@ extension NavigoMapNavigationExtension on _NavigoMapScreenState {
       _logNavigationEvent("Requesting directions", "${origin.latitude},${origin.longitude} -> ${_destinationPlace!.latLng.latitude},${_destinationPlace!.latLng.longitude}");
 
       // Request routes with alternatives set to true
-      final routeDetails = await api.GoogleApiServices.getDirections(
-        origin,
-        _destinationPlace!.latLng,
+      final routeDetails = await _getDirectionsWithPreferences(
+        origin: origin,
+        destination: _destinationPlace!.latLng,
         alternatives: true,
       );
 

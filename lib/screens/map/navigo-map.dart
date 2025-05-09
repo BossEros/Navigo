@@ -392,6 +392,30 @@ class _NavigoMapScreenState extends State<NavigoMapScreen> with TickerProviderSt
     }
   }
 
+  Future<api.RouteDetails?> _getDirectionsWithPreferences({
+    required LatLng origin,
+    required LatLng destination,
+    List<LatLng> waypoints = const [],
+    String mode = 'driving',
+    String? departureTime,
+    bool alternatives = false,
+  }) async {
+    // Get the theme provider to access user preferences
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
+    // Call the API with user preferences
+    return await api.GoogleApiServices.getDirections(
+      origin,
+      destination,
+      waypoints: waypoints,
+      mode: mode,
+      departureTime: departureTime,
+      alternatives: alternatives,
+      avoidTolls: themeProvider.avoidTolls,       // Apply user preference
+      avoidHighways: themeProvider.avoidHighways, // Apply user preference
+    );
+  }
+
 
   ///--------------------------------End of Lifecycle and Initialization--------------------------------------------------------///
 
