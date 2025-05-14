@@ -788,6 +788,7 @@ class AccessibilityPage extends StatefulWidget {
   _AccessibilityPageState createState() => _AccessibilityPageState();
 }
 
+// Updated AccessibilityPage class in settings.dart
 class _AccessibilityPageState extends State<AccessibilityPage> {
   bool isLargeFont = false;
 
@@ -948,6 +949,114 @@ class _AccessibilityPageState extends State<AccessibilityPage> {
                         // Update theme provider which will propagate changes app-wide
                         themeProvider.setTrafficEnabled(value);
                         // No need to call setState as the provider will trigger a rebuild
+                      }
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16),
+
+            // ADDED: Avoid Tolls option
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.grey[900]
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: themeProvider.avoidTolls
+                      ? Colors.blue
+                      : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Avoid Tolls',
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            fontSize: isLargeFont ? 24 : null,
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Prefer routes without toll roads',
+                          style: AppTypography.textTheme.bodySmall?.copyWith(
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: themeProvider.avoidTolls,
+                    onChanged: (bool? value) {
+                      if (value != null) {
+                        themeProvider.setAvoidTolls(value);
+                      }
+                    },
+                    activeColor: Colors.blue,
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16),
+
+            // ADDED: Avoid Highways option
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.grey[900]
+                    : Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: themeProvider.avoidHighways
+                      ? Colors.blue
+                      : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Avoid Highways',
+                          style: AppTypography.textTheme.titleMedium?.copyWith(
+                            fontSize: isLargeFont ? 24 : null,
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Prefer routes without highways',
+                          style: AppTypography.textTheme.bodySmall?.copyWith(
+                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: themeProvider.avoidHighways,
+                    onChanged: (bool? value) {
+                      if (value != null) {
+                        themeProvider.setAvoidHighways(value);
                       }
                     },
                     activeColor: Colors.blue,
